@@ -66,10 +66,13 @@ async def execute_test_release():
         print("---------------------------------------------")
         
         # 1. Verify APP_VERSION increments on disk
-        import importlib
-        import app_version
-        importlib.reload(app_version)
-        new_ver, new_desc = app_version.get_version_metadata()
+        filepath = os.path.join(repo_root, "app_version.py")
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+            import re
+            new_ver = re.search(r'\bversion\s*=\s*["\'](.*?)["\']', content).group(1)
+            new_desc = re.search(r'\bdescription\s*=\s*["\'](.*?)["\']', content).group(1)
+            
         print(f"New version: {new_ver}")
         print(f"New description: {new_desc}")
         

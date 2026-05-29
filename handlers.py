@@ -5788,7 +5788,9 @@ def increment_patch_version(current_ver: str) -> str:
 def update_app_version_file(new_version: str, new_description: str):
     """Automatically updates app_version.py with new version and description"""
     import re
-    filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_version.py")
+    from app_version import _get_repo_root
+    repo_root = _get_repo_root()
+    filepath = os.path.join(repo_root, "app_version.py")
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
         

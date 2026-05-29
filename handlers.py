@@ -6149,9 +6149,17 @@ async def admin_version_detail(callback: CallbackQuery):
     show_rollback_btn = False
     show_undo_btn = False
     
+    def _parse_version(v_str):
+        try:
+            return tuple(map(int, v_str.split(".")))
+        except Exception:
+            return (0, 0, 0)
+            
+    is_supported = _parse_version(ver) >= (1, 0, 14)
+    
     if is_rollback_active and prev_commit and commit and commit[:8] == prev_commit[:8]:
         show_undo_btn = True
-    elif commit and running_commit and commit[:8] != running_commit[:8]:
+    elif commit and running_commit and commit[:8] != running_commit[:8] and is_supported:
         show_rollback_btn = True
         
     keyboard = []

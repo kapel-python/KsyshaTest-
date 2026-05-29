@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Ensure the project directory is in the path
@@ -8,7 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database import db
 from utils import create_admin_keyboard
-from app_version import get_version_metadata, get_git_status_info
+import app_version
+from app_version import get_git_status_info
 import handlers
 
 async def run_validation():
@@ -56,12 +58,25 @@ async def run_validation():
         
     print("✅ Release handler execution finished.")
     
-    # 3. Assert APP_VERSION on disk contains the exact custom description
-    disk_ver, disk_desc = get_version_metadata()
+    # 3. Reload app_version module to bypass python's import cache and assert disk contents
+    importlib.reload(app_version)
+    disk_ver, disk_desc = app_version.get_version_metadata()
     print(f"Disk Version: {disk_ver}")
     print(f"Disk Description: '{disk_desc}'")
     
-    assert disk_desc == unique_desc, f"Error: Disk description is '{disk_desc}', expected '{unique_desc}'"
+    # Read the file directly to be absolutely sure
+    filepath = os.path.join(app_version._get_repo_root(), "app_version.py")
+    with open(filepath, "r", encoding="utf-8") as f:
+        content = f.read()
+        import re
+        file_ver = re.search(r'\bversion\s*=\s*["\'](.*?)["\']', content).group(1)
+        file_desc = re.search(r'\bdescription\s*=\s*["\'](.*?)["\']', content).group(1)
+    
+    print(f"File version on disk: {file_ver}")
+    print(f"File description on disk: '{file_desc}'")
+    
+    assert file_desc == unique_desc, f"Error: File description on disk is '{file_desc}', expected '{unique_desc}'"
+    assert disk_desc == unique_desc, f"Error: Disk description from module is '{disk_desc}', expected '{unique_desc}'"
     print("✅ Verified: app_version.py contains the exact custom description.")
     
     # 4. Assert version_history database table contains the exact custom description

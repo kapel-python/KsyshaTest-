@@ -3,7 +3,7 @@
 import subprocess
 import os
 
-version = "1.0.11"
+version = "1.0.12"
 description = "Manual Release with Clean UX - 2026"
 
 

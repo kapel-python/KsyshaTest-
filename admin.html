@@ -205,7 +205,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <span class="denied-icon">🔒</span>
     <div class="denied-title">Доступ запрещён</div>
     <div class="denied-sub">Эта страница доступна только администратору.<br>Если ты заблудился — ничего страшного ❤️</div>
-    <a href="/" class="denied-link">← На главную</a>
+    <a href="/" onclick="window.location.href='/'; return false;" class="denied-link">← На главную</a>
   </div>
 </div>
 
@@ -215,7 +215,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="admin-logo">⚙ PANEL</div>
       <span class="admin-badge">CREATOR</span>
     </div>
-    <a href="/" class="header-back">← Сайт</a>
+    <a href="/" onclick="window.location.href='/'; return false;" class="header-back">← Сайт</a>
   </header>
 
   <div class="admin-content">

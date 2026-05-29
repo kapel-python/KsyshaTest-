@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.41'
-description = 'Суко фикс 3'
+version = '1.0.42'
+description = 'Возможно фикс возврата на главную страницу из статистики и админки в телеграм браузере'
 
 
 def get_version_metadata() -> tuple[str, str]:

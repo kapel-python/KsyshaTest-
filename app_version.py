@@ -3,10 +3,8 @@
 import subprocess
 import os
 
-version = "1.0.16"
-description = "Исправление ошибки Telegram server says - Bad Request: BUTTON_DATA_INVALID
-
-👤 Напиши создателю о ней"
+version = '1.0.17'
+description = 'Исправление багов с описанием версии'
 
 
 def get_version_metadata() -> tuple[str, str]:

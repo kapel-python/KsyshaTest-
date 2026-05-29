@@ -5802,20 +5802,58 @@ def increment_patch_version(current_ver: str) -> str:
     return current_ver + ".1"
 
 
-def update_app_version_file(new_version: str, new_description: str):
-    """Automatically updates app_version.py with new version and description"""
+def update_app_version_file(new_version: str, new_description: str) -> None:
+    """Updates app_version.py with new version and description.
+
+    Uses repr() to serialise both values so that any character
+    (newlines, quotes, apostrophes, emoji, arbitrary Unicode) is
+    safely escaped into a valid Python string literal.
+
+    Raises SyntaxError if the resulting file would not parse as valid
+    Python, so callers can abort and surface the error before touching
+    git.
+    """
     import re
     from app_version import _get_repo_root
     repo_root = _get_repo_root()
     filepath = os.path.join(repo_root, "app_version.py")
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
-        
-    content = re.sub(r'\bversion\s*=\s*["\'].*?["\']', f'version = "{new_version}"', content)
-    content = re.sub(r'\bdescription\s*=\s*["\'].*?["\']', f'description = "{new_description}"', content)
-    
+
+    # repr() produces a safe Python literal: 'some text' or "some text",
+    # with all special characters escaped.  Strip the outer quotes so we
+    # can wrap in our chosen delimiter below.
+    version_repr     = repr(str(new_version))
+    description_repr = repr(str(new_description))
+
+    # Replace the assignment lines using the repr()-produced literals
+    # directly — no additional quoting needed. Use lambda to avoid re.sub
+    # escape processing.
+    content = re.sub(
+        r'\bversion\s*=\s*(?:""".*?"""|\'\'\'.*?\'\'\'|"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')',
+        lambda _: f'version = {version_repr}',
+        content,
+        flags=re.DOTALL,
+    )
+    content = re.sub(
+        r'\bdescription\s*=\s*(?:""".*?"""|\'\'\'.*?\'\'\'|"[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')',
+        lambda _: f'description = {description_repr}',
+        content,
+        flags=re.DOTALL,
+    )
+
+    # Validate before writing — fail fast with a clear error rather than
+    # baking a broken file into the image.
+    try:
+        compile(content, filepath, "exec")
+    except SyntaxError as exc:
+        raise SyntaxError(
+            f"Generated app_version.py would be invalid Python: {exc}"
+        ) from exc
+
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
+
 
 
 @router.callback_query(F.data == "admin_create_release")

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.34'
-description = 'Синхронизация статуса желаний в боте и на сайте \nСворачивание окна выбора статуса на сайте'
+version = '1.0.35'
+description = 'BETA улучшение веб сокета статутов желаний'
 
 
 def get_version_metadata() -> tuple[str, str]:

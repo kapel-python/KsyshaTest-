@@ -5076,6 +5076,7 @@
     </div>
 
     <script>
+      window._startupStart = performance.now();
 
       const THEME_STORAGE_KEY = 'memories_theme';
 
@@ -11800,6 +11801,7 @@
           if (!url) return;
 
           this._connecting = true;
+          console.log('[WS_CONNECTING] URL:', url, (performance.now() - (window._startupStart || 0)).toFixed(2) + 'ms');
           try { this._ws = new WebSocket(url); }
           catch(e) {
             this._connecting = false;
@@ -11808,6 +11810,7 @@
           }
 
           this._ws.onopen = () => {
+            console.log('[WS_CONNECTED]', (performance.now() - (window._startupStart || 0)).toFixed(2) + 'ms');
             this._connecting = false;
             this._delay = this._minDelay;
             this._startPing();
@@ -11945,6 +11948,7 @@
           { minDelay: 1000, maxDelay: 30000, pingInterval: 20000 }
         );
         _siteRws.connect();
+        console.log('[WS_CONNECT_INIT]', (performance.now() - (window._startupStart || 0)).toFixed(2) + 'ms');
       }
 
       function showSiteNotification(notif) {
@@ -12334,7 +12338,6 @@
         // WS: компаньон — для уведомлений, все авторизованные — для статусов
         const _curRole = getCurrentRole();
         if (_curRole) {
-          connectSiteWs();
           if (_curRole !== 'creator') {
             setTimeout(checkSiteNotification, 1500);
           }
@@ -12412,6 +12415,8 @@
           window.__visitorId = _vid;
 
           updateExportBtn();
+
+          connectSiteWs();
 
           startApp(isNew, storedTheme);
 

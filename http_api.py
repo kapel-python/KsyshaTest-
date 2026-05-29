@@ -3481,7 +3481,7 @@ async def wish_update_status(request: web.Request) -> web.Response:
     status      = _pstr(payload.get("status")).strip()
     visitor_id = _get_trusted_visitor_id(request, payload=payload, payload_key="visitor_id", query_key="visitor_id")
     wish_id = _safe_int(wish_id_raw)
-    allowed_statuses = {"pending", "done", "cancelled", "active", "completed"}
+    allowed_statuses = {"created", "in_progress", "done"}
     if not wish_id or not status or not visitor_id:
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid params"}, status=400))
     if status not in allowed_statuses:

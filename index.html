@@ -6665,8 +6665,12 @@
             tagEl.style.background    = s.bg;
             tagEl.style.borderColor   = s.border;
             tagEl.style.color         = s.color;
+          } else if (!d.ok) {
+            if (typeof _showToast === 'function') _showToast((typeof _ui === 'function' ? _ui('errorOccurred') : '') || "Ошибка при изменении статуса");
           }
-        } catch(e) {}
+        } catch(e) {
+          if (typeof _showToast === 'function') _showToast((typeof _ui === 'function' ? _ui('errorOccurred') : '') || "Ошибка при изменении статуса");
+        }
       }
 
       function showWishStatusPicker(wishId, tagEl) {
@@ -11879,12 +11883,23 @@
                   document.querySelectorAll('.wish-status-tag').forEach(tag => {
                     if (String(tag.dataset.wishId) === wishId) {
                       tag.dataset.status     = msg.status;
-                      tag.textContent        = s.label;
+                      tag.textContent        = typeof s.label === 'function' ? s.label() : s.label;
                       tag.style.background   = s.bg;
                       tag.style.borderColor  = s.border;
                       tag.style.color        = s.color;
                     }
                   });
+                  // Update global state cache to prevent reverts
+                  if (window._siteData && window._siteData.wishes) {
+                    const updateList = (list) => {
+                      if (!list) return;
+                      const arr = Array.isArray(list) ? list : (list.items || []);
+                      const w = arr.find(x => String(x.id) === wishId);
+                      if (w) w.status = msg.status;
+                    };
+                    updateList(window._siteData.wishes.partner);
+                    updateList(window._siteData.wishes.user);
+                  }
                 }
               } catch(err) {}
             },

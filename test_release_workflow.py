@@ -66,6 +66,8 @@ async def execute_test_release():
         print("---------------------------------------------")
         
         # 1. Verify APP_VERSION increments on disk
+        from app_version import _get_repo_root
+        repo_root = _get_repo_root()
         filepath = os.path.join(repo_root, "app_version.py")
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()

@@ -6096,7 +6096,7 @@ async def admin_version_detail(callback: CallbackQuery):
     # Fetch details from DB
     with db._get_connection() as conn:
         row = conn.execute(
-            "SELECT version, description, git_commit, created_at FROM version_history WHERE version = ? LIMIT 1",
+            "SELECT version, description, git_commit, created_at, status FROM version_history WHERE version = ? LIMIT 1",
             (ver_name,)
         ).fetchone()
         
@@ -6109,6 +6109,11 @@ async def admin_version_detail(callback: CallbackQuery):
     commit = row["git_commit"]
     commit_str = commit[:7] if commit else "—"
     
+    # Handle missing column in older DB files that weren't migrated
+    try:
+        status = row["status"] or "stable"
+    except IndexError:
+        status = "stable"
     date_str = "—"
     created_at = row["created_at"]
     if created_at:
@@ -6129,8 +6134,12 @@ async def admin_version_detail(callback: CallbackQuery):
     date_esc = html.escape(str(date_str))
     
     commit_block = f"<code>{html.escape(str(commit))}</code>" if commit else "—"
+    
+    status_emoji = "✅ Стабильна" if status == "stable" else "❌ СЛОМАНА"
+    
     text = (
-        f"📦 <b>Версия {ver_esc}</b>\n\n"
+        f"📦 <b>Версия {ver_esc}</b>\n"
+        f"Статус: {status_emoji}\n\n"
         f"Описание:\n"
         f"{desc_esc}\n\n"
         f"Коммит:\n"
@@ -6149,17 +6158,9 @@ async def admin_version_detail(callback: CallbackQuery):
     show_rollback_btn = False
     show_undo_btn = False
     
-    def _parse_version(v_str):
-        try:
-            return tuple(map(int, v_str.split(".")))
-        except Exception:
-            return (0, 0, 0)
-            
-    is_supported = _parse_version(ver) >= (1, 0, 14)
-    
     if is_rollback_active and prev_commit and commit and commit[:8] == prev_commit[:8]:
         show_undo_btn = True
-    elif commit and running_commit and commit[:8] != running_commit[:8] and is_supported:
+    elif commit and running_commit and commit[:8] != running_commit[:8] and status != "broken":
         show_rollback_btn = True
         
     keyboard = []
@@ -6369,6 +6370,21 @@ async def admin_confirm_rollback(callback: CallbackQuery):
         from app_version import _get_repo_root, version as current_ver, get_git_commit
         repo_root = _get_repo_root()
         current_commit = get_git_commit() or "—"
+        
+        # 0. Pre-flight Syntax Validation
+        import subprocess
+        files_res = subprocess.run(["git", "ls-tree", "-r", "--name-only", commit], cwd=repo_root, capture_output=True, text=True)
+        if files_res.returncode == 0:
+            for f_name in files_res.stdout.splitlines():
+                if f_name.endswith('.py'):
+                    content_res = subprocess.run(["git", "show", f"{commit}:{f_name}"], cwd=repo_root, capture_output=True, text=True)
+                    if content_res.returncode == 0:
+                        try:
+                            compile(content_res.stdout, f_name, 'exec')
+                        except SyntaxError as e:
+                            err_msg = f"❌ <b>Откат прерван!</b>\n\nВ целевой версии обнаружена критическая синтаксическая ошибка:\n<code>{e}</code>\nФайл: <code>{f_name}</code>"
+                            await callback_edit_or_answer(callback, err_msg, parse_mode=ParseMode.HTML)
+                            return
         
         # 1. Store persistent state in SQLite settings
         db.set_setting("rollback_active", "1")

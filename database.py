@@ -615,6 +615,7 @@ class Database:
                     version TEXT PRIMARY KEY,
                     description TEXT NOT NULL,
                     git_commit TEXT,
+                    status TEXT DEFAULT 'stable',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -624,6 +625,11 @@ class Database:
                 conn.execute("ALTER TABLE version_history ADD COLUMN git_commit TEXT")
             except Exception as e:
                 logger.debug("Migration skipped for version_history.git_commit: %s", e)
+            # Миграция: добавляем status
+            try:
+                conn.execute("ALTER TABLE version_history ADD COLUMN status TEXT DEFAULT 'stable'")
+            except Exception as e:
+                logger.debug("Migration skipped for version_history.status: %s", e)
             
             # Настройки пользователей (время, и т.д.)
             conn.execute('''

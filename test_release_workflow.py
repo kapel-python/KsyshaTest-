@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import time
 import subprocess
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -33,8 +34,8 @@ async def execute_test_release():
             # Create a small dummy change to ensure there's something to commit
             from app_version import _get_repo_root
             dummy_change_file = os.path.join(_get_repo_root(), "dummy_change.txt")
-            with open(dummy_change_file, "w") as f:
-                f.write("trigger change")
+            with open(dummy_change_file, "a") as f:
+                f.write(f"\ntrigger change {time.time()}\n")
             print(f"Created {dummy_change_file} to ensure uncommitted changes.")
             status_info = get_git_status_info()
             

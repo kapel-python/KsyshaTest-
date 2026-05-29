@@ -6246,7 +6246,10 @@ async def admin_rollback_trigger(callback: CallbackQuery):
             
         # Verify deploy service is healthy
         import aiohttp
-        health_url = (getattr(config, "DEPLOYER_URL", "") or "").replace("/deploy", "/health")
+        from urllib.parse import urlsplit, urlunsplit
+        deploy_url = (getattr(config, "DEPLOYER_URL", "") or "").strip()
+        parts = urlsplit(deploy_url)
+        health_url = urlunsplit((parts.scheme, parts.netloc, "/health", "", ""))
         if health_url:
             async with aiohttp.ClientSession() as session:
                 async with session.get(health_url, timeout=5) as resp:

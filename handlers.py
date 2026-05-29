@@ -783,6 +783,7 @@ class AdminStates(StatesGroup):
     waiting_for_admin_input = State()
     waiting_for_broadcast_content = State()
     waiting_for_wish_delete_reason = State()
+    waiting_for_release_description = State()
 
 class WishesStates(StatesGroup):
     waiting_for_wish_content = State()
@@ -5705,6 +5706,307 @@ async def admin_version_history(callback: CallbackQuery):
     )
 
 
+@router.callback_query(F.data == "admin_git_status")
+async def admin_git_status(callback: CallbackQuery):
+    """Отображение статуса Git репозитория"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+        
+    await callback.answer("Загружаю статус Git…")
+    
+    from app_version import get_git_status_info, get_version_metadata, get_git_commit
+    status_info = get_git_status_info()
+    current_version, _ = get_version_metadata()
+    current_git_commit = get_git_commit() or "—"
+    
+    branch = status_info.get("branch") or "—"
+    commit = status_info.get("commit") or "—"
+    if commit and len(commit) > 7:
+        commit = commit[:7]
+    total_commits = status_info.get("total_commits")
+    if total_commits is None:
+        total_commits = "—"
+        
+    is_clean = status_info.get("is_clean", True)
+    modified_files = status_info.get("modified_files", [])
+    
+    if current_git_commit and len(current_git_commit) > 7:
+        current_git_commit = current_git_commit[:7]
+
+    lines = [
+        "🧩 <b>Статус Git</b>\n",
+        f"Ветка: <code>{html.escape(str(branch))}</code>",
+        f"Коммит: <code>{html.escape(str(commit))}</code>",
+        f"Всего коммитов: <code>{total_commits}</code>\n",
+        "Состояние репозитория:"
+    ]
+    
+    if is_clean:
+        lines.append("✅ Репозиторий чист\n")
+    else:
+        lines.append("⚠️ Есть незакоммиченные изменения\n")
+        lines.append(f"Изменено файлов: {len(modified_files)}")
+        for f in modified_files[:10]:
+            lines.append(f"• <code>{html.escape(f)}</code>")
+        if len(modified_files) > 10:
+            remaining = len(modified_files) - 10
+            lines.append(f"и ещё {remaining} файлов")
+        lines.append("")
+        
+    lines.append(f"Текущая версия: <code>{html.escape(str(current_version))}</code>")
+    lines.append(f"Текущий git-коммит: <code>{html.escape(str(current_git_commit))}</code>")
+    
+    text = "\n".join(lines)
+    
+    keyboard = [
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+    ]
+    
+    await callback_edit_or_answer(
+        callback,
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+        parse_mode=ParseMode.HTML
+    )
+
+
+def increment_patch_version(current_ver: str) -> str:
+    """Automatically increments patch version (e.g. 1.0.0 -> 1.0.1, 1.2.9 -> 1.2.10)"""
+    parts = current_ver.strip().split(".")
+    if len(parts) == 3:
+        try:
+            major, minor, patch = parts[0], parts[1], parts[2]
+            new_patch = int(patch) + 1
+            return f"{major}.{minor}.{new_patch}"
+        except ValueError:
+            pass
+    return current_ver + ".1"
+
+
+def update_app_version_file(new_version: str, new_description: str):
+    """Automatically updates app_version.py with new version and description"""
+    import re
+    filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_version.py")
+    with open(filepath, "r", encoding="utf-8") as f:
+        content = f.read()
+        
+    content = re.sub(r'version\s*=\s*["\'].*?["\']', f'version = "{new_version}"', content)
+    content = re.sub(r'description\s*=\s*["\'].*?["\']', f'description = "{new_description}"', content)
+    
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
+@router.callback_query(F.data == "admin_create_release")
+async def admin_create_release(callback: CallbackQuery, state: FSMContext):
+    """Начало создания релиза"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+        
+    await callback.answer("Проверяю статус репозитория…")
+    
+    from app_version import get_git_status_info
+    status_info = get_git_status_info()
+    
+    # Safety: If repository is clean, show "Нет изменений для создания релиза."
+    if status_info.get("is_clean", True):
+        await callback_edit_or_answer(
+            callback,
+            "ℹ️ Нет изменений для создания релиза.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+        return
+        
+    # Ask for description
+    await callback.message.answer(
+        "Введите описание новой версии.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="admin_cancel_release")]
+        ])
+    )
+    await state.set_state(AdminStates.waiting_for_release_description)
+    await _delete_callback_message_silent(callback)
+
+
+@router.callback_query(F.data == "admin_cancel_release")
+async def admin_cancel_release(callback: CallbackQuery, state: FSMContext):
+    """Отмена создания релиза"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+        
+    await state.clear()
+    await callback.answer("Создание релиза отменено.")
+    
+    await callback_edit_or_answer(callback, 
+        "🔧 <b>Админ-панель</b>\n\n"
+        "Управление ботом и статистика:",
+        reply_markup=create_admin_keyboard(),
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.message(AdminStates.waiting_for_release_description)
+async def admin_release_description_received(message: Message, state: FSMContext):
+    """Получение описания релиза и показ подтверждения"""
+    user_id = message.from_user.id
+    if not db.is_creator(user_id):
+        return
+        
+    description = message.text.strip()
+    if not description:
+        await message.answer("Описание не может быть пустым. Введите описание новой версии:")
+        return
+        
+    await state.update_data(release_description=description)
+    
+    text = (
+        "🚀 <b>Создание релиза</b>\n\n"
+        "Будет выполнено:\n"
+        "• git add .\n"
+        "• git commit\n"
+        "• git push\n"
+        "• обновление версии\n"
+        "• перезапуск проекта\n\n"
+        "<b>Описание:</b>\n"
+        f"{html.escape(description)}\n\n"
+        "Продолжить?"
+    )
+    
+    keyboard = [
+        [
+            InlineKeyboardButton(text="✅ Создать релиз", callback_data="admin_confirm_release"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data="admin_cancel_release")
+        ]
+    ]
+    
+    await message.answer(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.callback_query(F.data == "admin_confirm_release")
+async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
+    """Подтверждение и запуск процесса создания релиза"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+        
+    data = await state.get_data()
+    description = data.get("release_description")
+    await state.clear()
+    
+    if not description:
+        await callback.answer("Описание релиза не найдено. Начните сначала.", show_alert=True)
+        return
+        
+    await callback_edit_or_answer(callback, "🚀 <b>Запуск создания релиза...</b>\n\nВыполняю проверку репозитория...", parse_mode=ParseMode.HTML)
+    
+    try:
+        from app_version import get_git_status_info, _get_repo_root, get_version_metadata
+        status_info = get_git_status_info()
+        repo_root = _get_repo_root()
+        
+        # 1. Verify Git repository exists
+        if not os.path.isdir(os.path.join(repo_root, ".git")):
+            raise Exception("Директория .git не найдена. Это не Git-репозиторий.")
+            
+        # 2. Verify branch is known
+        branch = status_info.get("branch")
+        if not branch or branch == "—":
+            raise Exception("Ветка репозитория не определена.")
+            
+        # 3. Verify there are changes to commit
+        if status_info.get("is_clean", True):
+            await callback_edit_or_answer(callback,
+                "ℹ️ Нет изменений для создания релиза.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+                ]),
+                parse_mode=ParseMode.HTML
+            )
+            return
+            
+        # 4. Increment patch version automatically
+        current_ver, _ = get_version_metadata()
+        new_version = increment_patch_version(current_ver)
+        
+        await callback.message.answer(f"📈 <b>Новая версия: {new_version}</b>\nНастраиваю Git...")
+        
+        # Ensure git user config exists inside container so commit doesn't fail
+        try:
+            subprocess.run(["git", "config", "user.name"], cwd=repo_root, check=True, capture_output=True)
+        except Exception:
+            subprocess.run(["git", "config", "user.name", "Ksysha Bot"], cwd=repo_root)
+            subprocess.run(["git", "config", "user.email", "bot@ksysha.local"], cwd=repo_root)
+            
+        # 5. Git add .
+        await callback.message.answer("📦 Добавляю файлы в коммит (git add .)...")
+        subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
+        
+        # 6. Git commit -m "Release v{new_version}: {description}"
+        commit_msg = f"Release v{new_version}: {description}"
+        await callback.message.answer(f"💾 Создаю коммит: '{commit_msg}'...")
+        subprocess.run(["git", "commit", "-m", commit_msg], cwd=repo_root, check=True)
+        
+        # 7. Git push
+        await callback.message.answer("📤 Отправляю изменения на GitHub (git push)...")
+        res_push = subprocess.run(["git", "push"], cwd=repo_root, capture_output=True, text=True)
+        if res_push.returncode != 0:
+            raise Exception(f"git push завершился ошибкой:\nStdout: {res_push.stdout}\nStderr: {res_push.stderr}")
+            
+        # 8. Get new commit hash
+        res_hash = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True, check=True)
+        new_commit = res_hash.stdout.strip()
+        new_commit_short = new_commit[:7]
+        
+        # 9. Update app_version.py
+        await callback.message.answer("📝 Обновляю файл версии app_version.py...")
+        update_app_version_file(new_version, description)
+        
+        # 10. Write new version directly to version_history database table
+        await callback.message.answer("💾 Записываю новый релиз в историю версий БД...")
+        with db._get_connection() as conn:
+            db._register_version_history_entry(conn, new_version, description, git_commit=new_commit)
+            
+        # 11. Trigger local restart using existing restart workflow
+        await callback.message.answer("🔄 <b>Релиз подготовлен успешно! Запускаю перезапуск проекта...</b>")
+        local_ok, local_reason = await _trigger_local_restart()
+        if not local_ok:
+            raise Exception(f"Не удалось запустить перезапуск: {local_reason}")
+            
+        await callback.message.answer(
+            f"✅ <b>Релиз v{new_version} ({new_commit_short}) успешно создан и отправлен на GitHub!</b>\n\n"
+            "Проект перезапускается. Пожалуйста, подождите 10-15 секунд.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+        
+    except Exception as e:
+        # If any step fails, show full error
+        error_text = f"❌ <b>Произошла ошибка при создании релиза:</b>\n\n<code>{html.escape(str(e))}</code>"
+        await callback.message.answer(
+            error_text,
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+
+
 @router.callback_query(F.data.startswith("admin_version_detail:"))
 async def admin_version_detail(callback: CallbackQuery):
     """Детальная информация о выбранной версии"""
@@ -5762,8 +6064,9 @@ async def admin_version_detail(callback: CallbackQuery):
         f"{commit_esc}\n\n"
         "Дата:\n"
         f"{date_esc}\n\n"
-        "Действия:\n"
-        "(rollback functionality will be implemented later)"
+        "---\n\n"
+        "Действия\n\n"
+        "(rollback functionality will be added later)"
     )
     
     keyboard = [

@@ -16,6 +16,14 @@ def get_version_metadata() -> tuple[str, str]:
     return normalized_version, normalized_description
 
 
+def _get_repo_root() -> str:
+    """Returns the git repository root, checking /workspace and file directory."""
+    file_dir = os.path.dirname(os.path.abspath(__file__))
+    if os.path.isdir("/workspace/.git"):
+        return "/workspace"
+    return file_dir
+
+
 def get_git_commit() -> str | None:
     """Returns the current Git commit hash (8-char short form), or None.
 
@@ -28,7 +36,7 @@ def get_git_commit() -> str | None:
     """
     # Strategy 1: live git
     try:
-        repo_root = os.path.dirname(os.path.abspath(__file__))
+        repo_root = _get_repo_root()
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             cwd=repo_root,
@@ -54,3 +62,100 @@ def get_git_commit() -> str | None:
         pass
 
     return None
+
+
+def get_git_status_info() -> dict:
+    """Returns a dictionary with live Git status information.
+
+    Keys:
+    - branch: str or None
+    - commit: str or None
+    - total_commits: int or None
+    - is_clean: bool
+    - modified_files: list of str
+    """
+    repo_root = _get_repo_root()
+    info = {
+        "branch": None,
+        "commit": None,
+        "total_commits": 0,
+        "is_clean": True,
+        "modified_files": []
+    }
+
+    # 1. Get branch
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if res.returncode == 0:
+            info["branch"] = res.stdout.strip()
+    except Exception:
+        pass
+
+    # 2. Get commit (short hash, e.g. 7 chars)
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if res.returncode == 0:
+            info["commit"] = res.stdout.strip()
+    except Exception:
+        pass
+
+    if not info["commit"]:
+        # Fall back to get_git_commit()
+        info["commit"] = get_git_commit()
+
+    # 3. Get total commits
+    try:
+        res = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if res.returncode == 0:
+            info["total_commits"] = int(res.stdout.strip())
+    except Exception:
+        pass
+
+    # 4. Get modified files using git status --porcelain
+    try:
+        res = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if res.returncode == 0:
+            lines = res.stdout.splitlines()
+            modified = []
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # Format XY PATH
+                parts = line.split(None, 1)
+                if len(parts) > 1:
+                    path = parts[1].strip('"')
+                    modified.append(path)
+                else:
+                    modified.append(line)
+            info["modified_files"] = modified
+            info["is_clean"] = len(modified) == 0
+    except Exception:
+        pass
+
+    return info
+

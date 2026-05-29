@@ -6210,12 +6210,12 @@ async def admin_rollback_trigger(callback: CallbackQuery):
     commit = row["git_commit"]
     commit_short = commit[:7]
     
-    # 1. Run safety checks before confirmation
+    # 1. Run hard safety checks before confirmation (these always block on failure)
     try:
         from app_version import get_git_status_info, _get_repo_root
         status_info = get_git_status_info()
         repo_root = _get_repo_root()
-        
+
         # Check if repository is clean
         if not status_info.get("is_clean", True):
             modified = status_info.get("modified_files", [])
@@ -6231,8 +6231,8 @@ async def admin_rollback_trigger(callback: CallbackQuery):
             ]))
             await callback.answer()
             return
-            
-        # Verify target commit exists
+
+        # Verify target commit exists in local repo
         import subprocess
         proc_verify = subprocess.run(
             ["git", "rev-parse", "--verify", commit],
@@ -6243,19 +6243,7 @@ async def admin_rollback_trigger(callback: CallbackQuery):
         )
         if proc_verify.returncode != 0:
             raise Exception(f"Целевой коммит {commit_short} не найден в локальном репозитории.")
-            
-        # Verify deploy service is healthy
-        import aiohttp
-        from urllib.parse import urlsplit, urlunsplit
-        deploy_url = (getattr(config, "DEPLOYER_URL", "") or "").strip()
-        parts = urlsplit(deploy_url)
-        health_url = urlunsplit((parts.scheme, parts.netloc, "/health", "", ""))
-        if health_url:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(health_url, timeout=5) as resp:
-                    if resp.status != 200:
-                        raise Exception(f"Служба деплоя недоступна (HTTP {resp.status})")
-                        
+
     except Exception as e:
         await callback.message.answer(
             f"❌ <b>Проверка безопасности не пройдена:</b>\n\n<code>{html.escape(str(e))}</code>",
@@ -6266,23 +6254,49 @@ async def admin_rollback_trigger(callback: CallbackQuery):
         )
         await callback.answer()
         return
-        
+
+    # 2. Optional deployer health check — informs the confirmation screen but never blocks it.
+    #    If deployer is unreachable the confirm handler will fall back to local restart,
+    #    exactly the same contract as admin_restart.
+    deployer_note = ""
+    try:
+        import aiohttp
+        from urllib.parse import urlsplit, urlunsplit
+        deploy_url = (getattr(config, "DEPLOYER_URL", "") or "").strip()
+        if deploy_url:
+            _parts = urlsplit(deploy_url)
+            health_url = urlunsplit((_parts.scheme, _parts.netloc, "/health", "", ""))
+            timeout = aiohttp.ClientTimeout(total=5)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(health_url) as resp:
+                    if resp.status != 200:
+                        deployer_note = (
+                            "\n⚠️ <i>Deployer вернул ошибку — будет использован "
+                            "локальный безопасный перезапуск.</i>"
+                        )
+    except Exception:
+        deployer_note = (
+            "\n⚠️ <i>Deployer недоступен — будет использован "
+            "локальный безопасный перезапуск.</i>"
+        )
+
     text = (
         "⚠️ <b>Подтверждение отката</b>\n\n"
         "Вы собираетесь откатить проект к версии:\n\n"
         f"<b>Версия:</b> <code>{html.escape(ver)}</code>\n"
         f"<b>Коммит:</b> <code>{html.escape(commit_short)}</code>\n\n"
-        "Проект будет пересобран и перезапущен.\n\n"
-        "Продолжить?"
+        "Проект будет пересобран и перезапущен."
+        + deployer_note
+        + "\n\nПродолжить?"
     )
-    
+
     keyboard = [
         [
             InlineKeyboardButton(text="✅ Подтвердить откат", callback_data=f"admin_confirm_rollback:{ver}:{commit}"),
             InlineKeyboardButton(text="❌ Отмена", callback_data="admin_panel")
         ]
     ]
-    
+
     await callback_edit_or_answer(
         callback,
         text,
@@ -6333,22 +6347,50 @@ async def admin_confirm_rollback(callback: CallbackQuery):
             db.delete_setting("rollback_target_commit")
             raise Exception(f"git checkout завершился с ошибкой:\nStdout: {checkout_res.stdout}\nStderr: {checkout_res.stderr}")
             
-        # 3. Trigger Docker Deployer Service
+        # 3. Trigger rebuild: try deployer first, fall back to local restart
+        #    (same contract as admin_restart — deployer is optional)
         await callback.message.answer("📦 Запускаю пересборку Docker контейнера...")
-        from handlers import _trigger_deploy
+        from handlers import _trigger_deploy, _trigger_local_restart
         ok, reason = await _trigger_deploy()
+        used_local = False
+        if not ok and reason != "in_progress":
+            local_ok, local_reason = await _trigger_local_restart()
+            if local_ok:
+                ok = True
+                used_local = True
+            elif local_reason == "in_progress":
+                ok = True
+                used_local = True
+            else:
+                # Both paths failed — revert checkout and clear state
+                subprocess.run(["git", "checkout", "main"], cwd=repo_root)
+                db.delete_setting("rollback_active")
+                db.delete_setting("rollback_previous_commit")
+                db.delete_setting("rollback_previous_version")
+                db.delete_setting("rollback_target_commit")
+                raise Exception(
+                    f"Не удалось запустить пересборку.\n"
+                    f"deployer: {reason}\nlocal: {local_reason}"
+                )
+
         if not ok:
-            # Restore to main if deploy trigger fails
-            subprocess.run(["git", "checkout", "main"], cwd=repo_root)
-            db.delete_setting("rollback_active")
-            db.delete_setting("rollback_previous_commit")
-            db.delete_setting("rollback_previous_version")
-            db.delete_setting("rollback_target_commit")
-            raise Exception(f"Не удалось запустить сборку: {reason}")
-            
+            # reason == "in_progress" from deployer
+            await callback.message.answer(
+                "⏳ Перезапуск уже выполняется. Нажми «🔄 Обновить статус».",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")]
+                ]),
+            )
+            return
+
+        restart_note = (
+            "\n\n⏳ <i>Deployer недоступен, используется локальный безопасный перезапуск.</i>"
+            if used_local else ""
+        )
         await callback.message.answer(
             f"✅ <b>Запущен откат до версии {ver}</b>\n\n"
-            "Проект пересобирается и перезапускается в фоне. Пожалуйста, подождите 10-15 секунд.",
+            "Проект пересобирается и перезапускается в фоне. Пожалуйста, подождите 10-15 секунд."
+            + restart_note,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")]
             ]),
@@ -6397,16 +6439,44 @@ async def admin_undo_rollback(callback: CallbackQuery):
         db.delete_setting("rollback_previous_version")
         db.delete_setting("rollback_target_commit")
         
-        # 3. Trigger Docker Deployer Service to rebuild main
+        # 3. Trigger rebuild: try deployer first, fall back to local restart
+        #    (same contract as admin_restart — deployer is optional)
         await callback.message.answer("📦 Запускаю пересборку Docker контейнера с ветки main...")
-        from handlers import _trigger_deploy
+        from handlers import _trigger_deploy, _trigger_local_restart
         ok, reason = await _trigger_deploy()
+        used_local = False
+        if not ok and reason != "in_progress":
+            local_ok, local_reason = await _trigger_local_restart()
+            if local_ok:
+                ok = True
+                used_local = True
+            elif local_reason == "in_progress":
+                ok = True
+                used_local = True
+            else:
+                raise Exception(
+                    f"Не удалось запустить пересборку.\n"
+                    f"deployer: {reason}\nlocal: {local_reason}"
+                )
+
         if not ok:
-            raise Exception(f"Не удалось запустить сборку: {reason}")
-            
+            # reason == "in_progress" from deployer
+            await callback.message.answer(
+                "⏳ Перезапуск уже выполняется. Нажми «🔄 Обновить статус».",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")]
+                ]),
+            )
+            return
+
+        restart_note = (
+            "\n\n⏳ <i>Deployer недоступен, используется локальный безопасный перезапуск.</i>"
+            if used_local else ""
+        )
         await callback.message.answer(
             "✅ <b>Запущено возвращение к последней версии main</b>\n\n"
-            "Проект пересобирается и перезапускается в фоне. Пожалуйста, подождите 10-15 секунд.",
+            "Проект пересобирается и перезапускается в фоне. Пожалуйста, подождите 10-15 секунд."
+            + restart_note,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")]
             ]),

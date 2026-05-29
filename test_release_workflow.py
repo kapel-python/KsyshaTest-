@@ -67,8 +67,8 @@ async def execute_test_release():
         
         # 1. Verify APP_VERSION increments on disk
         from app_version import _get_repo_root
-        repo_root = _get_repo_root()
-        filepath = os.path.join(repo_root, "app_version.py")
+        r_root = _get_repo_root()
+        filepath = os.path.join(r_root, "app_version.py")
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
             import re
@@ -87,8 +87,7 @@ async def execute_test_release():
         report_lines.append("✅ **APP_VERSION successfully incremented on disk.**\n")
         
         # 2. Verify new git commit appears locally
-        repo_root = _get_repo_root()
-        res_log = subprocess.run(["git", "log", "-1", "--oneline"], cwd=repo_root, capture_output=True, text=True, check=True)
+        res_log = subprocess.run(["git", "log", "-1", "--oneline"], cwd=r_root, capture_output=True, text=True, check=True)
         latest_commit_str = res_log.stdout.strip()
         print(f"Latest Git commit: {latest_commit_str}")
         
@@ -98,10 +97,10 @@ async def execute_test_release():
         report_lines.append("✅ **New Git commit successfully created with version prefix.**\n")
         
         # 3. Verify commit is on GitHub (pushed successfully)
-        res_remote = subprocess.run(["git", "ls-remote", "origin", "HEAD"], cwd=repo_root, capture_output=True, text=True, check=True)
+        res_remote = subprocess.run(["git", "ls-remote", "origin", "HEAD"], cwd=r_root, capture_output=True, text=True, check=True)
         print(f"ls-remote output: {res_remote.stdout.strip()}")
         
-        res_head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True, check=True)
+        res_head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=r_root, capture_output=True, text=True, check=True)
         local_hash = res_head.stdout.strip()
         
         assert local_hash in res_remote.stdout, "GitHub does not contain the latest local commit hash yet (push might have failed)"

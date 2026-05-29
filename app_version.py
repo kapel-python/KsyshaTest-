@@ -3,7 +3,7 @@
 import subprocess
 import os
 
-version = "1.0.8"
+version = "1.0.9"
 description = "Automated release workflow test"
 
 

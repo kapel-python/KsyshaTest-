@@ -6292,7 +6292,7 @@ async def admin_rollback_trigger(callback: CallbackQuery):
 
     keyboard = [
         [
-            InlineKeyboardButton(text="✅ Подтвердить откат", callback_data=f"admin_confirm_rollback:{ver}:{commit}"),
+            InlineKeyboardButton(text="✅ Подтвердить откат", callback_data=f"admin_confirm_rollback:{ver}:{commit[:8]}"),
             InlineKeyboardButton(text="❌ Отмена", callback_data="admin_panel")
         ]
     ]

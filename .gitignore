@@ -19,3 +19,4 @@ media/
 *.db
 *.db-shm
 *.db-wal
+backups/*.log

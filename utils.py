@@ -1492,6 +1492,7 @@ def create_admin_keyboard() -> InlineKeyboardMarkup:
     test_mode = db.get_setting("test_version") == "1"
     toggle_label = "✅ Продакшн" if test_mode else "🔧 Тест версия"
     keyboard = [
+        [InlineKeyboardButton(text="История версий", callback_data="admin_version_history:0")],
         [
             InlineKeyboardButton(text="📊 Статистика", callback_data="stats"),
             InlineKeyboardButton(text="📋 Админы", callback_data="list_admins"),

@@ -1,6 +1,9 @@
 services:
   ksysha-bot:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_COMMIT:
     container_name: ksysha-bot
     restart: unless-stopped
     init: true

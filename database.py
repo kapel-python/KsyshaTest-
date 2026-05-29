@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from dataclasses import dataclass
 
 from config import config
-from app_version import get_version_metadata
+from app_version import get_version_metadata, get_git_commit
 
 logger = logging.getLogger(__name__)
 
@@ -614,10 +614,16 @@ class Database:
                 CREATE TABLE IF NOT EXISTS version_history (
                     version TEXT PRIMARY KEY,
                     description TEXT NOT NULL,
+                    git_commit TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_version_history_created_at ON version_history(created_at)')
+            # Миграция: добавляем git_commit если таблица уже существовала без неё
+            try:
+                conn.execute("ALTER TABLE version_history ADD COLUMN git_commit TEXT")
+            except Exception as e:
+                logger.debug("Migration skipped for version_history.git_commit: %s", e)
             
             # Настройки пользователей (время, и т.д.)
             conn.execute('''
@@ -953,45 +959,76 @@ class Database:
         normalized_description = str(description or "").strip()
         return normalized_version, normalized_description
 
-    def _register_version_history_entry(self, conn: sqlite3.Connection, version: Any, description: Any) -> None:
-        """Idempotent upsert for version history by unique version."""
+    def _register_version_history_entry(
+        self,
+        conn: sqlite3.Connection,
+        version: Any,
+        description: Any,
+        git_commit: Optional[str] = None,
+    ) -> None:
+        """Idempotent upsert for version history by unique version.
+
+        Rules:
+        - same version + same description + same commit -> no-op
+        - same version + changed description             -> update description
+        - same version + changed commit                  -> update commit
+        - new version                                    -> insert
+        """
         normalized_version, normalized_description = self._normalize_version_metadata(version, description)
+        normalized_commit: Optional[str] = (git_commit or "").strip() or None
+
         row = conn.execute(
-            "SELECT description FROM version_history WHERE version = ? LIMIT 1",
+            "SELECT description, git_commit FROM version_history WHERE version = ? LIMIT 1",
             (normalized_version,),
         ).fetchone()
+
         if row is None:
             conn.execute(
-                "INSERT INTO version_history (version, description) VALUES (?, ?)",
-                (normalized_version, normalized_description),
+                "INSERT INTO version_history (version, description, git_commit) VALUES (?, ?, ?)",
+                (normalized_version, normalized_description, normalized_commit),
             )
-            logger.info("Registered app version: %s", normalized_version)
+            logger.info("Registered app version: %s (commit=%s)", normalized_version, normalized_commit)
             return
 
         current_description = str(row["description"] or "").strip()
-        if current_description == normalized_description:
+        current_commit: Optional[str] = (row["git_commit"] or "").strip() or None
+
+        changed_fields: list[str] = []
+        if current_description != normalized_description:
+            changed_fields.append("description")
+        if current_commit != normalized_commit:
+            changed_fields.append("git_commit")
+
+        if not changed_fields:
             return
 
         conn.execute(
-            "UPDATE version_history SET description = ? WHERE version = ?",
-            (normalized_description, normalized_version),
+            "UPDATE version_history SET description = ?, git_commit = ? WHERE version = ?",
+            (normalized_description, normalized_commit, normalized_version),
         )
-        logger.info("Updated app version description: %s", normalized_version)
+        logger.info(
+            "Updated app version %s fields: %s",
+            normalized_version,
+            ", ".join(changed_fields),
+        )
 
     def _register_current_app_version(self, conn: sqlite3.Connection) -> None:
         version, description = get_version_metadata()
-        self._register_version_history_entry(conn, version, description)
+        git_commit = get_git_commit()
+        self._register_version_history_entry(conn, version, description, git_commit=git_commit)
 
     def get_version_history(self) -> list[dict]:
         """Returns all version_history rows, newest first."""
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT version, description, created_at FROM version_history ORDER BY created_at DESC"
+                "SELECT version, description, git_commit, created_at"
+                " FROM version_history ORDER BY created_at DESC"
             ).fetchall()
         return [
             {
                 "version": row["version"],
                 "description": row["description"],
+                "git_commit": row["git_commit"],
                 "created_at": row["created_at"],
             }
             for row in rows

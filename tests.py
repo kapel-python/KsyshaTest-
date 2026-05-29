@@ -164,11 +164,13 @@ def _test_database():
     def t_version_registry_bootstrap():
         with test_db._get_connection() as conn:
             row = conn.execute(
-                "SELECT version, description FROM version_history WHERE version = ?",
+                "SELECT version, description, git_commit FROM version_history WHERE version = ?",
                 (app_version,),
             ).fetchone()
             assert row is not None
             assert row["description"] == app_version_description
+            # git_commit may be None in CI without git, but column must exist
+            assert "git_commit" in row.keys()
 
     def t_version_registry_idempotent_restart():
         with test_db._get_connection() as conn:
@@ -201,6 +203,54 @@ def _test_database():
             ).fetchone()["c"]
             assert row is not None
             assert row["description"] == "new description"
+            assert count == 1
+
+    def t_version_registry_git_commit():
+        """Commit hash is stored on first insert."""
+        probe_version = "9.9.9-commit-test"
+        with test_db._get_connection() as conn:
+            test_db._register_version_history_entry(
+                conn, probe_version, "desc", git_commit="abc12345"
+            )
+            row = conn.execute(
+                "SELECT git_commit FROM version_history WHERE version = ?",
+                (probe_version,),
+            ).fetchone()
+            assert row is not None
+            assert row["git_commit"] == "abc12345"
+
+    def t_version_registry_update_commit():
+        """Commit hash is updated independently of description."""
+        probe_version = "9.9.9-upd-commit"
+        with test_db._get_connection() as conn:
+            test_db._register_version_history_entry(
+                conn, probe_version, "stable desc", git_commit="aaaaaaaa"
+            )
+            test_db._register_version_history_entry(
+                conn, probe_version, "stable desc", git_commit="bbbbbbbb"
+            )
+            row = conn.execute(
+                "SELECT description, git_commit FROM version_history WHERE version = ?",
+                (probe_version,),
+            ).fetchone()
+            assert row["description"] == "stable desc"
+            assert row["git_commit"] == "bbbbbbbb"
+
+    def t_version_registry_noop_same_commit():
+        """No update issued when version, description, and commit are unchanged."""
+        probe_version = "9.9.9-noop"
+        with test_db._get_connection() as conn:
+            test_db._register_version_history_entry(
+                conn, probe_version, "same", git_commit="cccccccc"
+            )
+            # Call again with identical data — should be a pure no-op
+            test_db._register_version_history_entry(
+                conn, probe_version, "same", git_commit="cccccccc"
+            )
+            count = conn.execute(
+                "SELECT COUNT(*) AS c FROM version_history WHERE version = ?",
+                (probe_version,),
+            ).fetchone()["c"]
             assert count == 1
 
     def t_user_setting():
@@ -700,6 +750,9 @@ def _test_database():
         ("DB: version registry bootstrap", t_version_registry_bootstrap),
         ("DB: version registry idempotent restart", t_version_registry_idempotent_restart),
         ("DB: version registry update description", t_version_registry_update_description),
+        ("DB: version registry git commit stored", t_version_registry_git_commit),
+        ("DB: version registry update commit", t_version_registry_update_commit),
+        ("DB: version registry noop same commit", t_version_registry_noop_same_commit),
         ("DB: user setting", t_user_setting),
         ("DB: all user settings", t_user_all_settings),
         ("DB: notifications default", t_notifications_enabled_default),
@@ -1539,6 +1592,9 @@ def _test_business_logic():
         kb = create_admin_keyboard()
         assert kb is not None
         assert len(kb.inline_keyboard) > 0
+        first_row = kb.inline_keyboard[0]
+        button_texts = [btn.text for btn in first_row]
+        assert "История версий" in button_texts
 
     def t_main_keyboard_structure():
         from utils import create_main_keyboard

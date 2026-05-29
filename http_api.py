@@ -3705,11 +3705,14 @@ async def admin_health_metrics(request: web.Request) -> web.Response:
 
 async def api_version(request: web.Request) -> web.Response:
     """Возвращает текущую версию приложения и её описание (публичный эндпоинт)."""
+    from app_version import get_version_metadata, get_git_commit
     version, description = get_version_metadata()
+    git_commit = get_git_commit()
     return _add_cors_headers(web.json_response({
         "ok": True,
         "version": version,
         "description": description,
+        "git_commit": git_commit,
     }))
 
 

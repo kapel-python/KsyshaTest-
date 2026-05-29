@@ -7456,6 +7456,12 @@ async def wish_status_set(callback: CallbackQuery):
         await callback.answer("Не удалось обновить")
         return
 
+    try:
+        from http_api import broadcast_wish_status
+        asyncio.create_task(broadcast_wish_status(wish_id, new_status))
+    except Exception as e:
+        logger.error(f"Failed to broadcast wish status: {e}")
+
     # Обновляем только клавиатуру (галочку), текст не трогаем
     def make_kb(cur_status):
         rows = []

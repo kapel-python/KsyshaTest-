@@ -6715,6 +6715,24 @@
         title.textContent = _ui('wishStatusTitle');
         sheet.appendChild(title);
 
+        // Клик на backdrop — закрываем
+        const closePicker = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onEnd);
+          sheet.style.transition = 'transform 0.25s ease,opacity 0.25s ease';
+          sheet.style.transform = 'translateY(100%)';
+          sheet.style.opacity = '0';
+          backdrop.style.transition = 'opacity 0.25s ease';
+          backdrop.style.opacity = '0';
+          setTimeout(() => backdrop.remove(), 250);
+        };
+
+        backdrop.addEventListener('click', (e) => {
+          if (e.target === backdrop) {
+            closePicker();
+          }
+        });
+
         // Кнопки статусов
         Object.entries(WISH_STATUS).forEach(([key, s], i) => {
           const isCurrent = (tagEl.dataset.status === key);
@@ -6764,13 +6782,7 @@
           btn.onmouseleave = () => { if (!isCurrent) btn.style.background = 'var(--border-color,rgba(0,0,0,0.05))'; };
           btn.onclick = (e) => {
             e.stopPropagation();
-            // Анимация закрытия
-            sheet.style.transition = 'transform 0.25s ease,opacity 0.25s ease';
-            sheet.style.transform = 'translateY(100%)';
-            sheet.style.opacity = '0';
-            backdrop.style.transition = 'opacity 0.25s ease';
-            backdrop.style.opacity = '0';
-            setTimeout(() => backdrop.remove(), 250);
+            closePicker();
             if (!isCurrent) setWishStatus(wishId, key, tagEl);
           };
           sheet.appendChild(btn);
@@ -6779,17 +6791,43 @@
         backdrop.appendChild(sheet);
         document.body.appendChild(backdrop);
 
-        // Клик на backdrop — закрываем
-        backdrop.addEventListener('click', (e) => {
-          if (e.target === backdrop) {
-            sheet.style.transition = 'transform 0.25s ease,opacity 0.25s ease';
-            sheet.style.transform = 'translateY(100%)';
-            sheet.style.opacity = '0';
-            backdrop.style.transition = 'opacity 0.25s ease';
-            backdrop.style.opacity = '0';
-            setTimeout(() => backdrop.remove(), 250);
+        // ── Drag to close (same as AI Companion) ──
+        let startY = 0, dragY = 0, dragging = false;
+        function getClientY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
+
+        function onStart(e) {
+          if (e.target.closest('button')) return;
+          startY = getClientY(e);
+          dragY = 0;
+          dragging = true;
+          sheet.style.transition = 'none';
+          if (e.cancelable) e.preventDefault();
+        }
+
+        function onMove(e) {
+          if (!dragging) return;
+          dragY = Math.max(0, getClientY(e) - startY);
+          sheet.style.transform = `translateY(${dragY}px)`;
+          if (e.cancelable) e.preventDefault();
+        }
+
+        function onEnd() {
+          if (!dragging) return;
+          dragging = false;
+          if (dragY > sheet.offsetHeight * 0.35) {
+            closePicker();
+          } else {
+            sheet.style.transition = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)';
+            sheet.style.transform = 'translateY(0)';
           }
-        });
+        }
+
+        sheet.addEventListener('touchstart', onStart, { passive: false });
+        sheet.addEventListener('touchmove', onMove, { passive: false });
+        sheet.addEventListener('touchend', onEnd);
+        sheet.addEventListener('mousedown', onStart);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
       }
 
       function createWishElement(w, ownerLabel, isMyWish = false) {

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.25'
-description = 'Фикс пути базы данных в диагностике'
+version = '1.0.26'
+description = 'Automated release workflow test'
 
 
 def get_version_metadata() -> tuple[str, str]:

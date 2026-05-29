@@ -5632,28 +5632,28 @@ async def admin_diagnostics(callback: CallbackQuery):
     is_rollback_active = db.get_setting("rollback_active") == "1"
     target_commit = db.get_setting("rollback_target_commit") or "—"
     
-    rb_state = "Активена (Легитимный)" if is_rollback_active else "Неактивен"
+    rb_state = "Активен (Легитимный)" if is_rollback_active else "Неактивен"
     
     lines = [
         "🩺 <b>Системная Диагностика</b>\n",
-        f"<b>Running Version:</b> <code>{html.escape(running_ver)}</code>",
-        f"<b>Running Commit:</b> <code>{html.escape(running_commit)}</code>\n",
-        f"<b>Repo Branch:</b> <code>{html.escape(repo_branch)}</code>",
-        f"<b>Repo Commit:</b> <code>{html.escape(repo_commit[:8])}</code>",
-        f"<b>Repo Clean:</b> {'✅ Да' if is_clean else '❌ Нет'}\n",
-        f"<b>Rollback State:</b> {rb_state}"
+        f"<b>Запущенная версия:</b> <code>{html.escape(running_ver)}</code>",
+        f"<b>Запущенный коммит:</b> <code>{html.escape(running_commit)}</code>\n",
+        f"<b>Ветка репозитория:</b> <code>{html.escape(repo_branch)}</code>",
+        f"<b>Коммит репозитория:</b> <code>{html.escape(repo_commit[:8])}</code>",
+        f"<b>Репозиторий чист:</b> {'✅ Да' if is_clean else '❌ Нет'}\n",
+        f"<b>Состояние отката:</b> {rb_state}"
     ]
     if is_rollback_active:
-        lines.append(f"<b>Rollback Target Commit:</b> <code>{html.escape(target_commit[:8])}</code>")
+        lines.append(f"<b>Целевой коммит отката:</b> <code>{html.escape(target_commit[:8])}</code>")
         
     # Read last rollback history from DB settings
     last_rb_date = db.get_setting("last_rollback_date")
     if last_rb_date:
         lines.append(f"\n<b>История откатов (Последний):</b>")
         lines.append(f"Дата: {html.escape(last_rb_date)}")
-        lines.append(f"Source Version: <code>{html.escape(db.get_setting('last_rollback_source_ver') or '—')}</code>")
-        lines.append(f"Dest Version: <code>{html.escape(db.get_setting('last_rollback_dest_ver') or '—')}</code>")
-        lines.append(f"Target Commit: <code>{html.escape((db.get_setting('last_rollback_target') or '—')[:8])}</code>")
+        lines.append(f"Исходная версия: <code>{html.escape(db.get_setting('last_rollback_source_ver') or '—')}</code>")
+        lines.append(f"Целевая версия: <code>{html.escape(db.get_setting('last_rollback_dest_ver') or '—')}</code>")
+        lines.append(f"Целевой коммит: <code>{html.escape((db.get_setting('last_rollback_target') or '—')[:8])}</code>")
         
     import sqlite3
     db_path = "—"
@@ -5662,7 +5662,7 @@ async def admin_diagnostics(callback: CallbackQuery):
     except Exception:
         pass
         
-    lines.append(f"\n<b>DB Path:</b> <code>{html.escape(str(db_path))}</code>")
+    lines.append(f"\n<b>Путь к базе данных:</b> <code>{html.escape(str(db_path))}</code>")
     
     await callback_edit_or_answer(callback, 
         "\n".join(lines),
@@ -5751,16 +5751,16 @@ async def admin_version_history(callback: CallbackQuery):
             is_supported = _parse_version(str(ver)) >= (1, 0, 14)
             badges = []
             if commit and running_commit and commit[:8] == running_commit[:8]:
-                badges.append("🔄 Current")
+                badges.append("🔄 Текущая")
             if rb_active and commit and target_commit and commit[:8] == target_commit[:8]:
-                badges.append("📍 Rollback Target")
+                badges.append("📍 Цель отката")
                 
             if status == "broken":
-                badges.append("❌ Broken")
+                badges.append("❌ Сломана")
             elif not is_supported:
-                badges.append("⚠️ Legacy")
+                badges.append("⚠️ Устаревшая")
             else:
-                badges.append("✅ Stable")
+                badges.append("✅ Стабильная")
                 
             badges_str = " | ".join(badges)
             
@@ -6252,21 +6252,21 @@ async def admin_version_detail(callback: CallbackQuery):
     is_current = commit and running_commit and commit[:8] == running_commit[:8]
     
     if status == "broken":
-        status_label = "❌ Broken"
+        status_label = "❌ Сломана"
     elif not is_supported:
-        status_label = "⚠️ Legacy"
+        status_label = "⚠️ Устаревшая"
     else:
-        status_label = "✅ Stable"
+        status_label = "✅ Стабильная"
         
-    rollback_supported_label = "Yes" if is_supported and status != "broken" else "No"
-    current_running_label = "Yes" if is_current else "No"
+    rollback_supported_label = "Да" if is_supported and status != "broken" else "Нет"
+    current_running_label = "Да" if is_current else "Нет"
 
     text = (
         f"📦 <b>Детали версии</b>\n\n"
-        f"<b>Version:</b> <code>{ver_esc}</code>\n"
-        f"<b>Status:</b> {status_label}\n"
-        f"<b>Rollback Supported:</b> {rollback_supported_label}\n"
-        f"<b>Current Running Version:</b> {current_running_label}\n\n"
+        f"<b>Версия:</b> <code>{ver_esc}</code>\n"
+        f"<b>Статус:</b> {status_label}\n"
+        f"<b>Откат поддерживается:</b> {rollback_supported_label}\n"
+        f"<b>Запущенная версия:</b> {current_running_label}\n\n"
         f"<b>Коммит:</b>\n{commit_block}\n\n"
         f"<b>Дата:</b>\n{date_esc}\n\n"
         f"<b>Описание:</b>\n{desc_esc}"
@@ -6359,7 +6359,7 @@ def _get_rollback_status_block() -> str:
         status_lines.append("⚠️ <b>Активен откат</b>\n")
         status_lines.append(f"Запущенная версия: <code>{html.escape(str(running_ver))}</code>")
         status_lines.append(f"Запущенный коммит: <code>{html.escape(str(running_commit))}</code>\n")
-        status_lines.append("<b>Repository:</b>")
+        status_lines.append("<b>Репозиторий:</b>")
         status_lines.append(f"Ветка: <code>{html.escape(str(repo_branch))}</code>")
         status_lines.append(f"Коммит: <code>{html.escape(str(repo_commit))}</code>\n")
     else:

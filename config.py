@@ -59,6 +59,45 @@ class Config:
         if self.SITE_OPEN_DATE is None:
             self.SITE_OPEN_DATE = date(2026, 2, 8)
 
+        # Standardize single canonical database location based on environment
+        import logging
+        is_docker = os.path.exists("/.dockerenv")
+        canonical_host_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/memories.db"))
+        if os.path.exists("/workspace/data/memories.db"):
+            canonical_host_path = "/workspace/data/memories.db"
+            
+        # If the host path is exactly the container path (unlikely but possible), they match.
+        # Otherwise, if we're in Docker, use /app/data, if on host, use the absolute host path.
+        if is_docker:
+            resolved_path = "/app/data/memories.db"
+        else:
+            resolved_path = canonical_host_path
+            
+        self.DATABASE_PATH = resolved_path
+
+        # Logging output for audit verification
+        print(f"Database path: {self.DATABASE_PATH}")
+        
+        # Check for ghost databases and issue a warning
+        potential_ghosts = [
+            "/app/data/memories.db",
+            "/root/KsyshaTest/data/memories.db",
+            "/workspace/data/memories.db",
+            canonical_host_path
+        ]
+        
+        found_dbs = []
+        for p in set(potential_ghosts):
+            try:
+                if os.path.exists(p) and os.path.isfile(p):
+                    found_dbs.append(p)
+            except Exception:
+                pass
+                
+        if len(found_dbs) > 1:
+            print(f"WARNING: Multiple memories.db files detected across your system! Found at: {found_dbs}")
+            logging.warning(f"Multiple memories.db files detected! Found at: {found_dbs}")
+
         self.CATEGORIES = {
             "important_moments": {
                 "title": "💫 Важные моменты",

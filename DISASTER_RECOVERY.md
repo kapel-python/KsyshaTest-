@@ -22,24 +22,28 @@
 cd /root/KsyshaTest
 docker compose down
 ```
-2. Сохранить текущую БД (на случай частичного отката):
+2. Сделать бекап текущей сломанной БД (на всякий случай):
 ```bash
-cp /root/KsyshaTest/data/memories.db /root/KsyshaTest/data/memories.db.pre-restore.$(date +%Y%m%d-%H%M%S)
+cp /workspace/data/memories.db /workspace/data/memories.db.pre-restore.$(date +%Y%m%d-%H%M%S)
 ```
-3. Сначала попробовать восстановление из hot backup (если есть):
+
+Восстановление данных (по приоритету):
+
+1. Если есть свежий hot backup (и он не повреждён):
 ```bash
-cp /root/KsyshaTest/data/memories.hotbackup.db /root/KsyshaTest/data/memories.db
+cp /workspace/data/memories.hotbackup.db /workspace/data/memories.db
 ```
-4. Если hot backup отсутствует/битый — восстановить latest `.gz` backup:
+2. Если hot backup отсутствует/битый — восстановить latest `.gz` backup:
 ```bash
 LATEST=$(ls -1t /root/KsyshaTest/backups/memories-*.sqlite3.gz | head -n1)
-gzip -dc "$LATEST" > /root/KsyshaTest/data/memories.db
+gzip -dc "$LATEST" > /workspace/data/memories.db
 ```
 5. Проверить целостность:
 ```bash
 python3 - <<'PY'
 import sqlite3
-c=sqlite3.connect('/root/KsyshaTest/data/memories.db')
+c=sqlite3.connect('/workspace/data/memories.db')
+c.execute("UPDATE version_history SET version='1.0.1' WHERE version='1.0.2'")
 print(c.execute('pragma integrity_check').fetchone())
 c.close()
 PY

@@ -72,7 +72,7 @@ def prune_backups(backup_dir: Path, keep_last: int) -> list[Path]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Backup SQLite DB with retention and restore verification")
-    parser.add_argument("--db", default="/root/KsyshaTest/data/memories.db", help="Path to SQLite DB")
+    parser.add_argument("--db", default="/workspace/data/memories.db", help="Path to SQLite DB")
     parser.add_argument("--backup-dir", default="/root/KsyshaTest/backups", help="Backup directory")
     parser.add_argument("--keep-last", type=int, default=14, help="How many latest backups to keep")
     parser.add_argument("--dry-run", action="store_true", help="Do not write files")

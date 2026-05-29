@@ -1186,6 +1186,7 @@ async def _run_deep_diagnostics_background(bot, chat_id: int, msg_id: int):
         ("test_app_version_writer.py", "App Version Writer"),
         ("test_rollback_fallback.py", "Rollback Fallback"),
         ("test_rollback_state.py", "Rollback State"),
+        ("diag_load_test.py", "Load Testing"),
     ]
     
     _diagnostic_test_progress["total_expected"] = len(test_scripts)

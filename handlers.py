@@ -5666,90 +5666,9 @@ async def admin_diagnostics(callback: CallbackQuery):
     
     await callback_edit_or_answer(callback, 
         "\n".join(lines),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔥 Нагрузочные тесты", callback_data="run_load_diagnostics")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
-        ]),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]]),
         parse_mode=ParseMode.HTML
     )
-
-
-@router.callback_query(F.data == "run_load_diagnostics")
-async def run_load_diagnostics(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    if not db.is_creator(user_id):
-        await callback.answer(MSG_ACCESS_DENIED)
-        return
-        
-    await callback.answer("Запуск нагрузочных тестов...")
-    msg = await callback.message.answer("⏳ Инициализация нагрузочных тестов...")
-    asyncio.create_task(_run_load_diagnostics_background(callback.bot, msg.chat.id, msg.message_id))
-
-
-async def _run_load_diagnostics_background(bot, chat_id: int, msg_id: int):
-    from diag_load_test import run_diagnostics
-    
-    async def progress_callback(msg: str):
-        try:
-            await bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=msg_id,
-                text=f"🔥 <b>Нагрузочные тесты</b>\n\n{html.escape(msg)}",
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
-
-    try:
-        new_res, last_res = await run_diagnostics(progress_callback)
-        
-        lines = [
-            "🔥 <b>Нагрузочный тест завершён</b>\n",
-            "<b>HTTP:</b>",
-            f"✅ {new_res['http']['success']}/{new_res['http']['total']}",
-            f"Среднее: {new_res['http']['avg_ms']} ms",
-            f"Максимум: {new_res['http']['max_ms']} ms\n",
-            "<b>БД:</b>",
-            f"✅ {new_res['db']['success']}/{new_res['db']['total']}",
-            f"Среднее: {new_res['db']['avg_ms']} ms\n",
-            "<b>Память:</b>",
-            f"RAM: {new_res['memory']['ram_before']} MB → {new_res['memory']['ram_after']} MB ({'+' if new_res['memory']['growth'] >= 0 else ''}{new_res['memory']['growth']} MB)\n",
-            "<b>Здоровье:</b>",
-            f"Сайт: {'OK' if new_res['health']['website'] == 'OK' else '❌ FAIL'}",
-            f"БД: {'OK' if new_res['health']['db'] == 'OK' else '❌ FAIL'}",
-            f"Диагностика: {'OK' if new_res['health']['diagnostics'] == 'OK' else '❌ FAIL'}"
-        ]
-        
-        if last_res:
-            lines.append(
-                f"\n<i>(Прошлое измерение: {last_res['timestamp']}, HTTP: {last_res['http']['avg_ms']} ms, БД: {last_res['db']['avg_ms']} ms)</i>"
-            )
-            
-        markup = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🔙 Назад", callback_data="admin_diagnostics")
-        ]])
-        
-        await bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=msg_id,
-            text="\n".join(lines),
-            reply_markup=markup,
-            parse_mode="HTML"
-        )
-    except Exception as e:
-        logger.error(f"Error in load diagnostics: {e}")
-        try:
-            await bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=msg_id,
-                text=f"❌ <b>Ошибка при выполнении нагрузочных тестов:</b>\n<code>{html.escape(str(e))}</code>",
-                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text="🔙 Назад", callback_data="admin_diagnostics")
-                ]]),
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
 
 
 @router.callback_query(F.data.startswith("admin_version_history:"))

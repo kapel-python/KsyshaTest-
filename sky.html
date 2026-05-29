@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
+<head>\n
+    <script>
+    function logNavDebug(msg) {
+        try { fetch('/api/nav_debug', { method: 'POST', body: JSON.stringify({msg: msg, page: '/sky'}), headers: {'Content-Type': 'application/json'}, keepalive: true }); } catch(e) {}
+    }
+    </script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Наше небо</title>
@@ -776,7 +782,7 @@
     </div>
     <button class="sky-btn" id="btnSend">✦ отправить звезду</button>
     <button class="sky-btn" id="btnSwitch" onclick="switchSkyPanel()"></button>
-    <button class="sky-btn" id="btnClose" onclick="closeSky()">✕ закрыть</button>
+    <button class="sky-btn" id="btnClose" onclick="logNavDebug('Click handler executed'); setTimeout(function(){ logNavDebug('Setting location.href'); closeSky(); }, 50);">✕ закрыть</button>
 
   </div>
 </div>

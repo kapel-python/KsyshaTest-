@@ -1496,7 +1496,6 @@ def create_admin_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="История версий", callback_data="admin_version_history:0"),
             InlineKeyboardButton(text="🧩 Статус Git", callback_data="admin_git_status"),
         ],
-        [InlineKeyboardButton(text="🚀 Создать релиз", callback_data="admin_create_release")],
         [
             InlineKeyboardButton(text="📊 Статистика", callback_data="stats"),
             InlineKeyboardButton(text="📋 Админы", callback_data="list_admins"),

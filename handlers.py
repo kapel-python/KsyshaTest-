@@ -5608,7 +5608,7 @@ async def admin_panel(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("admin_version_history:"))
 async def admin_version_history(callback: CallbackQuery):
-    """Отображение истории версий с пагинацией"""
+    """Отображение истории версий с пагинацией и управлением релизами"""
     user_id = callback.from_user.id
     
     if not db.is_creator(user_id):
@@ -5635,7 +5635,7 @@ async def admin_version_history(callback: CallbackQuery):
     end_idx = start_idx + page_size
     page_versions = versions[start_idx:end_idx]
     
-    lines = ["📦 История версий"]
+    lines = ["📦 <b>История версий</b>"]
     
     if not page_versions:
         lines.append("\nИстория версий пуста.")
@@ -5667,10 +5667,10 @@ async def admin_version_history(callback: CallbackQuery):
             date_esc = html.escape(str(date_str))
             
             lines.append(
-                f"\nВерсия: {ver_esc}\n"
-                f"Описание: {desc_esc}\n"
-                f"Коммит: {commit_esc}\n"
-                f"Дата: {date_esc}"
+                f"\n<b>Версия:</b> <code>{ver_esc}</code>\n"
+                f"<b>Описание:</b> {desc_esc}\n"
+                f"<b>Коммит:</b> <code>{commit_esc}</code>\n"
+                f"<b>Дата:</b> {date_esc}"
             )
             
     lines.append(f"\nСтраница {page + 1} из {total_pages}")
@@ -5679,13 +5679,22 @@ async def admin_version_history(callback: CallbackQuery):
     
     keyboard = []
     
-    # 1. Под списком отображаем по одной кнопке для каждой версии на текущей странице
+    # 1. Кнопки управления релизами и откатами вверху списка (Спроектировано на будущее)
+    keyboard.append([
+        InlineKeyboardButton(text="🚀 Создать релиз", callback_data="admin_create_release"),
+        InlineKeyboardButton(text="↩️ Отменить откат (скоро)", callback_data="admin_undo_rollback_soon")
+    ])
+    
+    # 2. Под списком отображаем по кнопке "Детали" и "Откат" для каждой версии на текущей странице (Спроектировано на будущее)
     for v in page_versions:
         ver = v.get("version")
         if ver:
-            keyboard.append([InlineKeyboardButton(text=f"📦 Версия {ver}", callback_data=f"admin_version_detail:{ver}:{page}")])
+            keyboard.append([
+                InlineKeyboardButton(text=f"🔍 Версия {ver}", callback_data=f"admin_version_detail:{ver}:{page}"),
+                InlineKeyboardButton(text="⏪ Откат (скоро)", callback_data=f"admin_rollback_soon:{ver}")
+            ])
             
-    # 2. Кнопки пагинации
+    # 3. Кнопки пагинации
     row = []
     if page > 0:
         row.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"admin_version_history:{page - 1}"))
@@ -5695,7 +5704,7 @@ async def admin_version_history(callback: CallbackQuery):
     if row:
         keyboard.append(row)
         
-    keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")])
+    keyboard.append([InlineKeyboardButton(text="🔙 Назад в меню", callback_data="admin_panel")])
     
     reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     
@@ -6071,18 +6080,20 @@ async def admin_version_detail(callback: CallbackQuery):
     
     text = (
         f"📦 <b>Версия {ver_esc}</b>\n\n"
-        "Описание:\n"
+        "<b>Описание:</b>\n"
         f"{desc_esc}\n\n"
-        "Коммит:\n"
-        f"{commit_esc}\n\n"
-        "Дата:\n"
+        "<b>Коммит:</b>\n"
+        f"<code>{html.escape(str(commit))}</code>\n\n" if commit else "<b>Коммит:</b>\n—\n\n"
+    )
+    text += (
+        "<b>Дата создания:</b>\n"
         f"{date_esc}\n\n"
-        "---\n\n"
-        "Действия\n\n"
-        "(rollback functionality will be added later)"
+        "<b>Доступные действия:</b>\n"
+        "• Откат до этой версии (в разработке)"
     )
     
     keyboard = [
+        [InlineKeyboardButton(text="⏪ Откатить к этой версии (скоро)", callback_data=f"admin_rollback_soon:{ver}")],
         [InlineKeyboardButton(text="⬅️ Назад к списку", callback_data=f"admin_version_history:{page}")]
     ]
     
@@ -6091,6 +6102,29 @@ async def admin_version_detail(callback: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
         parse_mode=ParseMode.HTML
     )
+
+
+@router.callback_query(F.data == "admin_undo_rollback_soon")
+async def admin_undo_rollback_soon(callback: CallbackQuery):
+    """Заглушка для отмены отката версии"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+    await callback.answer("↩️ Функция отмены отката версии будет доступна в следующем обновлении.", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("admin_rollback_soon:"))
+async def admin_rollback_soon(callback: CallbackQuery):
+    """Заглушка для отката версии"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+    
+    parts = callback.data.split(":")
+    ver = parts[1] if len(parts) > 1 else "—"
+    await callback.answer(f"⏪ Функция отката к версии {ver} будет доступна в следующем обновлении.", show_alert=True)
 
 
 BACKUP_EXPORT_DIR = "backup"

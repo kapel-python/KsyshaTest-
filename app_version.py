@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = "1.0.2"
-description = "Improved selectable version history admin UI"
+version = "1.0.3"
+description = "Automated release workflow test"
 
 
 def get_version_metadata() -> tuple[str, str]:

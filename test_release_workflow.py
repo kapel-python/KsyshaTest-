@@ -66,12 +66,15 @@ async def execute_test_release():
         print("---------------------------------------------")
         
         # 1. Verify APP_VERSION increments on disk
-        from app_version import get_version_metadata as get_new_version_metadata
-        new_ver, new_desc = get_new_version_metadata()
+        import importlib
+        import app_version
+        importlib.reload(app_version)
+        new_ver, new_desc = app_version.get_version_metadata()
         print(f"New version: {new_ver}")
         print(f"New description: {new_desc}")
         
-        assert new_ver == "1.0.3", f"Expected version 1.0.3, got {new_ver}"
+        expected_new_ver = handlers.increment_patch_version(current_ver)
+        assert new_ver == expected_new_ver, f"Expected version {expected_new_ver}, got {new_ver}"
         assert new_desc == "Automated release workflow test", f"Expected correct description, got {new_desc}"
         report_lines.append("### 1. Version Increment\n")
         report_lines.append(f"- **Initial Version**: `{current_ver}`\n")

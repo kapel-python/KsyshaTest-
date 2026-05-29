@@ -5792,8 +5792,8 @@ def update_app_version_file(new_version: str, new_description: str):
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
         
-    content = re.sub(r'version\s*=\s*["\'].*?["\']', f'version = "{new_version}"', content)
-    content = re.sub(r'description\s*=\s*["\'].*?["\']', f'description = "{new_description}"', content)
+    content = re.sub(r'\bversion\s*=\s*["\'].*?["\']', f'version = "{new_version}"', content)
+    content = re.sub(r'\bdescription\s*=\s*["\'].*?["\']', f'description = "{new_description}"', content)
     
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)

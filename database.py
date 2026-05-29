@@ -1002,15 +1002,13 @@ class Database:
         changed_fields: list[str] = []
         if current_description != normalized_description:
             changed_fields.append("description")
-        if current_commit != normalized_commit:
-            changed_fields.append("git_commit")
 
         if not changed_fields:
             return
 
         conn.execute(
-            "UPDATE version_history SET description = ?, git_commit = ? WHERE version = ?",
-            (normalized_description, normalized_commit, normalized_version),
+            "UPDATE version_history SET description = ? WHERE version = ?",
+            (normalized_description, normalized_version),
         )
         logger.info(
             "Updated app version %s fields: %s",

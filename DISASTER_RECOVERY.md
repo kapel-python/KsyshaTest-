@@ -43,12 +43,15 @@ gzip -dc "$LATEST" > /workspace/data/memories.db
 python3 - <<'PY'
 import sqlite3
 c=sqlite3.connect('/workspace/data/memories.db')
-c.execute("UPDATE version_history SET version='1.0.1' WHERE version='1.0.2'")
 print(c.execute('pragma integrity_check').fetchone())
 c.close()
 PY
 ```
-6. Поднять стек на свежей версии:
+6. Восстановить код до стабильного коммита:
+```bash
+git checkout <known_good_commit_hash>
+```
+7. Поднять стек на свежей версии:
 ```bash
 cd /root/KsyshaTest
 docker compose up -d --build

@@ -63,9 +63,7 @@ class Config:
         import logging
         is_docker = os.path.exists("/.dockerenv")
         canonical_host_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/memories.db"))
-        if os.path.exists("/workspace/data/memories.db"):
-            canonical_host_path = "/workspace/data/memories.db"
-            
+        
         # If the host path is exactly the container path (unlikely but possible), they match.
         # Otherwise, if we're in Docker, use /app/data, if on host, use the absolute host path.
         if is_docker:

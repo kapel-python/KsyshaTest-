@@ -6078,6 +6078,10 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Описание релиза не найдено. Начните сначала.", show_alert=True)
         return
         
+    if db.get_setting("rollback_active") == "1":
+        await callback.answer("Ошибка: нельзя создать релиз во время активного отката.", show_alert=True)
+        return
+        
     await callback_edit_or_answer(callback, "🚀 <b>Запуск создания релиза...</b>\n\nВыполняю проверку репозитория...", parse_mode=ParseMode.HTML)
     
     try:

@@ -879,7 +879,7 @@ async def on_startup(bot):
             text=True,
             timeout=5
         )
-        if proc_ref.returncode == 0 and proc_ref.stdout.strip() == "HEAD":
+        if proc_ref.returncode == 0 and proc_ref.stdout.strip() == "HEAD" and db.get_setting("rollback_active") != "1":
             logger.info("Rollback: Detached HEAD detected on host workspace. Restoring to main branch...")
             subprocess.run(["git", "checkout", "main"], cwd=repo_root, check=True)
             logger.info("Rollback: Successfully restored host workspace to main branch.")

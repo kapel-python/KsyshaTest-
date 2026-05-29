@@ -125,7 +125,8 @@ async def execute_test_release():
         report_lines.append("✅ **Version history successfully recorded with matching metadata.**\n")
         
     except Exception as e:
-        err_msg = f"Release workflow validation failed: {e}"
+        import traceback
+        err_msg = f"Release workflow validation failed: {e}\n{traceback.format_exc()}"
         print(f"❌ {err_msg}")
         errors.append(err_msg)
         report_lines.append("❌ **Release workflow validation failed.**\n")

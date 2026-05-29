@@ -868,8 +868,9 @@ async def on_startup(bot):
 
     # Rollback Branch Recovery Check: Auto-restore detached HEAD to main branch
     try:
-        from app_version import _get_repo_root
+        from app_version import _get_repo_root, get_git_commit
         import subprocess
+        from database import db
         repo_root = _get_repo_root()
         proc_ref = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -882,6 +883,17 @@ async def on_startup(bot):
             logger.info("Rollback: Detached HEAD detected on host workspace. Restoring to main branch...")
             subprocess.run(["git", "checkout", "main"], cwd=repo_root, check=True)
             logger.info("Rollback: Successfully restored host workspace to main branch.")
+            
+        # Stale state cleanup
+        if db.get_setting("rollback_active") == "1":
+            target_commit = db.get_setting("rollback_target_commit")
+            running_commit = get_git_commit()
+            if target_commit and running_commit and running_commit[:8] != target_commit[:8]:
+                logger.info(f"Rollback: Stale state detected. Running commit ({running_commit[:8]}) does not match target ({target_commit[:8]}). Clearing DB.")
+                db.delete_setting("rollback_active")
+                db.delete_setting("rollback_previous_commit")
+                db.delete_setting("rollback_previous_version")
+                db.delete_setting("rollback_target_commit")
     except Exception as e:
         logger.error(f"Rollback Branch Recovery Hook error: {e}")
 

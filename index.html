@@ -158,6 +158,7 @@
             overflow: hidden;
             contain: layout paint style;
             isolation: isolate;
+            visibility: visible !important;
         }
         .lang-sweep-run {
             position: absolute;
@@ -14783,15 +14784,14 @@
       if (i < maxLen - 1) totalTextWidth += letterSpacing;
     }
 
-    const hostRect = host.getBoundingClientRect();
     const labelRect = labelEl.getBoundingClientRect();
     const boxWidth = Math.max(labelRect.width, totalTextWidth);
     const boxHeight = labelRect.height;
 
     const run = document.createElement('div');
     run.className = 'lang-sweep-run';
-    run.style.left = `${labelRect.left - hostRect.left}px`;
-    run.style.top = `${labelRect.top - hostRect.top}px`;
+    run.style.left = '0px';
+    run.style.top = '0px';
     run.style.width = `${boxWidth}px`;
     run.style.height = `${boxHeight}px`;
     run.style.direction = style.direction;
@@ -14876,7 +14876,7 @@
 
     const layer = document.createElement('div');
     layer.className = 'lang-sweep-layer';
-    host.appendChild(layer);
+    labelEl.appendChild(layer);
     _langPreviewLayer = layer;
     _langPreviewTargetLabel = labelEl;
     _langPreviewTargetLabelVisibility = labelEl.style.visibility || '';

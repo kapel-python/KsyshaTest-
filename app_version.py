@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.38'
-description = 'Вроде как оптимизировал смену темы'
+version = '1.0.39'
+description = 'Фикс шрифта и сдвижения вниз в анимации выборе языке'
 
 
 def get_version_metadata() -> tuple[str, str]:

@@ -5658,7 +5658,7 @@ async def admin_diagnostics(callback: CallbackQuery):
     import sqlite3
     db_path = "—"
     try:
-        db_path = db.engine.url.database or "—"
+        db_path = db.db_path or "—"
     except Exception:
         pass
         

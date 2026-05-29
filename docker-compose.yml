@@ -30,6 +30,7 @@ services:
       - ./media:/app/media
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/KsyshaTest:/workspace
+      - ~/.ssh:/root/.ssh:ro
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: ksysha-cloudflared

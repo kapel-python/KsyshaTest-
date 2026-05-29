@@ -5868,16 +5868,25 @@ async def admin_release_description_received(message: Message, state: FSMContext
         
     await state.update_data(release_description=description)
     
+    from app_version import get_version_metadata
+    current_ver, _ = get_version_metadata()
+    new_version = increment_patch_version(current_ver)
+    
     text = (
         "🚀 <b>Создание релиза</b>\n\n"
-        "Будет выполнено:\n"
+        "<b>Текущая версия:</b>\n"
+        f"<code>{html.escape(current_ver)}</code>\n\n"
+        "<b>Будет создана:</b>\n"
+        f"<code>{html.escape(new_version)}</code>\n\n"
+        "<b>Описание:</b>\n"
+        f"{html.escape(description)}\n\n"
+        "<b>Будет выполнено:</b>\n"
         "• git add .\n"
         "• git commit\n"
         "• git push\n"
         "• обновление версии\n"
+        "• запись в version_history\n"
         "• перезапуск проекта\n\n"
-        "<b>Описание:</b>\n"
-        f"{html.escape(description)}\n\n"
         "Продолжить?"
     )
     
@@ -5951,29 +5960,29 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
             subprocess.run(["git", "config", "user.name", "Ksysha Bot"], cwd=repo_root)
             subprocess.run(["git", "config", "user.email", "bot@ksysha.local"], cwd=repo_root)
             
-        # 5. Git add .
+        # 5. Update app_version.py BEFORE git add
+        await callback.message.answer("📝 Обновляю файл версии app_version.py...")
+        update_app_version_file(new_version, description)
+            
+        # 6. Git add .
         await callback.message.answer("📦 Добавляю файлы в коммит (git add .)...")
         subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
         
-        # 6. Git commit -m "Release v{new_version}: {description}"
+        # 7. Git commit -m "Release v{new_version}: {description}"
         commit_msg = f"Release v{new_version}: {description}"
         await callback.message.answer(f"💾 Создаю коммит: '{commit_msg}'...")
         subprocess.run(["git", "commit", "-m", commit_msg], cwd=repo_root, check=True)
         
-        # 7. Git push
+        # 8. Git push
         await callback.message.answer("📤 Отправляю изменения на GitHub (git push)...")
         res_push = subprocess.run(["git", "push"], cwd=repo_root, capture_output=True, text=True)
         if res_push.returncode != 0:
             raise Exception(f"git push завершился ошибкой:\nStdout: {res_push.stdout}\nStderr: {res_push.stderr}")
             
-        # 8. Get new commit hash
+        # 9. Get new commit hash
         res_hash = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True, check=True)
         new_commit = res_hash.stdout.strip()
         new_commit_short = new_commit[:7]
-        
-        # 9. Update app_version.py
-        await callback.message.answer("📝 Обновляю файл версии app_version.py...")
-        update_app_version_file(new_version, description)
         
         # 10. Write new version directly to version_history database table
         await callback.message.answer("💾 Записываю новый релиз в историю версий БД...")
@@ -5987,7 +5996,9 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
             raise Exception(f"Не удалось запустить перезапуск: {local_reason}")
             
         await callback.message.answer(
-            f"✅ <b>Релиз v{new_version} ({new_commit_short}) успешно создан и отправлен на GitHub!</b>\n\n"
+            f"✅ <b>Релиз успешно создан</b>\n"
+            f"Версия: <code>{html.escape(new_version)}</code>\n"
+            f"Коммит: <code>{html.escape(new_commit_short)}</code>\n\n"
             "Проект перезапускается. Пожалуйста, подождите 10-15 секунд.",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")]

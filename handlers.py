@@ -6076,13 +6076,14 @@ async def admin_version_detail(callback: CallbackQuery):
     commit_esc = html.escape(str(commit_str))
     date_esc = html.escape(str(date_str))
     
+    commit_block = f"<code>{html.escape(str(commit))}</code>" if commit else "—"
     text = (
         f"📦 <b>Версия {ver_esc}</b>\n\n"
-        "Описание:\n"
+        f"Описание:\n"
         f"{desc_esc}\n\n"
-        "Коммит:\n"
-        f"<code>{html.escape(str(commit))}</code>\n\n" if commit else "Коммит:\n—\n\n"
-        "Дата:\n"
+        f"Коммит:\n"
+        f"{commit_block}\n\n"
+        f"Дата:\n"
         f"{date_esc}"
     )
     

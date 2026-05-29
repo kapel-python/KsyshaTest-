@@ -43,7 +43,8 @@ from utils import (
     get_params_help_text, substitute_params,
     create_broadcast_target_keyboard,
     is_wishes_available, format_wish_text, create_wishes_menu_keyboard,
-    create_wishes_menu_keyboard_creator, create_wish_user_keyboard, create_wish_admin_keyboard,
+    create_wishes_menu_keyboard_creator, create_wishes_menu_keyboard_partner,
+    create_wish_user_keyboard, create_wish_admin_keyboard,
     create_wish_keyboard, wish_number_to_text,
     WISH_STATUS_LABELS,
     send_wish_with_media,
@@ -7183,16 +7184,11 @@ async def wishes_menu(callback: CallbackQuery):
         return
 
     wishes = db.get_user_wishes(user_id)
-    
     intro_text = (
-        "🎁 <b>Три желания</b>\n\n"
-        "Воспоминания — главный подарок от меня, но не единственный\n\n"
-        "В качестве бонуса ты можешь в любой момент добавить "
-        "до <b>трёх желаний без права отказа</b>\n\n"
-        "Но желание не должно угрожать твоему здоровью и да, "
-        "давай в рамках разумного"
+        "💫 <b>Мои желания</b>\n\n"
+        "Здесь можно добавлять любое количество желаний"
     )
-    await callback_edit_or_answer(callback, 
+    await callback_edit_or_answer(callback,
         intro_text,
         reply_markup=create_wishes_menu_keyboard(wishes),
         parse_mode=ParseMode.HTML
@@ -7307,13 +7303,13 @@ async def list_admins(callback: CallbackQuery):
 
 @router.callback_query(F.data == "creator_wishes_ksusha")
 @router.callback_query(F.data == "creator_wishes_partner")
-async def creator_wishes_ksusha(callback: CallbackQuery):
+@router.callback_query(F.data == "partner_wishes")
+async def partner_wishes_view(callback: CallbackQuery):
     """Просмотр желаний партнёра — работает для любой пары"""
     user_id = callback.from_user.id
     if not is_wishes_available():
         await callback.answer("Механика желаний ещё не активна")
         return
-    # Получаем partner_id из пары
     partner_id = db.get_partner_id(user_id)
     if partner_id is None:
         if not db.is_creator(user_id):
@@ -7324,55 +7320,35 @@ async def creator_wishes_ksusha(callback: CallbackQuery):
     wishes = db.get_user_wishes(partner_id)
     await safe_delete_callback_message(callback)
     partner_name = db.get_display_name(partner_id) or "партнёра"
-    await callback_edit_or_answer(callback, 
+    await callback_edit_or_answer(callback,
         f"🎁 <b>Желания {partner_name}</b>\n\n"
-        "Просмотр и управление желаниями",
-        reply_markup=create_wishes_menu_keyboard_creator(wishes),
+        "Просмотр желаний",
+        reply_markup=create_wishes_menu_keyboard_partner(wishes),
         parse_mode=ParseMode.HTML
     )
 
 
 @router.callback_query(F.data == "creator_wish_empty")
 async def creator_wish_empty(callback: CallbackQuery):
-    """Пустой слот желания у создателя — только подсказка"""
     await callback.answer("Партнёр ещё не добавил(а) это желание")
 
 
-@router.callback_query(F.data.startswith("wish_add_"))
+@router.callback_query(F.data == "wish_add_new")
 async def wish_add(callback: CallbackQuery, state: FSMContext):
     """Начало добавления желания — доступно обоим участникам пары"""
     user_id = callback.from_user.id
-
     if not is_wishes_available():
         await callback.answer("Эта функция сейчас недоступна")
         return
     if not db.is_in_couple(user_id) and not db.is_creator(user_id):
         await callback.answer("Эта функция недоступна — вы не состоите в паре")
         return
-    
-    try:
-        wish_number = int(callback.data.split("_")[2])
-    except Exception:
-        await callback.answer("Ошибка номера желания")
-        return
-    
-    if wish_number not in (1, 2, 3):
-        await callback.answer("Можно добавить только три желания")
-        return
-    
-    order_text = wish_number_to_text(wish_number)
-    
-    await state.update_data(wish_number=wish_number, wish_id=None, actor="user")
+    await state.update_data(wish_id=None)
     await state.set_state(WishesStates.waiting_for_wish_content)
-    
-    prompt_text = (
-        f"💫 <b>Добавление {order_text} желания</b>\n\n"
+    await callback_edit_or_answer(callback,
+        "💫 <b>Добавление желания</b>\n\n"
         "Опиши своё желание как угодно\n"
-        "Можно использовать любой текст и форматирование\n\n"
-    )
-    
-    await callback_edit_or_answer(callback, 
-        prompt_text,
+        "Можно использовать любой текст и форматирование\n\n",
         parse_mode=ParseMode.HTML
     )
 
@@ -7398,7 +7374,7 @@ async def wish_view(callback: CallbackQuery):
     
     text = format_wish_text(wish, user_id)
     
-    back_target = "wishes_menu" if wish.user_id == user_id else "creator_wishes_partner"
+    back_target = "wishes_menu" if wish.user_id == user_id else "partner_wishes"
     keyboard = create_wish_keyboard(wish.id, user_id, back_target=back_target)
     
     await send_wish_with_media(
@@ -7444,10 +7420,8 @@ async def wish_status_menu(callback: CallbackQuery):
     status_label = WISH_STATUS_LABELS.get(current, current)
     text = f"\U0001f3f7 <b>Статус желания #{wish_id}</b>\n\nТекущий: {status_label}\n\nВыбери новый:"
     try:
-        # Пробуем edit_text (работает если сообщение без медиа)
         await callback.message.edit_text(text, reply_markup=make_kb(current), parse_mode=ParseMode.HTML)
     except Exception:
-        # Если сообщение с медиа — отправляем новое
         try:
             await callback_edit_or_answer(callback, text, reply_markup=make_kb(current), parse_mode=ParseMode.HTML)
         except Exception:
@@ -7503,37 +7477,27 @@ async def wish_status_set(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("wish_edit_"))
 async def wish_edit(callback: CallbackQuery, state: FSMContext):
-    """Редактирование желания (и компаньон, и создатель)"""
+    """Редактирование желания — только автор"""
     user_id = callback.from_user.id
-    
     if not db.is_in_couple(user_id) and not db.is_creator(user_id):
         await callback.answer("Доступ запрещён")
         return
-    
     try:
         wish_id = int(callback.data.split("_")[2])
     except Exception:
         await callback.answer("Ошибка получения желания")
         return
-    
     wish = db.get_wish(wish_id)
     if not wish:
         await callback.answer(MSG_WISH_NOT_FOUND)
         return
-    
-    actor = "admin" if wish.user_id != user_id else "user"
-    
-    await state.update_data(
-        wish_number=wish.wish_number,
-        wish_id=wish.id,
-        actor=actor
-    )
+    if wish.user_id != user_id:
+        await callback.answer("Можно редактировать только свои желания")
+        return
+    await state.update_data(wish_id=wish.id)
     await state.set_state(WishesStates.waiting_for_wish_content)
-    
-    order_text = wish_number_to_text(wish.wish_number)
-    
-    await callback_edit_or_answer(callback, 
-        f"✏️ <b>Изменение {order_text} желания</b>\n\n"
+    await callback_edit_or_answer(callback,
+        f"✏️ <b>Изменение желания #{wish.id}</b>\n\n"
         f"Текущее желание:\n{sanitize_html_for_telegram(wish.content or '')}\n\n"
         "Отправь новый вариант",
         parse_mode=ParseMode.HTML
@@ -7569,13 +7533,15 @@ async def wish_delete(callback: CallbackQuery):
         logger.warning(f"wish_delete: желание id={wish_id} не найдено (user_id={user_id})")
         await callback.answer(MSG_WISH_NOT_FOUND)
         return
-    
+
+    if wish.user_id != user_id:
+        await callback.answer("Можно удалять только свои желания")
+        return
+
     logger.info(
         f"wish_delete: найдено желание id={wish.id}, wish_number={wish.wish_number} "
         f"(user_id={user_id})"
     )
-    
-    order_text = wish_number_to_text(wish.wish_number)
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
@@ -7587,9 +7553,8 @@ async def wish_delete(callback: CallbackQuery):
             callback_data=f"wish_delete_cancel_{wish_id}"
         )]
     ])
-    
-    await callback_edit_or_answer(callback, 
-        f"❓ <b>Удалить {order_text} желание?</b>\n\n"
+    await callback_edit_or_answer(callback,
+        f"❓ <b>Удалить желание #{wish.id}?</b>\n\n"
         f"Текущее желание:\n{sanitize_html_for_telegram(wish.content or '')}",
         reply_markup=keyboard,
         parse_mode=ParseMode.HTML
@@ -7622,6 +7587,10 @@ async def wish_delete_confirm(callback: CallbackQuery):
         logger.warning(f"wish_delete_confirm: желание id={wish_id} не найдено (user_id={user_id})")
         await callback.answer(MSG_WISH_NOT_FOUND)
         return
+
+    if wish.user_id != user_id:
+        await callback.answer("Можно удалять только свои желания")
+        return
     
     # Удаляем желание
     logger.info(f"wish_delete_confirm: удаляем желание id={wish_id} (user_id={user_id})")
@@ -7636,10 +7605,9 @@ async def wish_delete_confirm(callback: CallbackQuery):
     try:
         partner_id = db.get_partner_id(user_id)
         if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, "wishes"):
-            order_text = wish_number_to_text(wish.wish_number)
             user_name = db.get_display_name(user_id, fallback="Партнёр")
             notify_text = (
-                f"❌ {user_name} удалил(а) своё {order_text} желание.\n\n"
+                f"❌ {user_name} удалил(а) своё желание #{wish.id}.\n\n"
                 f"💬 Текст был:\n{sanitize_html_for_telegram(wish.content or '')}"
             )
             await callback.bot.send_message(
@@ -7654,12 +7622,11 @@ async def wish_delete_confirm(callback: CallbackQuery):
         )
     
     deleted_own = (wish.user_id == user_id)
-    
     if deleted_own:
         wishes = db.get_user_wishes(user_id)
         text_after = (
-            "💫 <b>Твои желания</b>\n\n"
-            "Здесь можно добавить до трёх желаний без права отказа но если они не угрожают твоему здоровью"
+            "💫 <b>Мои желания</b>\n\n"
+            "Желание удалено"
         )
         kb_after = create_wishes_menu_keyboard(wishes)
     else:
@@ -7667,8 +7634,7 @@ async def wish_delete_confirm(callback: CallbackQuery):
         wishes = db.get_user_wishes(partner_id_for_menu)
         partner_name = db.get_display_name(partner_id_for_menu) or "партнёра"
         text_after = f"🎁 <b>Желания {partner_name}</b>\n\nЖелание удалено"
-        kb_after = create_wishes_menu_keyboard_creator(wishes)
-    
+        kb_after = create_wishes_menu_keyboard_partner(wishes)
     try:
         await callback.message.edit_text(text_after, reply_markup=kb_after, parse_mode=ParseMode.HTML)
     except Exception:
@@ -7702,9 +7668,8 @@ async def wish_delete_cancel(callback: CallbackQuery):
         return
     
     text = format_wish_text(wish, user_id)
-    back_target = "wishes_menu" if wish.user_id == user_id else "creator_wishes_partner"
-    
-    await callback_edit_or_answer(callback, 
+    back_target = "wishes_menu" if wish.user_id == user_id else "partner_wishes"
+    await callback_edit_or_answer(callback,
         text,
         reply_markup=create_wish_keyboard(wish.id, user_id, back_target=back_target),
         parse_mode=ParseMode.HTML
@@ -7740,8 +7705,6 @@ async def admin_wish_delete(callback: CallbackQuery, state: FSMContext):
         await callback.answer(MSG_WISH_NOT_FOUND)
         return
     
-    order_text = wish_number_to_text(wish.wish_number)
-    
     await state.update_data(wish_id=wish.id)
     await state.set_state(AdminStates.waiting_for_wish_delete_reason)
     
@@ -7753,7 +7716,7 @@ async def admin_wish_delete(callback: CallbackQuery, state: FSMContext):
     ])
     
     await callback_edit_or_answer(callback, 
-        f"🗑️ <b>Удаление {order_text} желания</b>\n\n"
+        f"🗑️ <b>Удаление желания #{wish.id}</b>\n\n"
         "Можешь по желанию написать причину удаления, она будет отправлена партнёру\n",
         reply_markup=keyboard,
         parse_mode=ParseMode.HTML
@@ -7785,10 +7748,9 @@ async def admin_wish_delete_no_reason(callback: CallbackQuery, state: FSMContext
     
     try:
         if db.are_notifications_enabled(wish.user_id) and db.is_category_notif_enabled(wish.user_id, "wishes"):
-            order_text = wish_number_to_text(wish.wish_number)
             deleter_name = db.get_display_name(user_id, fallback="Партнёр")
             notify_text = (
-                f"❌ <b>Твоё {order_text} желание было удалено ({deleter_name})</b>\n\n"
+                f"❌ <b>Твоё желание #{wish.id} было удалено ({deleter_name})</b>\n\n"
                 "💬 Причина не указана"
             )
             await callback.bot.send_message(
@@ -8341,8 +8303,6 @@ async def process_wish_content(message: Message, state: FSMContext):
     user_id = message.from_user.id
     data = await state.get_data()
     
-    actor = data.get("actor", "user")
-    wish_number = data.get("wish_number")
     wish_id = data.get("wish_id")
     
     raw = (message.text or message.caption or "").strip()
@@ -8368,12 +8328,8 @@ async def process_wish_content(message: Message, state: FSMContext):
     
     created_new = False
     
-    if actor == "admin":
-        if not wish_id:
-            await message.answer("Не удалось определить, какое желание изменить")
-            await state.clear()
-            return
-        
+    wish_owner_id = message.from_user.id
+    if wish_id:
         db.update_wish(
             wish_id,
             content,
@@ -8382,114 +8338,58 @@ async def process_wish_content(message: Message, state: FSMContext):
             media_path=media_path
         )
         wish = db.get_wish(wish_id)
-        
-        if not wish:
-            await message.answer("Не удалось найти желание после обновления")
-            await state.clear()
-            return
-        
-        back_target = "wishes_menu" if wish.user_id == message.from_user.id else "creator_wishes_partner"
-        await message.answer(
-            "✅ Желание обновлено\n\n" + format_wish_text(wish, message.from_user.id),
-            reply_markup=create_wish_keyboard(wish.id, message.from_user.id, back_target=back_target),
-            parse_mode=ParseMode.HTML
-        )
-        
-        try:
-            # Уведомляем владельца желания (wish.user_id — тот, чьё желание изменили)
-            wish_owner_id = wish.user_id
-            if wish_owner_id and db.are_notifications_enabled(wish_owner_id) and db.is_category_notif_enabled(wish_owner_id, "wishes"):
-                order_text = wish_number_to_text(wish.wish_number)
-                editor_name = db.get_display_name(message.from_user.id, fallback="Партнёр")
-                notify_text = (
-                    f"✏️ <b>{editor_name} изменил(а) твоё {order_text} желание.</b>\n\n"
-                    + format_wish_text(wish, wish_owner_id)
-                )
-                await message.bot.send_message(
-                    chat_id=wish_owner_id,
-                    text=notify_text,
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="👀 Посмотреть желание", callback_data=f"wish_view_{wish.id}")]
-                    ]),
-                    parse_mode=ParseMode.HTML
-                )
-        except Exception as e:
-            logger.error(f"Ошибка при отправке уведомления партнёру об изменении желания: {e}")
+        created_new = False
     else:
-        if not wish_number:
-            await message.answer("Не удалось определить номер желания")
-            await state.clear()
-            return
-        # Желание принадлежит тому, кто его создаёт (текущий пользователь)
-        wish_owner_id = message.from_user.id
-        existing = db.get_wish_by_user_and_number(wish_owner_id, wish_number)
-
-        if existing:
-            db.update_wish(
-                existing.id,
-                content,
-                media_type=media_type,
-                media_file_id=media_file_id,
-                media_path=media_path
-            )
-            wish = db.get_wish(existing.id)
-        else:
-            new_id = db.add_wish(
-                wish_owner_id,
-                wish_number,
-                content,
-                media_type=media_type,
-                media_file_id=media_file_id,
-                media_path=media_path
-            )
-            if new_id == -1:
-                await message.answer("❌ Ошибка при сохранении желания.")
-                await state.clear()
-                return
-            wish = db.get_wish(new_id)
-            created_new = True
-        
-        if not wish:
-            await message.answer("Не удалось найти желание после сохранения")
-            await state.clear()
-            return
-        
-        order_text = wish_number_to_text(wish.wish_number).capitalize()
-        
-        await message.answer(
-            f"✅ {order_text} желание сохранено!\n\n" + format_wish_text(wish, message.from_user.id),
-            reply_markup=create_wish_user_keyboard(wish.id, message.from_user.id),
-            parse_mode=ParseMode.HTML
+        new_id = db.add_wish(
+            wish_owner_id,
+            content,
+            media_type=media_type,
+            media_file_id=media_file_id,
+            media_path=media_path
         )
-
-        try:
-            # Уведомляем партнёра пары
-            notify_partner_id = db.get_partner_id(message.from_user.id)
-            if notify_partner_id and db.are_notifications_enabled(notify_partner_id) and db.is_category_notif_enabled(notify_partner_id, "wishes"):
-                order_text = wish_number_to_text(wish.wish_number)
-                actor_name = db.get_display_name(message.from_user.id, fallback="Партнёр")
-                if created_new:
-                    header = f"✨ {actor_name} написал(а) {order_text} желание!"
-                else:
-                    header = f"✏️ {actor_name} изменил(а) {order_text} желание"
-
-                notify_text = header + "\n\n" + format_wish_text(wish, notify_partner_id)
-
-                await message.bot.send_message(
-                    chat_id=notify_partner_id,
-                    text=notify_text,
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(
-                            text="👀 Посмотреть желание",
-                            callback_data=f"wish_view_{wish.id}"
-                        )]
-                    ]),
-                    parse_mode=ParseMode.HTML
-                )
-        except Exception as e:
-            logger.error(f"Ошибка при отправке уведомления о желании партнёру: {e}")
+        if new_id == -1:
+            await message.answer("❌ Ошибка при сохранении желания.")
+            await state.clear()
+            return
+        wish = db.get_wish(new_id)
+        created_new = True
+    
+    if not wish:
+        await message.answer("Не удалось найти желание после сохранения")
+        await state.clear()
+        return
+        
+    await message.answer(
+        f"✅ Желание сохранено!\n\n" + format_wish_text(wish, message.from_user.id),
+        reply_markup=create_wish_user_keyboard(wish.id, message.from_user.id),
+        parse_mode=ParseMode.HTML
+    )
+    
+    try:
+        notify_partner_id = db.get_partner_id(message.from_user.id)
+        if notify_partner_id and db.are_notifications_enabled(notify_partner_id) and db.is_category_notif_enabled(notify_partner_id, "wishes"):
+            actor_name = db.get_display_name(message.from_user.id, fallback="Партнёр")
+            if created_new:
+                header = f"✨ {actor_name} написал(а) новое желание!"
+            else:
+                header = f"✏️ {actor_name} изменил(а) желание"
+            notify_text = header + "\n\n" + format_wish_text(wish, notify_partner_id)
+            await message.bot.send_message(
+                chat_id=notify_partner_id,
+                text=notify_text,
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(
+                        text="👀 Посмотреть желание",
+                        callback_data=f"wish_view_{wish.id}"
+                    )]
+                ]),
+                parse_mode=ParseMode.HTML
+            )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке уведомления о желании партнёру: {e}")
     
     await state.clear()
+
 
 
 async def process_user_id(message: Message, user_id: int, state: FSMContext):

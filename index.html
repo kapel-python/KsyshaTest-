@@ -6171,7 +6171,7 @@
       const _deferredLoaderState = {
         memories: { loading: false, done: false, page: 1, limit: 30, has_more: false },
         events: { loading: false, done: false, page: 1, limit: 20, has_more: false },
-        wishes: { loading: false, done: false, page: 1, limit: 3, has_more: false },
+        wishes: { loading: false, done: false, page: 1, limit: 50, has_more: false },
       };
 
       function _buildDeferredCacheKey(section, page, limit) {
@@ -6256,7 +6256,6 @@
             const wishesCont = document.getElementById('wishes_container');
             await _appendChunked(wishesCont, items, (w) => {
               const el = createWishElement(w, _ui('userPartner'));
-              el.dataset.wishNum = String(w.wish_number || 0);
               return el;
             }, { dedupeSet: st.loadedWishIds, idGetter: (x) => String(x.id || ''), chunkSize: 16 });
           }
@@ -6789,10 +6788,10 @@
         });
       }
 
-      function createWishElement(w, ownerLabel) {
+      function createWishElement(w, ownerLabel, isMyWish = false) {
 
         const div = document.createElement('div');
-        div.className = 'wish';
+        div.className = isMyWish ? 'wish my-wish' : 'wish partner-wish';
         ownerLabel = ownerLabel || _ui('userPartner');
 
         // Строка тегов: "💫 Желание" + статус
@@ -6817,14 +6816,7 @@
 
         const titleDiv = document.createElement('div');
         titleDiv.className = 'title';
-
-        function wishNumberLabel(n) {
-          if (n === 1) return _ui('wishFirst');
-          if (n === 2) return _ui('wishSecond');
-          if (n === 3) return _ui('wishThird');
-          return String(n);
-        }
-        titleDiv.textContent = ownerLabel + ' — ' + wishNumberLabel(w.wish_number) + ' ' + _ui('wishWord');
+        titleDiv.textContent = ownerLabel + ' — ' + _ui('wishWord');
         div.appendChild(titleDiv);
 
         const contentDiv = document.createElement('div');
@@ -7789,7 +7781,7 @@
         const memories   = data.server.memories  || [];
         const events     = data.server.events    || [];
         const wishesAll  = (data.server.wishes   || {});
-        const wishes     = wishesAll.partner || wishesAll.ksyusha || wishesAll.ksusha || [];
+        const wishes     = wishesAll.partner || [];
         const stats      = data.server.stats     || {};
         const aiHistory  = data.server.ai_history || [];
         const ls         = data.localStorage     || {};
@@ -9364,8 +9356,10 @@
           const events = Array.isArray(data.events) ? data.events : ((data.events && data.events.items) || []);
 
           const wishes = data.wishes || {};
-          const wishesPartnerRaw = wishes.partner || wishes.ksyusha || wishes.ksusha || [];
+          const wishesPartnerRaw = wishes.partner || [];
           const wishesPartner = Array.isArray(wishesPartnerRaw) ? wishesPartnerRaw : (wishesPartnerRaw.items || []);
+          const wishesUserRaw = wishes.user || [];
+          const wishesUser = Array.isArray(wishesUserRaw) ? wishesUserRaw : (wishesUserRaw.items || []);
           const deferred = data.deferred || {};
 
           const customCategories = data.custom_categories || [];
@@ -10205,29 +10199,37 @@
           let wishesCount = 0;
 
           const loadedWishIds = new Set();
-          wishesCount = await _appendChunked(wishesContainer, wishesPartner, (w) => {
-            const wishEl = createWishElement(w, _ui('userPartner'));
-            wishEl.dataset.wishNum = String(w.wish_number || 0);
+          
+          const myRole = getCurrentRole();
+          const myName = (window._siteUsers && window._siteUsers[myRole] && window._siteUsers[myRole].display) 
+                         || (myRole === 'creator' ? _ui('userCreator') : _ui('userPartner'));
+                         
+          const partnerRole = myRole === 'creator' ? 'partner' : 'creator';
+          const partnerName = (window._siteUsers && window._siteUsers[partnerRole] && window._siteUsers[partnerRole].display) 
+                              || (partnerRole === 'creator' ? _ui('userCreator') : _ui('userPartner'));
+
+          let partnerWishesCount = await _appendChunked(wishesContainer, wishesPartner, (w) => {
+            const wishEl = createWishElement(w, partnerName, false);
             return wishEl;
           }, { dedupeSet: loadedWishIds, idGetter: (x) => String(x.id || ''), chunkSize: 16 });
 
-          // Add ONE wish button for next free slot (как в боте)
+          let userWishesCount = await _appendChunked(wishesContainer, wishesUser, (w) => {
+            const wishEl = createWishElement(w, myName, true);
+            return wishEl;
+          }, { dedupeSet: loadedWishIds, idGetter: (x) => String(x.id || ''), chunkSize: 16 });
+
+          wishesCount = partnerWishesCount + userWishesCount;
+
+          // Add wish button (unlimited)
           const _wishRole = getCurrentRole();
           if (isPairRole(_wishRole) && wishesContainer) {
-            const _takenNums = new Set(wishesPartner.map(w => w.wish_number));
-            const _numLabels = { 1: 'первое', 2: 'второе', 3: 'третье' };
-            for (const n of [1, 2, 3]) {
-              if (!_takenNums.has(n)) {
-                const btnW = document.createElement('div');
-                btnW.className = 'add-btn-pill';
-                btnW.dataset.cat = 'wish';
-                { const _awf = _i('addWishFull'); btnW.innerHTML = '<span class="add-icon">💫</span> ' + (typeof _awf==='function' ? _awf(n) : _i('addWish')+' '+[,'','',''][n]+' '+_i('wishWord')); btnW.dataset.wishNum = String(n); }
-                btnW.style.marginBottom = '18px';
-                btnW.onclick = () => openAddModal('wish', n);
-                wishesContainer.prepend(btnW);
-                break; // только одна кнопка — следующий свободный слот
-              }
-            }
+            const btnW = document.createElement('div');
+            btnW.className = 'add-btn-pill';
+            btnW.dataset.cat = 'wish';
+            btnW.innerHTML = '<span class="add-icon">💫</span> ' + _i('addWish');
+            btnW.style.marginBottom = '18px';
+            btnW.onclick = () => openAddModal('wish');
+            wishesContainer.prepend(btnW);
           }
 
           // Блок "Осталось" до ближайшего события на дату (таймер каждую секунду)
@@ -12795,7 +12797,7 @@
           render(body, state) {
             body.innerHTML = '';
             _addAttachedFile = state.data._wishFile || null;
-            if (!state.data.wish_number) state.data.wish_number = 1;
+            if (!state.data) state.data = {};
 
             const wrap = _mkEl('div','add-step-wrap');
 
@@ -13063,9 +13065,7 @@
       function openAddModal(category, wishNum) {
         const role = getCurrentRole();
         if (!isPairRole(role)) return;
-        const initData = {};
-        if (category === 'wish' && wishNum) initData.wish_number = wishNum;
-        _addState = { category, stepIndex: 0, data: initData };
+        _addState = { category, stepIndex: 0, data: {} };
         _addAttachedFile = null;
         _renderAddModal();
         const modal = document.getElementById('addModal');
@@ -13336,7 +13336,10 @@
             };
             const cont = document.getElementById('wishes_container');
             if (cont) {
-              const el = createWishElement(w, _ui('userPartner'));
+              const myRole = getCurrentRole();
+              const myName = (window._siteUsers && window._siteUsers[myRole] && window._siteUsers[myRole].display) 
+                             || (myRole === 'creator' ? _ui('userCreator') : _ui('userPartner'));
+              const el = createWishElement(w, myName, true);
               el.style.animation = 'addCardPop 0.3s ease both';
               el.dataset.wishNum = String(w.wish_number);
               const btn = cont.querySelector('.add-btn-pill');
@@ -13486,39 +13489,18 @@
         }
       }
 
-      // After adding a wish — update the add button to next free slot
-      function _updateWishAddButton(cont, justAddedNumber) {
-        cont.querySelectorAll('.add-btn-pill').forEach(b => b.remove());
-        // Use data-wish-num attribute (reliable) with text fallback
-        const takenNums = new Set();
-        cont.querySelectorAll('.wish').forEach(el => {
-          if (el.dataset.wishNum) {
-            takenNums.add(Number(el.dataset.wishNum));
-          } else {
-            // fallback: parse from title text for wishes loaded from server
-            const titleEl = el.querySelector('.title');
-            if (!titleEl) return;
-            const t = titleEl.textContent;
-            if (t.includes('первое'))  takenNums.add(1);
-            if (t.includes('второе')) takenNums.add(2);
-            if (t.includes('третье')) takenNums.add(3);
-          }
-        });
-        const numLabels = { 1: 'первое', 2: 'второе', 3: 'третье' };
+      // After adding a wish — update the add button
+      function _updateWishAddButton(cont) {
+        cont.querySelectorAll('.add-btn-pill[data-cat="wish"]').forEach(b => b.remove());
         const role = getCurrentRole();
         if (!isPairRole(role)) return;
-        for (const n of [1, 2, 3]) {
-          if (!takenNums.has(n)) {
-            const btn = document.createElement('div');
-            btn.className = 'add-btn-pill';
-            btn.dataset.cat = 'wish';
-            btn.style.marginBottom = '18px';
-            { const _awf2 = _i('addWishFull'); btn.innerHTML = '<span class="add-icon">💫</span> ' + (typeof _awf2==='function' ? _awf2(n) : _i('addWish')+' '+numLabels[n]+' '+_i('wishWord')); btn.dataset.wishNum = String(n); }
-            btn.onclick = () => openAddModal('wish', n);
-            cont.prepend(btn);
-            break;
-          }
-        }
+        const btn = document.createElement('div');
+        btn.className = 'add-btn-pill';
+        btn.dataset.cat = 'wish';
+        btn.style.marginBottom = '18px';
+        btn.innerHTML = '<span class="add-icon">💫</span> ' + _i('addWish');
+        btn.onclick = () => openAddModal('wish');
+        cont.prepend(btn);
       }
 
       // ── Save ─────────────────────────────────────────────────
@@ -13676,7 +13658,7 @@
 
           if (isWish) {
             url      = '/api/create_wish';
-            bodyData = { visitor_id: vid, wish_number: s.data.wish_number || 1, content: (s.data.wish_content || '').trim() };
+            bodyData = { visitor_id: vid, content: (s.data.wish_content || '').trim() };
           } else if (isEv) {
             url      = '/api/create_event';
             bodyData = { visitor_id: vid, title: s.data.title, description: s.data.desc || '', event_datetime: s.data.datetime_db };

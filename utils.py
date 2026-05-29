@@ -1716,7 +1716,7 @@ def format_admin_details(admin: Dict, user_stats: Optional[Dict[str, int]] = Non
     return text
 
 def wish_number_to_text(number: int) -> str:
-    """Возвращает текстовое представление номера желания"""
+    """DEPRECATED: использовался для слотов 1-3. Оставлен для совместимости."""
     mapping = {
         1: "первое",
         2: "второе",
@@ -1733,8 +1733,7 @@ WISH_STATUS_LABELS = {
 def format_wish_text(wish: Wish, user_id: Optional[int] = None) -> str:
     """Форматирует текст желания для отображения. user_id — для учёта часового пояса в дате добавления."""
     from database import db
-    order_text = wish_number_to_text(wish.wish_number).capitalize()
-    text = f"{order_text} желание\n\n"
+    text = f"Желание #{wish.id}\n\n"
     text += "💬 " + sanitize_html_for_telegram((wish.content or "").strip()) + "\n\n"
 
     status = getattr(wish, "status", "created") or "created"
@@ -1903,90 +1902,87 @@ async def send_scheduled_event_with_media(
 
 
 def create_wishes_menu_keyboard(wishes: List[Wish]) -> InlineKeyboardMarkup:
-    """Клавиатура для меню желаний: сверху старые, снизу новые (wishes уже отсортированы по created_at ASC)."""
+    """Клавиатура для меню желаний пользователя: список + кнопка добавить."""
     keyboard: List[List[InlineKeyboardButton]] = []
-    filled = {w.wish_number for w in wishes}
-
     for wish in wishes:
-        order_text = wish_number_to_text(wish.wish_number).capitalize()
+        preview = (wish.content or "").strip()[:40]
+        if len((wish.content or "").strip()) > 40:
+            preview += "…"
         keyboard.append([
             InlineKeyboardButton(
-                text=f"💫 {order_text} желание",
+                text=f"💫 {preview}",
                 callback_data=f"wish_view_{wish.id}"
             )
         ])
-    for number in (1, 2, 3):
-        if number not in filled:
-            order_text = wish_number_to_text(number)
-            keyboard.append([
-                InlineKeyboardButton(
-                    text=f"➕ Добавить {order_text} желание",
-                    callback_data=f"wish_add_{number}"
-                )
-            ])
-            break
+    keyboard.append([
+        InlineKeyboardButton(
+            text="➕ Добавить желание",
+            callback_data="wish_add_new"
+        )
+    ])
     keyboard.append([
         InlineKeyboardButton(
             text="🔙 Назад",
             callback_data="back_to_main"
         )
     ])
-    
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def create_wishes_menu_keyboard_partner(wishes: List[Wish]) -> InlineKeyboardMarkup:
+    """Клавиатура просмотра желаний партнёра (читать онлайн): список без кнопки Добавить."""
+    keyboard: List[List[InlineKeyboardButton]] = []
+    for wish in wishes:
+        preview = (wish.content or "").strip()[:40]
+        if len((wish.content or "").strip()) > 40:
+            preview += "…"
+        keyboard.append([
+            InlineKeyboardButton(
+                text=f"💫 {preview}",
+                callback_data=f"wish_view_{wish.id}"
+            )
+        ])
+    keyboard.append([
+        InlineKeyboardButton(
+            text="🔙 Назад",
+            callback_data="back_to_main"
+        )
+    ])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def create_wishes_menu_keyboard_creator(wishes: List[Wish]) -> InlineKeyboardMarkup:
-    """Клавиатура меню желаний партнёра для создателя: сверху старые, снизу новые."""
-    keyboard: List[List[InlineKeyboardButton]] = []
-    for wish in wishes:
-        order_text = wish_number_to_text(wish.wish_number).capitalize()
-        keyboard.append([
-            InlineKeyboardButton(
-                text=f"💫 {order_text} желание",
-                callback_data=f"wish_view_{wish.id}"
-            )
-        ])
-    for number in (1, 2, 3):
-        if number not in {w.wish_number for w in wishes}:
-            order_text = wish_number_to_text(number).capitalize()
-            keyboard.append([
-                InlineKeyboardButton(
-                    text=f"— {order_text} желание (пусто)",
-                    callback_data="creator_wish_empty"
-                )
-            ])
-    keyboard.append([
-        InlineKeyboardButton(
-            text="🔙 Назад",
-            callback_data="back_to_main"
-        )
-    ])
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+    """Алиас для обратной совместимости."""
+    return create_wishes_menu_keyboard_partner(wishes)
 
 
 def create_wish_keyboard(wish_id: int, user_id: Optional[int] = None, back_target: str = "wishes_menu") -> InlineKeyboardMarkup:
-    """Единая клавиатура управления желанием — одинаковые права для обоих участников пары."""
+    """Клавиатура управления желанием. Редактирование/удаление — только автору. Статус — любому участнику пары."""
     from database import db
     keyboard = [
         [InlineKeyboardButton(
             text="🏷 Изменить статус",
             callback_data=f"wish_status_{wish_id}"
         )],
-        [InlineKeyboardButton(
+    ]
+    wish = db.get_wish(wish_id)
+    is_owner = wish and user_id and wish.user_id == user_id
+    if is_owner:
+        keyboard.append([InlineKeyboardButton(
             text="✏️ Изменить желание",
             callback_data=f"wish_edit_{wish_id}"
-        )],
-    ]
+        )])
     if user_id and db.is_favorites_enabled(user_id) and db.is_admin(user_id):
         in_fav = db.is_in_favorites(user_id, "wish", wish_id)
         keyboard.append([InlineKeyboardButton(
             text="❌ Удалить из избранного" if in_fav else "⭐ Добавить в избранное",
             callback_data=f"favorite_toggle_wish_{wish_id}"
         )])
-    keyboard.append([InlineKeyboardButton(
-        text="🗑️ Удалить желание",
-        callback_data=f"wish_delete_{wish_id}"
-    )])
+    if is_owner:
+        keyboard.append([InlineKeyboardButton(
+            text="🗑️ Удалить желание",
+            callback_data=f"wish_delete_{wish_id}"
+        )])
     back_label = "🔙 Назад к своим желаниям" if back_target == "wishes_menu" else "🔙 Назад к желаниям"
     keyboard.append([InlineKeyboardButton(
         text=back_label,
@@ -2001,8 +1997,8 @@ def create_wish_user_keyboard(wish_id: int, user_id: Optional[int] = None) -> In
 
 
 def create_wish_admin_keyboard(wish_id: int, user_id: Optional[int] = None) -> InlineKeyboardMarkup:
-    """Алиас для обратной совместимости — теперь те же права что и у user."""
-    return create_wish_keyboard(wish_id, user_id, back_target="creator_wishes_partner")
+    """Алиас для обратной совместимости — просмотр желания партнёра."""
+    return create_wish_keyboard(wish_id, user_id, back_target="partner_wishes")
 
 def save_media_file(file_content: bytes, file_extension: str) -> str:
     """Сохраняет медиа-файл на диск"""

@@ -1753,11 +1753,11 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
     all_memories = data.get("memories") or []
     all_events = data.get("events") or []
     wishes_obj = data.get("wishes") or {}
-    all_wishes = wishes_obj.get("partner") or wishes_obj.get("ksyusha") or wishes_obj.get("ksusha") or []
+    wishes_user = wishes_obj.get("user") or []
+    wishes_partner = wishes_obj.get("partner") or []
 
     mem_start = (page - 1) * limit
     evt_limit = max(10, min(40, limit // 2 or 10))
-    wish_limit = 3
     bootstrap_payload = {
         "creator_id": data.get("creator_id"),
         "ksusha_id": data.get("ksusha_id"),
@@ -1772,13 +1772,13 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
         "memories": all_memories[mem_start:mem_start + limit],
         "events": all_events[:evt_limit],
         "wishes": {
-            "ksusha": all_wishes[:wish_limit],
-            "partner": all_wishes[:wish_limit],
+            "user": wishes_user,
+            "partner": wishes_partner,
         },
         "deferred": {
             "memories": {"page": page, "limit": limit, "total": len(all_memories), "has_more": (mem_start + limit) < len(all_memories)},
             "events": {"page": 1, "limit": evt_limit, "total": len(all_events), "has_more": evt_limit < len(all_events)},
-            "wishes": {"page": 1, "limit": wish_limit, "total": len(all_wishes), "has_more": wish_limit < len(all_wishes)},
+            "wishes": {"page": 1, "limit": len(wishes_partner), "total": len(wishes_partner), "has_more": False},
         },
     }
     return _json_response_with_etag(request, bootstrap_payload)
@@ -1848,10 +1848,10 @@ async def wishes_data(request: web.Request) -> web.Response:
     if not visitor_id:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
-    page, limit = _parse_page_limit(request, default_limit=20, max_limit=50)
+    page, limit = _parse_page_limit(request, default_limit=20, max_limit=200)
     data = _collect_site_data(timezone_id, visitor_id, endpoint="api/wishes")
     wishes_obj = data.get("wishes") or {}
-    wishes = wishes_obj.get("partner") or wishes_obj.get("ksyusha") or wishes_obj.get("ksusha") or []
+    wishes = wishes_obj.get("partner") or []
     start = (page - 1) * limit
     payload = {
         "items": wishes[start:start + limit],
@@ -2048,6 +2048,7 @@ def _collect_site_data(
         creator_id = None
         partner_id = None
 
+    wishes_user = (db.get_user_wishes(visitor_user_id) if visitor_user_id else []) if wants_wishes else []
     wishes_partner = (db.get_user_wishes(partner_id) if partner_id else []) if wants_wishes else []
 
     # Статистика только в границах текущей пары.
@@ -2193,10 +2194,8 @@ def _collect_site_data(
         "events": [_event_to_public_dict(e, timezone_id) for e in events],
 
         "wishes": {
-
-            "ksusha": [_wish_to_public_dict(w, timezone_id) for w in wishes_partner],
+            "user": [_wish_to_public_dict(w, timezone_id) for w in wishes_user],
             "partner": [_wish_to_public_dict(w, timezone_id) for w in wishes_partner],
-
         },
 
         "favorites": favorites,
@@ -6505,14 +6504,12 @@ async def site_create_wish(request: web.Request) -> web.Response:
     visitor_id = _get_trusted_visitor_id(request, payload=p, payload_key="visitor_id", query_key="visitor_id")
     if not visitor_id:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}))
-    wish_number = p.get("wish_number")
     content_txt = (p.get("content") or "").strip()
+    wish_id_raw = p.get("wish_id")  # int or null — if set, update that wish
 
     user_id = _visitor_to_user_id(visitor_id)
     if not user_id:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}))
-    if not wish_number or wish_number not in (1, 2, 3):
-        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid wish_number"}))
     if not content_txt:
         return _add_cors_headers(web.json_response({"ok": False, "error": "empty content"}))
 
@@ -6524,14 +6521,17 @@ async def site_create_wish(request: web.Request) -> web.Response:
             return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_media_path"}, status=403))
         media_path = validated_media_path
     try:
-        # Update if exists, create if not
-        existing = db.get_wish_by_user_and_number(user_id, wish_number)
-        if existing:
-            db.update_wish(existing.id, content_txt,
-                           media_type=media_type_val, media_path=media_path)
-            wish_id = existing.id
+        wish_id_int = _safe_int(wish_id_raw) if wish_id_raw is not None else None
+        if wish_id_int:
+            existing = db.get_wish(wish_id_int)
+            if existing and existing.user_id == user_id:
+                db.update_wish(existing.id, content_txt,
+                               media_type=media_type_val, media_path=media_path)
+                wish_id = existing.id
+            else:
+                return _add_cors_headers(web.json_response({"ok": False, "error": "wish_not_found_or_forbidden"}))
         else:
-            wish_id = db.add_wish(user_id, wish_number, content_txt,
+            wish_id = db.add_wish(user_id, content_txt,
                                   media_type=media_type_val, media_path=media_path)
         if not wish_id or wish_id == -1:
             return _add_cors_headers(web.json_response({"ok": False, "error": "db error"}))

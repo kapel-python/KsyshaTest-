@@ -89,7 +89,6 @@ class Wish:
     """Класс для представления желания"""
     id: int
     user_id: int
-    wish_number: int
     content: str
     media_type: Optional[str]
     media_file_id: Optional[str]
@@ -97,6 +96,7 @@ class Wish:
     created_at: str
     updated_at: str
     status: str = "created"  # created | in_progress | done
+    wish_number: int = 0  # DEPRECATED: kept for backward compat only
 
 
 @dataclass
@@ -528,7 +528,7 @@ class Database:
                 )
             ''')
             
-            # Таблица желаний (максимум 3 на пользователя)
+            # Таблица желаний (неограниченное количество на пользователя; UNIQUE убрана миграцией)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS wishes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1668,7 +1668,7 @@ class Database:
                     title = (w.content or "").strip()[:50]
                     if len((w.content or "").strip()) > 50:
                         title += "..."
-                    wn = {1: "первое", 2: "второе", 3: "третье"}.get(w.wish_number, f"{w.wish_number}-е")
+                    wn = f"желание #{w.id}"
                     type_label = f"{wn.capitalize()} желание"
                 if query_lower and query_lower not in (title or "").lower() and query_lower not in (type_label or "").lower():
                     continue
@@ -1686,22 +1686,21 @@ class Database:
     def add_wish(
         self,
         user_id: int,
-        wish_number: int,
         content: str,
         media_type: Optional[str] = None,
         media_file_id: Optional[str] = None,
         media_path: Optional[str] = None,
     ) -> int:
-        """Создаёт новое желание"""
+        """Создаёт новое желание."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute('''
-                    INSERT INTO wishes (user_id, wish_number, content, media_type, media_file_id, media_path)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (user_id, wish_number, content, media_type, media_file_id, media_path))
+                    INSERT INTO wishes (user_id, content, media_type, media_file_id, media_path)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (user_id, content, media_type, media_file_id, media_path))
                 conn.commit()
                 wish_id = cursor.lastrowid
-                logger.info(f"Добавлено желание #{wish_id} пользователя {user_id} (номер {wish_number})")
+                logger.info(f"Добавлено желание #{wish_id} пользователя {user_id}")
                 return wish_id
         except Exception as e:
             logger.exception(f"Ошибка при добавлении желания: {e}")
@@ -1783,51 +1782,56 @@ class Database:
                 row = cursor.fetchone()
                 if not row:
                     return None
+                keys = set(row.keys())
                 return Wish(
                     id=row['id'],
                     user_id=row['user_id'],
-                    wish_number=row['wish_number'],
                     content=row['content'],
-                    media_type=row['media_type'] if 'media_type' in row.keys() else None,
-                    media_file_id=row['media_file_id'] if 'media_file_id' in row.keys() else None,
-                    media_path=row['media_path'] if 'media_path' in row.keys() else None,
+                    media_type=row['media_type'] if 'media_type' in keys else None,
+                    media_file_id=row['media_file_id'] if 'media_file_id' in keys else None,
+                    media_path=row['media_path'] if 'media_path' in keys else None,
                     created_at=row['created_at'],
                     updated_at=row['updated_at'],
-                    status=(row['status'] if 'status' in row.keys() else None) or 'created',
+                    status=(row['status'] if 'status' in keys else None) or 'created',
+                    wish_number=row['wish_number'] if 'wish_number' in keys else 0,
                 )
         except Exception as e:
             logger.exception(f"Ошибка при получении желания: {e}")
             return None
 
     def get_user_wishes(self, user_id: int) -> List[Wish]:
-        """Получает все желания пользователя (до 3-х штук)"""
+        """Получает все желания пользователя."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute(
                     'SELECT * FROM wishes WHERE user_id = ? ORDER BY created_at ASC',
                     (user_id,)
                 )
+                keys = None
+                rows = cursor.fetchall()
+                if rows:
+                    keys = set(rows[0].keys())
                 return [
                     Wish(
                         id=row['id'],
                         user_id=row['user_id'],
-                        wish_number=row['wish_number'],
                         content=row['content'],
-                        media_type=row['media_type'] if 'media_type' in row.keys() else None,
-                        media_file_id=row['media_file_id'] if 'media_file_id' in row.keys() else None,
-                        media_path=row['media_path'] if 'media_path' in row.keys() else None,
+                        media_type=row['media_type'] if keys and 'media_type' in keys else None,
+                        media_file_id=row['media_file_id'] if keys and 'media_file_id' in keys else None,
+                        media_path=row['media_path'] if keys and 'media_path' in keys else None,
                         created_at=row['created_at'],
                         updated_at=row['updated_at'],
-                        status=row['status'] if 'status' in row.keys() else 'created',
+                        status=(row['status'] if keys and 'status' in keys else None) or 'created',
+                        wish_number=row['wish_number'] if keys and 'wish_number' in keys else 0,
                     )
-                    for row in cursor.fetchall()
+                    for row in rows
                 ]
         except Exception as e:
             logger.exception(f"Ошибка при получении желаний пользователя: {e}")
             return []
 
     def get_wish_by_user_and_number(self, user_id: int, wish_number: int) -> Optional[Wish]:
-        """Получает конкретное желание по пользователю и номеру (1–3)"""
+        """DEPRECATED: использовался для слотовой системы 1-3. Оставлен для совместимости."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute(

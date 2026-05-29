@@ -31,10 +31,11 @@ async def execute_test_release():
         
         if status_info.get('is_clean', True):
             # Create a small dummy change to ensure there's something to commit
-            dummy_change_file = "dummy_change.txt"
+            from app_version import _get_repo_root
+            dummy_change_file = os.path.join(_get_repo_root(), "dummy_change.txt")
             with open(dummy_change_file, "w") as f:
                 f.write("trigger change")
-            print("Created dummy_change.txt to ensure uncommitted changes.")
+            print(f"Created {dummy_change_file} to ensure uncommitted changes.")
             status_info = get_git_status_info()
             
         assert not status_info.get('is_clean', True), "Repository must have changes to commit a release"

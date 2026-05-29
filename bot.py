@@ -80,6 +80,21 @@ _startup_test_progress = {
 _startup_tests_watch_tasks: dict[tuple[int, int], asyncio.Task] = {}
 _startup_tests_view_state: dict[tuple[int, int], dict] = {}
 
+_diagnostic_test_progress = {
+    "running": False,
+    "total_expected": 9,
+    "completed": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "section": "Подготовка",
+    "current_test": "Ожидание старта",
+    "error": "",
+    "logs": [],
+}
+_diagnostic_tests_watch_tasks: dict[tuple[int, int], asyncio.Task] = {}
+_diagnostic_tests_view_state: dict[tuple[int, int], dict] = {}
+
 CHECK_EXPIRED_INTERVAL_SEC = 60
 
 
@@ -241,7 +256,8 @@ def _startup_tests_view_keyboard(detailed: bool = False, page: int = 1) -> Inlin
         rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="startup_tests_back")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🧪 Посмотреть тесты", callback_data="startup_tests_view")]
+        [InlineKeyboardButton(text="🧪 Посмотреть тесты", callback_data="startup_tests_view")],
+        [InlineKeyboardButton(text="🧪 Глубокая диагностика", callback_data="run_deep_diagnostics")]
     ])
 
 
@@ -1039,6 +1055,303 @@ async def main():
         await bot.session.close()
         logger.info("Бот остановлен")
 
+
+# ==============================================================================
+# DEEP DIAGNOSTICS LAYER
+# ==============================================================================
+
+def _logs_total_pages_diag() -> int:
+    logs = _diagnostic_test_progress.get("logs") or []
+    completed = int(_diagnostic_test_progress.get("completed") or 0)
+    running = bool(_diagnostic_test_progress.get("running"))
+    total_for_pages = max(len(logs), completed + (1 if running else 0))
+    return max(1, (total_for_pages + 24) // 25)
+
+def _diagnostic_tests_view_keyboard(page: int = 1) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text="🔄 Обновить", callback_data="diag_tests_refresh")]]
+    pages = _logs_total_pages_diag()
+    page = max(1, min(page, pages))
+    if pages > 1:
+        btns = []
+        for idx in range(1, pages + 1):
+            label = f"✅ {idx}" if idx == page else str(idx)
+            btns.append(InlineKeyboardButton(text=label, callback_data=f"diag_tests_page_{idx}"))
+            if len(btns) == 4:
+                rows.append(btns)
+                btns = []
+        if btns:
+            rows.append(btns)
+    rows.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="diag_tests_back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+def _format_diagnostic_tests_block(page: int = 1) -> str:
+    total = _diagnostic_test_progress.get("total_expected", 9)
+    completed = _diagnostic_test_progress.get("completed", 0)
+    passed = _diagnostic_test_progress.get("passed", 0)
+    failed = _diagnostic_test_progress.get("failed", 0)
+    skipped = _diagnostic_test_progress.get("skipped", 0)
+    logs = _diagnostic_test_progress.get("logs", [])
+    running = _diagnostic_test_progress.get("running", False)
+
+    pages = _logs_total_pages_diag()
+    page = max(1, min(page, pages))
+
+    lines = ["🔬 <b>Глубокая диагностика</b>\n"]
+    if running:
+        lines.append(f"⏳ Выполняется: {completed}/{total}")
+        lines.append(f"Текущий тест: {_diagnostic_test_progress.get('current_test', 'Загрузка...')}\n")
+    else:
+        lines.append(f"✅ Успешно: {passed}/{total}")
+        if failed:
+            lines.append(f"❌ Провалено: {failed}")
+        lines.append(f"⚠️ Пропущено: {skipped}\n")
+        lines.append("Проверено:\n")
+
+    start_idx = (page - 1) * 25
+    end_idx = start_idx + 25
+    page_logs = logs[start_idx:end_idx]
+
+    for log in page_logs:
+        lines.append(log)
+
+    return "\n".join(lines)
+
+async def _diagnostic_tests_live_watch(chat_id: int, message_id: int, bot: Bot):
+    key = (chat_id, message_id)
+    last_text = ""
+    try:
+        while _diagnostic_test_progress.get("running", False):
+            await asyncio.sleep(2.0)
+            view_state = _diagnostic_tests_view_state.get(key) or {"page": 1}
+            page = int(view_state.get("page", 1))
+            txt = _format_diagnostic_tests_block(page=page)
+            if txt != last_text:
+                try:
+                    await bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        text=txt,
+                        reply_markup=_diagnostic_tests_view_keyboard(page=page),
+                        parse_mode="HTML"
+                    )
+                    last_text = txt
+                except Exception as e:
+                    if _is_message_not_modified_error(e):
+                        pass
+                    elif _is_rate_limit_edit_error(e):
+                        await asyncio.sleep(5.0)
+                    else:
+                        logger.error(f"Error updating diag test progress UI: {e}")
+    finally:
+        task = _diagnostic_tests_watch_tasks.get(key)
+        if task and task == asyncio.current_task():
+            _diagnostic_tests_watch_tasks.pop(key, None)
+
+def _ensure_diagnostic_tests_live_watch(chat_id: int, message_id: int, bot: Bot):
+    key = (chat_id, message_id)
+    task = _diagnostic_tests_watch_tasks.get(key)
+    if task and not task.done():
+        return
+    _diagnostic_tests_view_state.setdefault(key, {"page": 1})
+    _diagnostic_tests_watch_tasks[key] = asyncio.create_task(
+        _diagnostic_tests_live_watch(chat_id=chat_id, message_id=message_id, bot=bot)
+    )
+
+def _stop_diagnostic_tests_live_watch(chat_id: int, message_id: int):
+    key = (chat_id, message_id)
+    task = _diagnostic_tests_watch_tasks.pop(key, None)
+    _diagnostic_tests_view_state.pop(key, None)
+    if task and not task.done():
+        task.cancel()
+
+async def _run_deep_diagnostics_background(bot, chat_id: int, msg_id: int):
+    _diagnostic_test_progress.update({
+        "running": True,
+        "completed": 0,
+        "passed": 0,
+        "failed": 0,
+        "logs": [],
+        "current_test": "Инициализация...",
+    })
+
+    _ensure_diagnostic_tests_live_watch(chat_id, msg_id, bot)
+
+    test_scripts = [
+        ("diag_release_workflow.py", "Release Infrastructure"),
+        ("diag_rollback_workflow.py", "Rollback Infrastructure"),
+        ("diag_startup_hook.py", "Startup Hook"),
+        ("test_auth.py", "Auth"),
+        ("test_version_ux.py", "Version UX"),
+        ("test_health_url.py", "Health Checks"),
+        ("test_app_version_writer.py", "App Version Writer"),
+        ("test_rollback_fallback.py", "Rollback Fallback"),
+        ("test_rollback_state.py", "Rollback State"),
+    ]
+    
+    _diagnostic_test_progress["total_expected"] = len(test_scripts)
+    
+    passed = 0
+    failed = 0
+    
+    from app_version import _get_repo_root
+    import sys
+    repo_root = _get_repo_root()
+
+    for script, label in test_scripts:
+        _diagnostic_test_progress["current_test"] = label
+        
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, script,
+                cwd=repo_root,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT
+            )
+            stdout, _ = await proc.communicate()
+            
+            if proc.returncode == 0:
+                passed += 1
+                _diagnostic_test_progress["logs"].append(f"✅ {label}")
+            else:
+                failed += 1
+                _diagnostic_test_progress["logs"].append(f"❌ {label}")
+                logger.error(f"Diagnostics {label} failed:\n{stdout.decode('utf-8', errors='replace')}")
+        except Exception as e:
+            failed += 1
+            _diagnostic_test_progress["logs"].append(f"❌ {label} (Error)")
+            logger.error(f"Diagnostics {label} threw exception: {e}")
+            
+        _diagnostic_test_progress["passed"] = passed
+        _diagnostic_test_progress["failed"] = failed
+        _diagnostic_test_progress["completed"] += 1
+
+    _diagnostic_test_progress["running"] = False
+    _diagnostic_test_progress["current_test"] = "Завершено"
+
+    _stop_diagnostic_tests_live_watch(chat_id, msg_id)
+
+    lines = ["🔬 <b>Глубокая диагностика завершена</b>\n"]
+    lines.append(f"✅ Успешно: {passed}/{len(test_scripts)}")
+    if failed:
+        lines.append(f"❌ Провалено: {failed}")
+    lines.append("⚠️ Пропущено: 0\n")
+    lines.append("Проверено:\n")
+    
+    for log in _diagnostic_test_progress["logs"]:
+        lines.append(log)
+
+    try:
+        await bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=msg_id,
+            text="\n".join(lines),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🧪 Посмотреть детали", callback_data="diag_tests_view")]
+            ]),
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send final diagnostic report: {e}")
+
+@startup_router.callback_query(F.data == "run_deep_diagnostics")
+async def run_deep_diagnostics(callback: CallbackQuery):
+    if not db.is_creator(callback.from_user.id):
+        await callback.answer("Отказано в доступе", show_alert=True)
+        return
+        
+    if _diagnostic_test_progress.get("running"):
+        await callback.answer("Диагностика уже выполняется", show_alert=True)
+        return
+        
+    await callback.answer("Запуск глубокой диагностики...")
+    
+    msg = await callback.message.answer("Подготовка к диагностике...")
+    
+    asyncio.create_task(_run_deep_diagnostics_background(callback.bot, msg.chat.id, msg.message_id))
+
+@startup_router.callback_query(F.data == "diag_tests_view")
+async def diag_tests_view(callback: CallbackQuery):
+    key = (callback.message.chat.id, callback.message.message_id)
+    _diagnostic_tests_view_state[key] = {"page": 1}
+    _ensure_diagnostic_tests_live_watch(callback.message.chat.id, callback.message.message_id, callback.bot)
+    try:
+        await callback.message.edit_text(
+            text=_format_diagnostic_tests_block(page=1),
+            reply_markup=_diagnostic_tests_view_keyboard(page=1),
+            parse_mode="HTML"
+        )
+        await callback.answer()
+    except Exception as e:
+        await callback.answer(str(e))
+
+@startup_router.callback_query(F.data == "diag_tests_refresh")
+async def diag_tests_refresh(callback: CallbackQuery):
+    key = (callback.message.chat.id, callback.message.message_id)
+    page = int((_diagnostic_tests_view_state.get(key) or {}).get("page") or 1)
+    try:
+        await callback.message.edit_text(
+            text=_format_diagnostic_tests_block(page=page),
+            reply_markup=_diagnostic_tests_view_keyboard(page=page),
+            parse_mode="HTML"
+        )
+        await callback.answer("Обновлено")
+    except Exception as e:
+        if _is_message_not_modified_error(e):
+            await callback.answer("Нет новых изменений")
+        else:
+            await callback.answer(str(e))
+
+@startup_router.callback_query(F.data.startswith("diag_tests_page_"))
+async def diag_tests_page(callback: CallbackQuery):
+    try:
+        page = int(callback.data.split("_")[-1])
+    except ValueError:
+        page = 1
+    key = (callback.message.chat.id, callback.message.message_id)
+    _diagnostic_tests_view_state[key] = {"page": page}
+    try:
+        await callback.message.edit_text(
+            text=_format_diagnostic_tests_block(page=page),
+            reply_markup=_diagnostic_tests_view_keyboard(page=page),
+            parse_mode="HTML"
+        )
+        await callback.answer()
+    except Exception as e:
+        if _is_message_not_modified_error(e):
+            await callback.answer()
+        else:
+            await callback.answer(str(e))
+
+@startup_router.callback_query(F.data == "diag_tests_back")
+async def diag_tests_back(callback: CallbackQuery):
+    key = (callback.message.chat.id, callback.message.message_id)
+    _stop_diagnostic_tests_live_watch(callback.message.chat.id, callback.message.message_id)
+    
+    passed = _diagnostic_test_progress.get("passed", 0)
+    failed = _diagnostic_test_progress.get("failed", 0)
+    total = _diagnostic_test_progress.get("total_expected", 9)
+    
+    lines = ["🔬 <b>Глубокая диагностика завершена</b>\n"]
+    lines.append(f"✅ Успешно: {passed}/{total}")
+    if failed:
+        lines.append(f"❌ Провалено: {failed}")
+    lines.append("⚠️ Пропущено: 0\n")
+    lines.append("Проверено:\n")
+    
+    for log in _diagnostic_test_progress.get("logs", []):
+        lines.append(log)
+
+    try:
+        await callback.message.edit_text(
+            text="\n".join(lines),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🧪 Посмотреть детали", callback_data="diag_tests_view")]
+            ]),
+            parse_mode="HTML"
+        )
+        await callback.answer()
+    except Exception as e:
+        await callback.answer(str(e))
 
 if __name__ == "__main__":
     try:

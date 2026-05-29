@@ -5611,6 +5611,66 @@ async def admin_panel(callback: CallbackQuery):
     )
 
 
+@router.callback_query(F.data == "admin_diagnostics")
+async def admin_diagnostics(callback: CallbackQuery):
+    """Панель диагностики системы"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+        
+    await callback.answer("Собираю диагностику...")
+    
+    from app_version import version as running_ver, get_git_commit, get_git_status_info
+    running_commit = get_git_commit() or "—"
+    status_info = get_git_status_info()
+    
+    repo_branch = status_info.get("branch", "—")
+    repo_commit = status_info.get("commit", "—")
+    is_clean = status_info.get("is_clean", True)
+    
+    is_rollback_active = db.get_setting("rollback_active") == "1"
+    target_commit = db.get_setting("rollback_target_commit") or "—"
+    
+    rb_state = "Активена (Легитимный)" if is_rollback_active else "Неактивен"
+    
+    lines = [
+        "🩺 <b>Системная Диагностика</b>\n",
+        f"<b>Running Version:</b> <code>{html.escape(running_ver)}</code>",
+        f"<b>Running Commit:</b> <code>{html.escape(running_commit)}</code>\n",
+        f"<b>Repo Branch:</b> <code>{html.escape(repo_branch)}</code>",
+        f"<b>Repo Commit:</b> <code>{html.escape(repo_commit[:8])}</code>",
+        f"<b>Repo Clean:</b> {'✅ Да' if is_clean else '❌ Нет'}\n",
+        f"<b>Rollback State:</b> {rb_state}"
+    ]
+    if is_rollback_active:
+        lines.append(f"<b>Rollback Target Commit:</b> <code>{html.escape(target_commit[:8])}</code>")
+        
+    # Read last rollback history from DB settings
+    last_rb_date = db.get_setting("last_rollback_date")
+    if last_rb_date:
+        lines.append(f"\n<b>История откатов (Последний):</b>")
+        lines.append(f"Дата: {html.escape(last_rb_date)}")
+        lines.append(f"Source Version: <code>{html.escape(db.get_setting('last_rollback_source_ver') or '—')}</code>")
+        lines.append(f"Dest Version: <code>{html.escape(db.get_setting('last_rollback_dest_ver') or '—')}</code>")
+        lines.append(f"Target Commit: <code>{html.escape((db.get_setting('last_rollback_target') or '—')[:8])}</code>")
+        
+    import sqlite3
+    db_path = "—"
+    try:
+        db_path = db.engine.url.database or "—"
+    except Exception:
+        pass
+        
+    lines.append(f"\n<b>DB Path:</b> <code>{html.escape(str(db_path))}</code>")
+    
+    await callback_edit_or_answer(callback, 
+        "\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]]),
+        parse_mode=ParseMode.HTML
+    )
+
+
 @router.callback_query(F.data.startswith("admin_version_history:"))
 async def admin_version_history(callback: CallbackQuery):
     """Отображение истории версий с пагинацией и управлением релизами"""
@@ -5650,11 +5710,24 @@ async def admin_version_history(callback: CallbackQuery):
     if not page_versions:
         lines.append("\nИстория версий пуста.")
     else:
+        from app_version import get_git_commit
+        running_commit = get_git_commit() or ""
+        rb_active = db.get_setting("rollback_active") == "1"
+        target_commit = db.get_setting("rollback_target_commit") or ""
+        
+        def _parse_version(v_str):
+            try: return tuple(map(int, v_str.split(".")))
+            except Exception: return (0, 0, 0)
+
         for v in page_versions:
             ver = v.get("version") or "—"
             desc = v.get("description") or "—"
             commit = v.get("git_commit")
             commit_str = commit[:7] if commit else "—"
+            try:
+                status = v.get("status") or "stable"
+            except Exception:
+                status = "stable"
             
             date_str = "—"
             created_at = v.get("created_at")
@@ -5670,14 +5743,29 @@ async def admin_version_history(callback: CallbackQuery):
                     except Exception:
                         date_str = created_at
                 
-            # Escape HTML characters to avoid parsing errors in Telegram
             ver_esc = html.escape(str(ver))
             desc_esc = html.escape(str(desc))
             commit_esc = html.escape(str(commit_str))
             date_esc = html.escape(str(date_str))
             
+            is_supported = _parse_version(str(ver)) >= (1, 0, 14)
+            badges = []
+            if commit and running_commit and commit[:8] == running_commit[:8]:
+                badges.append("🔄 Current")
+            if rb_active and commit and target_commit and commit[:8] == target_commit[:8]:
+                badges.append("📍 Rollback Target")
+                
+            if status == "broken":
+                badges.append("❌ Broken")
+            elif not is_supported:
+                badges.append("⚠️ Legacy")
+            else:
+                badges.append("✅ Stable")
+                
+            badges_str = " | ".join(badges)
+            
             lines.append(
-                f"\n<b>Версия:</b> <code>{ver_esc}</code>\n"
+                f"\n<b>Версия:</b> <code>{ver_esc}</code> [{badges_str}]\n"
                 f"<b>Описание:</b> {desc_esc}\n"
                 f"<b>Коммит:</b> <code>{commit_esc}</code>\n"
                 f"<b>Дата:</b> {date_esc}"
@@ -5881,12 +5969,25 @@ async def admin_create_release(callback: CallbackQuery, state: FSMContext):
         )
         return
         
+    rb_active = db.get_setting("rollback_active") == "1"
+    warn_msg = ""
+    if rb_active:
+        warn_msg += "⚠️ <b>Внимание:</b> Активен откат. Создание нового релиза автоматически завершит откат.\n\n"
+        
+    dirty_files = status_info.get("modified_files", [])
+    if dirty_files:
+        warn_msg += "⚠️ <b>Измененные файлы (войдут в релиз):</b>\n" + "\n".join([f"• <code>{html.escape(f)}</code>" for f in dirty_files[:5]])
+        if len(dirty_files) > 5:
+            warn_msg += f"\n<i>...и еще {len(dirty_files)-5} файлов</i>"
+        warn_msg += "\n\n"
+        
     # Ask for description
     await callback.message.answer(
-        "Введите описание новой версии.",
+        warn_msg + "Введите описание новой версии:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="❌ Отмена", callback_data="admin_cancel_release")]
-        ])
+        ]),
+        parse_mode=ParseMode.HTML
     )
     await state.set_state(AdminStates.waiting_for_release_description)
     await _delete_callback_message_silent(callback)
@@ -6134,18 +6235,37 @@ async def admin_version_detail(callback: CallbackQuery):
     date_esc = html.escape(str(date_str))
     
     commit_block = f"<code>{html.escape(str(commit))}</code>" if commit else "—"
+    def _parse_version(v_str):
+        try:
+            return tuple(map(int, v_str.split(".")))
+        except Exception:
+            return (0, 0, 0)
+            
+    is_supported = _parse_version(ver) >= (1, 0, 14)
     
-    status_emoji = "✅ Стабильна" if status == "stable" else "❌ СЛОМАНА"
+    from app_version import get_git_commit
+    running_commit = get_git_commit()
+    is_current = commit and running_commit and commit[:8] == running_commit[:8]
     
+    if status == "broken":
+        status_label = "❌ Broken"
+    elif not is_supported:
+        status_label = "⚠️ Legacy"
+    else:
+        status_label = "✅ Stable"
+        
+    rollback_supported_label = "Yes" if is_supported and status != "broken" else "No"
+    current_running_label = "Yes" if is_current else "No"
+
     text = (
-        f"📦 <b>Версия {ver_esc}</b>\n"
-        f"Статус: {status_emoji}\n\n"
-        f"Описание:\n"
-        f"{desc_esc}\n\n"
-        f"Коммит:\n"
-        f"{commit_block}\n\n"
-        f"Дата:\n"
-        f"{date_esc}"
+        f"📦 <b>Детали версии</b>\n\n"
+        f"<b>Version:</b> <code>{ver_esc}</code>\n"
+        f"<b>Status:</b> {status_label}\n"
+        f"<b>Rollback Supported:</b> {rollback_supported_label}\n"
+        f"<b>Current Running Version:</b> {current_running_label}\n\n"
+        f"<b>Коммит:</b>\n{commit_block}\n\n"
+        f"<b>Дата:</b>\n{date_esc}\n\n"
+        f"<b>Описание:</b>\n{desc_esc}"
     )
     
     # Check rollback button rules
@@ -6338,14 +6458,39 @@ async def admin_rollback_trigger(callback: CallbackQuery):
             "локальный безопасный перезапуск.</i>"
         )
 
+    from app_version import version as current_ver, get_git_commit
+    current_commit = get_git_commit() or "—"
+    is_rollback_active = db.get_setting("rollback_active") == "1"
+    
+    warnings = []
+    if is_rollback_active:
+        warnings.append("⚠️ <b>Активен другой откат.</b> Выполнение нового отката перезапишет текущий.")
+        
+    with db._get_connection() as conn:
+        status_row = conn.execute("SELECT status FROM version_history WHERE version = ?", (ver,)).fetchone()
+        target_status = status_row["status"] if status_row else "stable"
+        
+    if target_status == "broken":
+        warnings.append("❌ <b>СЛОМАННАЯ ВЕРСИЯ:</b> Откат к этой версии крайне не рекомендуется.")
+        
+    def _parse_version(v_str):
+        try: return tuple(map(int, v_str.split(".")))
+        except Exception: return (0, 0, 0)
+    if _parse_version(ver) < (1, 0, 14):
+        warnings.append("⚠️ <b>Legacy Версия:</b> Версия не поддерживает фреймворк отката. После отката UI возврата не будет доступен.")
+        
+    warning_block = "\n".join(warnings) + "\n\n" if warnings else ""
+    
     text = (
         "⚠️ <b>Подтверждение отката</b>\n\n"
-        "Вы собираетесь откатить проект к версии:\n\n"
-        f"<b>Версия:</b> <code>{html.escape(ver)}</code>\n"
-        f"<b>Коммит:</b> <code>{html.escape(commit_short)}</code>\n\n"
+        f"<b>Целевая версия:</b> <code>{html.escape(ver)}</code>\n"
+        f"<b>Целевой коммит:</b> <code>{html.escape(commit_short)}</code>\n\n"
+        f"<b>Текущая запущенная версия:</b> <code>{html.escape(current_ver)}</code>\n"
+        f"<b>Текущий запущенный коммит:</b> <code>{html.escape(current_commit[:8])}</code>\n\n"
+        f"{warning_block}"
         "Проект будет пересобран и перезапущен."
         + deployer_note
-        + "\n\nПродолжить?"
+        + "\n\nВы уверены, что хотите продолжить?"
     )
 
     keyboard = [
@@ -6435,6 +6580,13 @@ async def admin_confirm_rollback(callback: CallbackQuery):
         db.set_setting("rollback_previous_commit", current_commit)
         db.set_setting("rollback_previous_version", current_ver)
         db.set_setting("rollback_target_commit", commit)
+        
+        # Save history for diagnostics
+        from datetime import datetime, timezone
+        db.set_setting("last_rollback_date", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
+        db.set_setting("last_rollback_target", commit)
+        db.set_setting("last_rollback_source_ver", current_ver)
+        db.set_setting("last_rollback_dest_ver", ver)
         
         # 2. Perform git checkout to target commit in host workspace
         import subprocess

@@ -39,8 +39,26 @@ def _make_callback(data: str, user_id: int = 1) -> MagicMock:
 
 
 FAKE_COMMIT = "aabbccdd1122334455667788"
-FAKE_VER = "1.0.0-test"
+FAKE_VER = "1.0.15"
 FAKE_COMMIT_SHORT = FAKE_COMMIT[:7]
+
+class FakeDBContext:
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        pass
+    def execute(self, query, params=None):
+        class Result:
+            def fetchone(self):
+                if "SELECT git_commit" in query:
+                    return {"git_commit": FAKE_COMMIT}
+                if "SELECT value" in query:
+                    return {"value": None}
+                if "SELECT status" in query:
+                    return {"status": "stable"}
+                return {"git_commit": FAKE_COMMIT, "value": None, "status": "stable"}
+        return Result()
+
 
 RESULTS: list[dict] = []
 
@@ -61,7 +79,6 @@ async def test_trigger_shows_confirm_when_deployer_down() -> None:
     cb = _make_callback(f"admin_rollback_trigger:{FAKE_VER}")
     mocked_edit = AsyncMock()
 
-    db_row = {"git_commit": FAKE_COMMIT}
 
     def _fake_is_creator(uid):
         return True
@@ -80,11 +97,7 @@ async def test_trigger_shows_confirm_when_deployer_down() -> None:
          patch("handlers.callback_edit_or_answer", mocked_edit):
 
         # Set up fake DB connection returning our row
-        mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_ctx)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
-        mock_ctx.execute.return_value.fetchone.return_value = db_row
-        mock_conn.return_value = mock_ctx
+        mock_conn.return_value = FakeDBContext()
 
         # Do NOT mock aiohttp — let it actually fail to resolve "deployer"
         await handlers.admin_rollback_trigger(cb)
@@ -156,6 +169,7 @@ async def test_confirm_uses_local_restart_when_deployer_down() -> None:
         return True
 
     with patch.object(handlers.db, "is_creator", side_effect=fake_is_creator), \
+         patch.object(handlers.db, "_get_connection", return_value=FakeDBContext()), \
          patch.object(handlers.db, "set_setting", side_effect=fake_set_setting), \
          patch.object(handlers.db, "delete_setting", side_effect=fake_delete_setting), \
          patch("app_version.get_git_commit", return_value=FAKE_COMMIT), \
@@ -219,6 +233,7 @@ async def test_undo_uses_local_restart_when_deployer_down() -> None:
         pass
 
     with patch.object(handlers.db, "is_creator", side_effect=fake_is_creator), \
+         patch.object(handlers.db, "_get_connection", return_value=FakeDBContext()), \
          patch.object(handlers.db, "delete_setting", side_effect=fake_delete_setting), \
          patch("app_version._get_repo_root", return_value="/workspace"), \
          patch("subprocess.run", side_effect=fake_subprocess_run), \
@@ -276,6 +291,7 @@ async def test_confirm_reverts_when_both_paths_fail() -> None:
         return True
 
     with patch.object(handlers.db, "is_creator", side_effect=fake_is_creator), \
+         patch.object(handlers.db, "_get_connection", return_value=FakeDBContext()), \
          patch.object(handlers.db, "set_setting", side_effect=fake_set_setting), \
          patch.object(handlers.db, "delete_setting", side_effect=fake_delete_setting), \
          patch("app_version.get_git_commit", return_value=FAKE_COMMIT), \
@@ -308,7 +324,6 @@ async def test_trigger_no_note_when_deployer_ok() -> None:
     cb = _make_callback(f"admin_rollback_trigger:{FAKE_VER}")
     mocked_edit = AsyncMock()
 
-    db_row = {"git_commit": FAKE_COMMIT}
 
     mock_resp = AsyncMock()
     mock_resp.status = 200
@@ -319,6 +334,7 @@ async def test_trigger_no_note_when_deployer_ok() -> None:
         return True
 
     with patch.object(handlers.db, "is_creator", side_effect=fake_is_creator), \
+         patch.object(handlers.db, "_get_connection", return_value=FakeDBContext()), \
          patch.object(handlers.db, "_get_connection") as mock_conn, \
          patch("app_version.get_git_status_info", return_value={
              "is_clean": True, "branch": "main", "commit": FAKE_COMMIT,
@@ -329,11 +345,7 @@ async def test_trigger_no_note_when_deployer_ok() -> None:
          patch("handlers.callback_edit_or_answer", mocked_edit), \
          patch("aiohttp.ClientSession") as mock_session_cls:
 
-        mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_ctx)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
-        mock_ctx.execute.return_value.fetchone.return_value = db_row
-        mock_conn.return_value = mock_ctx
+        mock_conn.return_value = FakeDBContext()
 
         # Mock healthy deployer response
         mock_session = AsyncMock()
@@ -381,6 +393,7 @@ async def test_confirm_uses_deployer_when_available() -> None:
     db_settings: dict[str, str] = {}
 
     with patch.object(handlers.db, "is_creator", side_effect=fake_is_creator), \
+         patch.object(handlers.db, "_get_connection", return_value=FakeDBContext()), \
          patch.object(handlers.db, "set_setting", side_effect=lambda k, v: db_settings.update({k: v})), \
          patch.object(handlers.db, "delete_setting", side_effect=lambda k: db_settings.pop(k, None)), \
          patch("app_version.get_git_commit", return_value=FAKE_COMMIT), \

@@ -1,4 +1,20 @@
 import asyncio
+
+class FakeDBContext:
+    def __init__(self, commit_val="target_c"):
+        self.commit_val = commit_val
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        pass
+    def execute(self, query, params=None):
+        class Result:
+            def __init__(self, commit_val):
+                self.commit_val = commit_val
+            def fetchone(self):
+                return {"git_commit": self.commit_val, "version": "1.1.0", "description": "desc", "created_at": "2026-05-29 12:00:00", "status": "stable"}
+        return Result(self.commit_val)
+
 import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -62,38 +78,51 @@ async def test_version_ux_workflow():
     assert "admin_create_release" in first_row_callbacks, "ERROR: Release creation button is not at the top of the version history keyboard!"
     print("✅ Verified: Release creation button appears at the top of the version history screen.")
     
-    # Verify future compatibility buttons are present
-    assert "admin_undo_rollback_soon" in first_row_callbacks, "ERROR: Undo rollback button is missing from the top row!"
-    print("✅ Verified: 'Undo Rollback (soon)' placeholder is present in the top row.")
-    
-    # Verify rollback button is present for each version in the list
-    rollback_soon_found = False
-    details_found = False
+    # 3. Verify Version Details UI
+    detail_found = False
     for cb in history_callbacks:
-        if cb.startswith("admin_rollback_soon:"):
-            rollback_soon_found = True
         if cb.startswith("admin_version_detail:"):
-            details_found = True
+            detail_found = True
+            break
             
-    assert details_found, "ERROR: Version detail links are missing!"
-    assert rollback_soon_found, "ERROR: Rollback placeholder links are missing!"
-    print("✅ Verified: 'View Details' and 'Rollback' actions are present for version records.")
+    assert detail_found, "ERROR: Version detail links are missing from history!"
+    print("✅ Verified: 'View Details' action is present for version records.")
     
-    # 3. Test future compatibility placeholder callbacks answer gracefully
-    soon_callback = AsyncMock()
-    soon_callback.from_user = MagicMock()
-    soon_callback.from_user.id = db.get_creator_id()
+    # Test detail view renders rollback actions
+    detail_cb = AsyncMock()
+    detail_cb.from_user = MagicMock()
+    detail_cb.from_user.id = db.get_creator_id()
+    detail_cb.data = "admin_version_detail:1.1.0:0"
     
-    # Undo rollback
-    await handlers.admin_undo_rollback_soon(soon_callback)
-    soon_callback.answer.assert_called_with("↩️ Функция отмены отката версии будет доступна в следующем обновлении.", show_alert=True)
-    print("✅ Verified: Undo rollback callback handler handles soon-to-be-available action gracefully.")
+    captured_detail_markup = None
+    async def mock_detail_edit_answer(cb, text, reply_markup=None, parse_mode=None):
+        nonlocal captured_detail_markup
+        captured_detail_markup = reply_markup
+        
+    # Test Rollback Undo state
+    with patch('handlers.callback_edit_or_answer', mock_detail_edit_answer), \
+         patch('app_version.get_git_commit', return_value="running_c"), \
+         patch.object(db, '_get_connection', return_value=FakeDBContext('target_c')), \
+         patch.object(db, 'get_setting', side_effect=lambda k: "1" if k == "rollback_active" else "target_c"):
+         
+        await handlers.admin_version_detail(detail_cb)
+        
+    assert captured_detail_markup is not None
+    detail_callbacks = [btn.callback_data for row in captured_detail_markup.inline_keyboard for btn in row]
+    assert "admin_undo_rollback" in detail_callbacks, "ERROR: Undo rollback button is missing from details view!"
+    print("✅ Verified: 'Undo Rollback' action is present in version details when rollback is active.")
     
-    # Rollback version
-    soon_callback.data = "admin_rollback_soon:1.0.8"
-    await handlers.admin_rollback_soon(soon_callback)
-    soon_callback.answer.assert_called_with("⏪ Функция отката к версии 1.0.8 будет доступна в следующем обновлении.", show_alert=True)
-    print("✅ Verified: Rollback callback handler handles soon-to-be-available action gracefully.")
+    # Test Rollback Trigger state
+    with patch('handlers.callback_edit_or_answer', mock_detail_edit_answer), \
+         patch('app_version.get_git_commit', return_value="running_c"), \
+         patch.object(db, '_get_connection', return_value=FakeDBContext('target_c')), \
+         patch.object(db, 'get_setting', return_value=None):
+         
+        await handlers.admin_version_detail(detail_cb)
+        
+    detail_callbacks = [btn.callback_data for row in captured_detail_markup.inline_keyboard for btn in row]
+    assert "admin_rollback_trigger:1.1.0" in detail_callbacks, "ERROR: Rollback button is missing from details view!"
+    print("✅ Verified: 'Rollback' action is present in version details for valid target versions.")
 
     print("\n🎉 ALL UX VERIFICATION TESTS PASSED SUCCESSFULLY! 🎉")
 

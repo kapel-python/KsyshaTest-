@@ -2134,22 +2134,25 @@ def _collect_site_data(
 
     users_info = {
         "creator": {
+            "user_id": creator_id,
             "first_name": creator_user.get("first_name") or "Создатель",
             "last_name":  creator_user.get("last_name")  or "",
             "username":   creator_user.get("username")   or "",
-            "display":    _user_display(creator_user, "Создатель"),
+            "display":    db.get_display_name(creator_id, "Создатель"),
         },
         "ksyusha": {
+            "user_id": partner_id,
             "first_name": partner_user.get("first_name") or "Партнёр",
             "last_name":  partner_user.get("last_name")  or "",
             "username":   partner_user.get("username")   or "",
-            "display":    _user_display(partner_user, "Партнёр"),
+            "display":    db.get_display_name(partner_id, "Партнёр"),
         },
         "partner": {
+            "user_id": partner_id,
             "first_name": partner_user.get("first_name") or "Партнёр",
             "last_name":  partner_user.get("last_name")  or "",
             "username":   partner_user.get("username")   or "",
-            "display":    _user_display(partner_user, "Партнёр"),
+            "display":    db.get_display_name(partner_id, "Партнёр"),
         },
     }
 

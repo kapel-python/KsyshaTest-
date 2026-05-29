@@ -4270,7 +4270,7 @@ async def favorite_toggle_wish(callback: CallbackQuery, state: FSMContext):
     wish = db.get_wish(wish_id)
     if wish:
         text = "✅ Избранное обновлено\n\n" + format_wish_text(wish, user_id)
-        back_target = "wishes_menu" if wish.user_id == user_id else "creator_wishes_partner"
+        back_target = "wishes_menu"
         keyboard = create_wish_keyboard(wish_id, user_id, back_target=back_target)
         await send_wish_with_media(callback.message.chat.id, callback.bot, wish, text, keyboard)
     else:
@@ -4317,7 +4317,7 @@ async def favorite_view_item(callback: CallbackQuery, state: FSMContext):
             await callback.answer(MSG_WISH_NOT_FOUND)
             return
         text = format_wish_text(wish, user_id)
-        back_target = "wishes_menu" if wish.user_id == user_id else "creator_wishes_partner"
+        back_target = "wishes_menu"
         keyboard = create_wish_keyboard(item_id, user_id, back_target=back_target)
         await send_wish_with_media(callback.message.chat.id, callback.bot, wish, text, keyboard)
     await callback.answer()
@@ -7183,14 +7183,22 @@ async def wishes_menu(callback: CallbackQuery):
         await callback.answer("Эта функция недоступна — вы не состоите в паре")
         return
 
-    wishes = db.get_user_wishes(user_id)
+    user_wishes = db.get_user_wishes(user_id) or []
+    partner_id = db.get_partner_id(user_id)
+    partner_wishes = []
+    if partner_id:
+        partner_wishes = db.get_user_wishes(partner_id) or []
+
+    all_wishes = list(user_wishes) + list(partner_wishes)
+    all_wishes.sort(key=lambda w: w.id)
+
     intro_text = (
-        "💫 <b>Мои желания</b>\n\n"
-        "Здесь можно добавлять любое количество желаний"
+        "💫 <b>Желания пары</b>\n\n"
+        "Здесь можно просмотреть и добавить желания"
     )
     await callback_edit_or_answer(callback,
         intro_text,
-        reply_markup=create_wishes_menu_keyboard(wishes),
+        reply_markup=create_wishes_menu_keyboard(all_wishes),
         parse_mode=ParseMode.HTML
     )
 
@@ -7305,27 +7313,7 @@ async def list_admins(callback: CallbackQuery):
 @router.callback_query(F.data == "creator_wishes_partner")
 @router.callback_query(F.data == "partner_wishes")
 async def partner_wishes_view(callback: CallbackQuery):
-    """Просмотр желаний партнёра — работает для любой пары"""
-    user_id = callback.from_user.id
-    if not is_wishes_available():
-        await callback.answer("Механика желаний ещё не активна")
-        return
-    partner_id = db.get_partner_id(user_id)
-    if partner_id is None:
-        if not db.is_creator(user_id):
-            await callback.answer(MSG_ACCESS_DENIED)
-            return
-        await callback.answer("Партнёр не найден — вы не состоите в паре")
-        return
-    wishes = db.get_user_wishes(partner_id)
-    await safe_delete_callback_message(callback)
-    partner_name = db.get_display_name(partner_id) or "партнёра"
-    await callback_edit_or_answer(callback,
-        f"🎁 <b>Желания {partner_name}</b>\n\n"
-        "Просмотр желаний",
-        reply_markup=create_wishes_menu_keyboard_partner(wishes),
-        parse_mode=ParseMode.HTML
-    )
+    await wishes_menu(callback)
 
 
 @router.callback_query(F.data == "creator_wish_empty")
@@ -7374,7 +7362,7 @@ async def wish_view(callback: CallbackQuery):
     
     text = format_wish_text(wish, user_id)
     
-    back_target = "wishes_menu" if wish.user_id == user_id else "partner_wishes"
+    back_target = "wishes_menu"
     keyboard = create_wish_keyboard(wish.id, user_id, back_target=back_target)
     
     await send_wish_with_media(
@@ -7674,7 +7662,7 @@ async def wish_delete_cancel(callback: CallbackQuery):
         return
     
     text = format_wish_text(wish, user_id)
-    back_target = "wishes_menu" if wish.user_id == user_id else "partner_wishes"
+    back_target = "wishes_menu"
     await callback_edit_or_answer(callback,
         text,
         reply_markup=create_wish_keyboard(wish.id, user_id, back_target=back_target),

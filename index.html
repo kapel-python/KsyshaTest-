@@ -6835,7 +6835,15 @@
 
         const div = document.createElement('div');
         div.className = isMyWish ? 'wish my-wish' : 'wish partner-wish';
-        ownerLabel = ownerLabel || _ui('userPartner');
+        
+        let displayName = ownerLabel;
+        if (w && w.user_id && window._siteUsers) {
+          const matchedUser = Object.values(window._siteUsers).find(u => Number(u.user_id) === Number(w.user_id));
+          if (matchedUser && matchedUser.display) {
+            displayName = matchedUser.display;
+          }
+        }
+        displayName = displayName || _ui('userPartner');
 
         // Строка тегов: "💫 Желание" + статус
         const tagRow = document.createElement('div');
@@ -6859,7 +6867,9 @@
 
         const titleDiv = document.createElement('div');
         titleDiv.className = 'title';
-        titleDiv.textContent = ownerLabel + ' — ' + _ui('wishWord');
+        const wishWord = _ui('wishWord') || '';
+        const capitalizedWishWord = wishWord ? (wishWord.charAt(0).toUpperCase() + wishWord.slice(1)) : '';
+        titleDiv.textContent = displayName + ' — ' + capitalizedWishWord;
         div.appendChild(titleDiv);
 
         const contentDiv = document.createElement('div');

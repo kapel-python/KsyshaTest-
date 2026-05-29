@@ -296,7 +296,7 @@
             padding: 10px 8px; border-radius: 12px;
             border: 1.5px solid var(--border-color);
             background: var(--bg-color); color: var(--text-color);
-            font-family: inherit; font-size: .8rem; font-weight: 600;
+            font-family: 'Segoe UI', Arial, sans-serif; font-size: .8rem; font-weight: 600;
             cursor: pointer; text-align: center;
             display: flex; flex-direction: column; align-items: center; gap: 4px;
             transition: all .18s;
@@ -306,8 +306,6 @@
             position: relative;
             z-index: 1;
             display: block;
-            width: 100%;
-            text-align: center;
             white-space: nowrap;
         }
         .stg-lang-btn.active { background: var(--accent-color); border-color: var(--accent-color); color: #fff; }
@@ -14752,7 +14750,7 @@
   function _measurePreviewTextWidth(text, style) {
     const ctx = _getPreviewMeasureContext();
     if (!ctx) return 0;
-    ctx.font = `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    ctx.font = style.font || `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} / ${style.lineHeight} ${style.fontFamily}`;
     return ctx.measureText(text || '\u00A0').width;
   }
 
@@ -14792,9 +14790,9 @@
 
     const run = document.createElement('div');
     run.className = 'lang-sweep-run';
-    run.style.left = `${(labelRect.width - totalTextWidth) / 2}px`;
+    run.style.left = '0px';
     run.style.top = '0px';
-    run.style.width = `${totalTextWidth}px`;
+    run.style.width = `${boxWidth}px`;
     run.style.height = `${boxHeight}px`;
     run.style.direction = style.direction;
     run.style.whiteSpace = 'nowrap';

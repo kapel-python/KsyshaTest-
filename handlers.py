@@ -1662,8 +1662,10 @@ async def cmd_admin(message: Message):
         await message.answer("Эта команда доступна только создателю")
         return
     
+    status_text = _get_rollback_status_block()
     await message.answer(
         "⚙️ <b>Панель администратора</b>\n\n"
+        f"{status_text}\n"
         "Выбери действие:",
         reply_markup=create_admin_keyboard(),
         parse_mode=ParseMode.HTML
@@ -5598,8 +5600,11 @@ async def admin_panel(callback: CallbackQuery):
     if not db.is_creator(user_id):
         await callback.answer(MSG_ACCESS_DENIED)
         return
+        
+    status_text = _get_rollback_status_block()
     await callback_edit_or_answer(callback, 
         "🔧 <b>Админ-панель</b>\n\n"
+        f"{status_text}\n"
         "Управление ботом и статистика:",
         reply_markup=create_admin_keyboard(),
         parse_mode=ParseMode.HTML
@@ -5635,7 +5640,12 @@ async def admin_version_history(callback: CallbackQuery):
     end_idx = start_idx + page_size
     page_versions = versions[start_idx:end_idx]
     
-    lines = ["📦 <b>История версий</b>"]
+    status_text = _get_rollback_status_block()
+    lines = [
+        "📦 <b>История версий</b>\n",
+        status_text,
+        ""
+    ]
     
     if not page_versions:
         lines.append("\nИстория версий пуста.")
@@ -5993,10 +6003,14 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         new_commit = res_hash.stdout.strip()
         new_commit_short = new_commit[:7]
         
-        # 10. Write new version directly to version_history database table
+        # 10. Write new version directly to version_history database table and clear rollback settings
         await callback.message.answer("💾 Записываю новый релиз в историю версий БД...")
         with db._get_connection() as conn:
             db._register_version_history_entry(conn, new_version, description, git_commit=new_commit)
+        db.delete_setting("rollback_active")
+        db.delete_setting("rollback_previous_commit")
+        db.delete_setting("rollback_previous_version")
+        db.delete_setting("rollback_target_commit")
             
         # 11. Trigger local restart using existing restart workflow
         await callback.message.answer("🔄 <b>Релиз подготовлен успешно! Запускаю перезапуск проекта...</b>")
@@ -6087,15 +6101,323 @@ async def admin_version_detail(callback: CallbackQuery):
         f"{date_esc}"
     )
     
-    keyboard = [
-        [InlineKeyboardButton(text="⬅️ Назад к списку", callback_data=f"admin_version_history:{page}")]
-    ]
+    # Check rollback button rules
+    from app_version import get_git_commit
+    running_commit = get_git_commit()
+    
+    is_rollback_active = db.get_setting("rollback_active") == "1"
+    prev_commit = db.get_setting("rollback_previous_commit")
+    
+    show_rollback_btn = False
+    show_undo_btn = False
+    
+    if is_rollback_active and prev_commit and commit and commit[:8] == prev_commit[:8]:
+        show_undo_btn = True
+    elif commit and running_commit and commit[:8] != running_commit[:8]:
+        show_rollback_btn = True
+        
+    keyboard = []
+    if show_undo_btn:
+        keyboard.append([
+            InlineKeyboardButton(text="↩️ Вернуться к предыдущей версии", callback_data="admin_undo_rollback")
+        ])
+    elif show_rollback_btn:
+        keyboard.append([
+            InlineKeyboardButton(text="🔄 Откатить к этой версии", callback_data=f"admin_rollback_trigger:{ver}")
+        ])
+        
+    keyboard.append([InlineKeyboardButton(text="⬅️ Назад к списку", callback_data=f"admin_version_history:{page}")])
     
     await callback_edit_or_answer(callback,
         text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
         parse_mode=ParseMode.HTML
     )
+
+
+def _get_rollback_status_block() -> str:
+    """Returns a formatted status text distinguishing between running app and repo state."""
+    from app_version import version as running_ver, get_git_commit, _get_repo_root
+    import subprocess
+    import os
+    
+    running_commit = get_git_commit() or "—"
+    
+    # Get repo branch & HEAD version/commit
+    repo_branch = "—"
+    repo_commit = "—"
+    repo_root = _get_repo_root()
+    try:
+        proc_branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if proc_branch.returncode == 0:
+            repo_branch = proc_branch.stdout.strip()
+            
+        proc_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if proc_commit.returncode == 0:
+            repo_commit = proc_commit.stdout.strip()[:8]
+    except Exception:
+        pass
+        
+    is_rollback_active = db.get_setting("rollback_active") == "1"
+    
+    status_lines = []
+    if is_rollback_active:
+        status_lines.append("⚠️ <b>Активен откат</b>\n")
+        status_lines.append(f"Запущенная версия: <code>{html.escape(str(running_ver))}</code>")
+        status_lines.append(f"Запущенный коммит: <code>{html.escape(str(running_commit))}</code>\n")
+        status_lines.append("<b>Repository:</b>")
+        status_lines.append(f"Ветка: <code>{html.escape(str(repo_branch))}</code>")
+        status_lines.append(f"Коммит: <code>{html.escape(str(repo_commit))}</code>\n")
+    else:
+        status_lines.append("✅ <b>Система стабильна</b>\n")
+        status_lines.append(f"Запущенная версия: <code>{html.escape(str(running_ver))}</code>")
+        status_lines.append(f"Запущенный коммит: <code>{html.escape(str(running_commit))}</code>\n")
+        
+    return "\n".join(status_lines)
+
+
+@router.callback_query(F.data.startswith("admin_rollback_trigger:"))
+async def admin_rollback_trigger(callback: CallbackQuery):
+    """Показ экрана подтверждения отката с safety проверками"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+        
+    parts = callback.data.split(":")
+    ver = parts[1]
+    
+    # Fetch commit hash for this version
+    with db._get_connection() as conn:
+        row = conn.execute("SELECT git_commit FROM version_history WHERE version = ? LIMIT 1", (ver,)).fetchone()
+        
+    if not row or not row["git_commit"]:
+        await callback.answer("Ошибка: коммит не найден в истории версий.", show_alert=True)
+        return
+        
+    commit = row["git_commit"]
+    commit_short = commit[:7]
+    
+    # 1. Run safety checks before confirmation
+    try:
+        from app_version import get_git_status_info, _get_repo_root
+        status_info = get_git_status_info()
+        repo_root = _get_repo_root()
+        
+        # Check if repository is clean
+        if not status_info.get("is_clean", True):
+            modified = status_info.get("modified_files", [])
+            warning_text = (
+                "⚠️ <b>Внимание: невозможно начать откат</b>\n\n"
+                "В репозитории есть незакоммиченные изменения:\n"
+                + "\n".join([f"• <code>{html.escape(f)}</code>" for f in modified[:10]])
+                + (f"\nи ещё {len(modified)-10} файлов" if len(modified) > 10 else "")
+                + "\n\nПожалуйста, сбросьте или закоммитьте изменения перед откатом."
+            )
+            await callback.message.answer(warning_text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+            ]))
+            await callback.answer()
+            return
+            
+        # Verify target commit exists
+        import subprocess
+        proc_verify = subprocess.run(
+            ["git", "rev-parse", "--verify", commit],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if proc_verify.returncode != 0:
+            raise Exception(f"Целевой коммит {commit_short} не найден в локальном репозитории.")
+            
+        # Verify deploy service is healthy
+        import aiohttp
+        health_url = (getattr(config, "DEPLOYER_URL", "") or "").replace("/deploy", "/health")
+        if health_url:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(health_url, timeout=5) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"Служба деплоя недоступна (HTTP {resp.status})")
+                        
+    except Exception as e:
+        await callback.message.answer(
+            f"❌ <b>Проверка безопасности не пройдена:</b>\n\n<code>{html.escape(str(e))}</code>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+        await callback.answer()
+        return
+        
+    text = (
+        "⚠️ <b>Подтверждение отката</b>\n\n"
+        "Вы собираетесь откатить проект к версии:\n\n"
+        f"<b>Версия:</b> <code>{html.escape(ver)}</code>\n"
+        f"<b>Коммит:</b> <code>{html.escape(commit_short)}</code>\n\n"
+        "Проект будет пересобран и перезапущен.\n\n"
+        "Продолжить?"
+    )
+    
+    keyboard = [
+        [
+            InlineKeyboardButton(text="✅ Подтвердить откат", callback_data=f"admin_confirm_rollback:{ver}:{commit}"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data="admin_panel")
+        ]
+    ]
+    
+    await callback_edit_or_answer(
+        callback,
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.callback_query(F.data.startswith("admin_confirm_rollback:"))
+async def admin_confirm_rollback(callback: CallbackQuery):
+    """Выполнение отката: checkout на коммит и триггер пересборки"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+        
+    parts = callback.data.split(":")
+    ver = parts[1]
+    commit = parts[2]
+    
+    await callback_edit_or_answer(callback, "🚀 <b>Запуск отката...</b>\n\nВыполняю checkout и деплой...", parse_mode=ParseMode.HTML)
+    
+    try:
+        from app_version import _get_repo_root, version as current_ver, get_git_commit
+        repo_root = _get_repo_root()
+        current_commit = get_git_commit() or "—"
+        
+        # 1. Store persistent state in SQLite settings
+        db.set_setting("rollback_active", "1")
+        db.set_setting("rollback_previous_commit", current_commit)
+        db.set_setting("rollback_previous_version", current_ver)
+        db.set_setting("rollback_target_commit", commit)
+        
+        # 2. Perform git checkout to target commit in host workspace
+        import subprocess
+        checkout_res = subprocess.run(
+            ["git", "checkout", commit],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if checkout_res.returncode != 0:
+            # Revert DB settings if checkout fails
+            db.delete_setting("rollback_active")
+            db.delete_setting("rollback_previous_commit")
+            db.delete_setting("rollback_previous_version")
+            db.delete_setting("rollback_target_commit")
+            raise Exception(f"git checkout завершился с ошибкой:\nStdout: {checkout_res.stdout}\nStderr: {checkout_res.stderr}")
+            
+        # 3. Trigger Docker Deployer Service
+        await callback.message.answer("📦 Запускаю пересборку Docker контейнера...")
+        from handlers import _trigger_deploy
+        ok, reason = await _trigger_deploy()
+        if not ok:
+            # Restore to main if deploy trigger fails
+            subprocess.run(["git", "checkout", "main"], cwd=repo_root)
+            db.delete_setting("rollback_active")
+            db.delete_setting("rollback_previous_commit")
+            db.delete_setting("rollback_previous_version")
+            db.delete_setting("rollback_target_commit")
+            raise Exception(f"Не удалось запустить сборку: {reason}")
+            
+        await callback.message.answer(
+            f"✅ <b>Запущен откат до версии {ver}</b>\n\n"
+            "Проект пересобирается и перезапускается в фоне. Пожалуйста, подождите 10-15 секунд.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+        
+    except Exception as e:
+        await callback.message.answer(
+            f"❌ <b>Ошибка при выполнении отката:</b>\n\n<code>{html.escape(str(e))}</code>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+
+
+@router.callback_query(F.data == "admin_undo_rollback")
+async def admin_undo_rollback(callback: CallbackQuery):
+    """Отмена отката: возврат на main и пересборка"""
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+        
+    await callback_edit_or_answer(callback, "🚀 <b>Запуск отмены отката...</b>\n\nВыполняю возврат на ветку main и деплой...", parse_mode=ParseMode.HTML)
+    
+    try:
+        from app_version import _get_repo_root
+        repo_root = _get_repo_root()
+        
+        # 1. Perform git checkout main in host workspace
+        import subprocess
+        checkout_res = subprocess.run(
+            ["git", "checkout", "main"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if checkout_res.returncode != 0:
+            raise Exception(f"git checkout main завершился с ошибкой:\nStdout: {checkout_res.stdout}\nStderr: {checkout_res.stderr}")
+            
+        # 2. Clear DB persistent state
+        db.delete_setting("rollback_active")
+        db.delete_setting("rollback_previous_commit")
+        db.delete_setting("rollback_previous_version")
+        db.delete_setting("rollback_target_commit")
+        
+        # 3. Trigger Docker Deployer Service to rebuild main
+        await callback.message.answer("📦 Запускаю пересборку Docker контейнера с ветки main...")
+        from handlers import _trigger_deploy
+        ok, reason = await _trigger_deploy()
+        if not ok:
+            raise Exception(f"Не удалось запустить сборку: {reason}")
+            
+        await callback.message.answer(
+            "✅ <b>Запущено возвращение к последней версии main</b>\n\n"
+            "Проект пересобирается и перезапускается в фоне. Пожалуйста, подождите 10-15 секунд.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
+        
+    except Exception as e:
+        await callback.message.answer(
+            f"❌ <b>Ошибка при отмене отката:</b>\n\n<code>{html.escape(str(e))}</code>",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")]
+            ]),
+            parse_mode=ParseMode.HTML
+        )
 
 
 BACKUP_EXPORT_DIR = "backup"

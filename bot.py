@@ -866,6 +866,25 @@ async def startup_tests_back(callback: CallbackQuery):
 async def on_startup(bot):
     global _scheduler_task
 
+    # Rollback Branch Recovery Check: Auto-restore detached HEAD to main branch
+    try:
+        from app_version import _get_repo_root
+        import subprocess
+        repo_root = _get_repo_root()
+        proc_ref = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if proc_ref.returncode == 0 and proc_ref.stdout.strip() == "HEAD":
+            logger.info("Rollback: Detached HEAD detected on host workspace. Restoring to main branch...")
+            subprocess.run(["git", "checkout", "main"], cwd=repo_root, check=True)
+            logger.info("Rollback: Successfully restored host workspace to main branch.")
+    except Exception as e:
+        logger.error(f"Rollback Branch Recovery Hook error: {e}")
+
     # Определяем внешний IP в отдельном потоке чтобы не блокировать event loop
     external_ip = await asyncio.get_event_loop().run_in_executor(None, _get_external_ip)
 

@@ -23,3 +23,8 @@ backups/*.log
 
 # IDE and AI tool directories
 .claude/
+
+# Custom test scripts
+test_rollback_workflow.py
+test_version_ux.py
+create_custom_release.py

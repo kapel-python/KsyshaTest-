@@ -1,0 +1,38 @@
+services:
+  ksysha-bot:
+    build: .
+    container_name: ksysha-bot
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      - ENV_FILE=.env
+      - RUN_STARTUP_TESTS=0
+      - CLOUDFLARED_MANAGED_EXTERNALLY=1
+      - CLOUDFLARED_PATH=/app/cloudflared
+      - DATABASE_PATH=/app/data/memories.db
+      - MEDIA_FOLDER=/app/media
+    ports:
+      - "25086:25086"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:25086/', timeout=4).getcode()==200 else 1)\""]
+      interval: 20s
+      timeout: 6s
+      retries: 10
+      start_period: 40s
+    stop_grace_period: 30s
+    volumes:
+      - ./data:/app/data
+      - ./media:/app/media
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/KsyshaTest:/workspace
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ksysha-cloudflared
+    restart: unless-stopped
+    init: true
+    depends_on:
+      ksysha-bot:
+        condition: service_healthy
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}

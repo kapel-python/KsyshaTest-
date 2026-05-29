@@ -1,0 +1,2862 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Наше небо</title>
+  <script src="/logger.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ══════════════════════════════════════
+       LANDING PAGE
+    ══════════════════════════════════════ */
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0d0b16;
+      color: #f0ecff;
+      /* На /sky страница намертво — скролл запрещён */
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      /* Центрирование для возможной карточки */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      /* Запрещаем bounce-эффект на iOS */
+      position: fixed;
+      inset: 0;
+    }
+
+    html {
+      overflow: hidden;
+      height: 100%;
+      height: 100dvh;
+      width: 100%;
+    }
+
+    .sky-card {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      max-width: 480px;
+      border-radius: 28px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #0a1a3e 0%, #0e2654 40%, #1a0a3e 100%);
+      border: 1px solid rgba(100,150,255,0.18);
+      box-shadow: 0 8px 40px rgba(0,0,80,0.5), 0 0 0 1px rgba(100,150,255,0.08);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.2s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.2s ease;
+    }
+    .sky-card:hover  { transform: translateY(-4px) scale(1.01); box-shadow: 0 16px 56px rgba(0,0,100,0.6), 0 0 0 1px rgba(120,170,255,0.2); }
+    .sky-card:active { transform: scale(0.985); }
+    .sky-card::before { content:''; position:absolute; top:-50px; right:-50px; width:180px; height:180px; background:rgba(100,180,255,0.07); border-radius:50%; pointer-events:none; }
+    .sky-card::after  { content:''; position:absolute; bottom:-60px; left:-30px; width:140px; height:140px; background:rgba(180,100,255,0.06); border-radius:50%; pointer-events:none; }
+
+    .card-stars { position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:28px; }
+    .card-star  { position:absolute; width:2px; height:2px; background:white; border-radius:50%; animation:cStarFade var(--d) ease-in-out infinite var(--del); }
+    @keyframes cStarFade { 0%,100%{opacity:var(--op)} 50%{opacity:0.05} }
+
+    .card-inner    { position:relative; z-index:2; padding:26px 26px 22px; }
+    .card-top      { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .card-icon     { width:44px; height:44px; border-radius:14px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; }
+    .card-title    { font-family:'Cormorant Garamond',serif; font-size:1.25rem; font-weight:400; color:#fff; letter-spacing:0.02em; }
+    .card-subtitle { font-size:0.78rem; color:rgba(180,210,255,0.6); letter-spacing:0.08em; text-transform:uppercase; font-weight:300; }
+    .card-desc     { font-size:0.84rem; color:rgba(200,220,255,0.75); line-height:1.6; margin-bottom:20px; font-weight:300; }
+
+    /* Preview */
+    .card-preview {
+      position:relative; height:115px; border-radius:18px; overflow:hidden; margin-bottom:18px;
+      box-shadow: 0 4px 28px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    #previewCanvas { position:absolute; inset:0; width:100%; height:100%; }
+    .preview-overlay { position:absolute; inset:0; z-index:2; background:linear-gradient(to bottom,transparent 45%,rgba(0,0,0,0.5) 100%); }
+    .preview-divider { position:absolute; left:50%; top:0; bottom:0; width:1px; z-index:4; background:linear-gradient(to bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.2),rgba(255,255,255,0.05)); }
+    .preview-heart { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%); font-size:1rem; z-index:5; animation:pBeat 2s ease-in-out infinite; filter:drop-shadow(0 0 8px rgba(255,100,150,0.95)); }
+    @keyframes pBeat { 0%,100%{transform:translate(-50%,-50%) scale(1)} 40%{transform:translate(-50%,-50%) scale(1.3)} }
+    .preview-label { position:absolute; bottom:8px; font-size:0.6rem; color:rgba(255,255,255,0.65); letter-spacing:0.1em; text-transform:uppercase; z-index:5; text-shadow:0 1px 4px rgba(0,0,0,0.9); }
+    .preview-label.l { left:11px; }
+    .preview-label.r { right:11px; }
+    .preview-time { position:absolute; bottom:22px; font-family:'Cormorant Garamond',serif; font-style:italic; font-size:0.85rem; color:rgba(255,255,255,0.9); z-index:5; text-shadow:0 1px 6px rgba(0,0,0,0.9); }
+    .preview-time.l { left:11px; }
+    .preview-time.r { right:11px; }
+
+    .card-btn { display:inline-flex; align-items:center; gap:8px; padding:11px 22px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:50px; font-size:0.85rem; font-weight:500; cursor:pointer; transition:all 0.2s; letter-spacing:0.03em; }
+    .card-btn:hover { background:rgba(255,255,255,0.18); border-color:rgba(255,255,255,0.35); }
+
+    /* ══════════════════════════════════════
+       FULLSCREEN SKY VIEW
+    ══════════════════════════════════════ */
+    #skyView {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      overflow: hidden;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    @keyframes skyIn  { from{opacity:0;transform:scale(1.03)} to{opacity:1;transform:scale(1)} }
+    @keyframes skyOut { from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(1.03)} }
+
+    .sky-wrap { display:flex; width:100vw; height:100vh; height:100dvh; min-height: -webkit-fill-available; position:relative; overflow:hidden; touch-action:none; overscroll-behavior:none; }
+
+    .sky-panel { flex:1; position:relative; overflow:hidden; }
+    .sky-canvas { position:absolute; inset:0; width:100%; height:100%; }
+
+    .stars-layer { position:absolute; inset:0; pointer-events:none; transition:opacity 2s ease; }
+    .s { position:absolute; border-radius:50%; background:white; animation:twinkle var(--d) ease-in-out infinite var(--dl); }
+    @keyframes twinkle { 0%,100%{opacity:var(--mo);transform:scale(1)} 50%{opacity:0.1;transform:scale(0.5)} }
+
+    .sky-body { position:absolute; border-radius:50%; pointer-events:none; transition:all 1.5s ease; }
+    .sky-glow { position:absolute; border-radius:50%; pointer-events:none; transition:all 1.5s ease; animation:glowPulse 4s ease-in-out infinite; }
+    @keyframes glowPulse { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.4} 50%{transform:translate(-50%,-50%) scale(1.15);opacity:0.25} }
+
+    /* Sun rays */
+    .sun-rays { position:absolute; pointer-events:none; transition:all 1.5s ease; }
+
+    /* ── Clouds (SVG) ── */
+    .sky-cloud-wrap {
+      position: absolute;
+      pointer-events: none;
+      animation: cloudDrift var(--cd) linear infinite var(--cdelay);
+    }
+    @keyframes cloudDrift {
+      from { transform: translateX(var(--from)); }
+      to   { transform: translateX(var(--to)); }
+    }
+    .cloud-svg {
+      display: block;
+      filter: drop-shadow(0 6px 10px var(--cs));
+      opacity: var(--cop);
+    }
+
+    .sky-horizon { position:absolute; bottom:0; left:0; right:0; height:40%; pointer-events:none; transition:background 2s ease; }
+
+    /* Aurora */
+    .aurora { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity 4s ease; background:radial-gradient(ellipse 80% 40% at 50% 80%,rgba(0,255,150,0.07) 0%,rgba(100,0,255,0.05) 50%,transparent 100%); animation:auroraPulse 10s ease-in-out infinite; }
+    @keyframes auroraPulse { 0%,100%{opacity:0} 50%{opacity:1} }
+
+    /* Shooting star */
+    .sstar { position:absolute; height:1px; border-radius:2px; background:linear-gradient(90deg,transparent,white,transparent); pointer-events:none; animation:shoot var(--dur) linear forwards; }
+    @keyframes shoot { 0%{opacity:0;width:0;transform:translate(0,0)} 8%{opacity:1} 100%{opacity:0;width:120px;transform:translate(200px,100px)} }
+
+    /* City info */
+    .city-info {
+      position:absolute; bottom:0; left:0; right:0;
+      padding:22px 24px 52px;
+      background:linear-gradient(transparent,rgba(0,0,0,0.65));
+      color:white; z-index:10; pointer-events:none;
+      display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+    }
+    .city-info-left  { display:flex; flex-direction:column; }
+    .city-info-right {
+      display:flex; flex-direction:column; align-items:flex-end; gap:5px;
+      padding-bottom:2px; flex-shrink:0;
+    }
+    .city-name  { font-family:'Cormorant Garamond',serif; font-size:clamp(1.9rem,4.5vw,2.8rem); font-weight:300; letter-spacing:0.04em; margin-bottom:3px; text-shadow:0 2px 12px rgba(0,0,0,0.5); }
+    .city-time  { font-size:clamp(1rem,2.2vw,1.2rem); font-weight:300; letter-spacing:0.12em; opacity:0.8; text-transform:uppercase; }
+    .city-phase { font-family:'Cormorant Garamond',serif; font-size:clamp(1.2rem,2.8vw,1.6rem); font-style:italic; opacity:0.75; margin-top:4px; }
+    .city-weather { display:none; } /* заменён на city-info-right */
+
+    /* Правая колонка погоды */
+    .weather-temp {
+      font-family:'Cormorant Garamond',serif;
+      font-size:clamp(2rem,4.5vw,3rem);
+      font-weight:300;
+      letter-spacing:0.02em;
+      text-shadow:0 2px 8px rgba(0,0,0,0.4);
+      line-height:1;
+    }
+    .weather-feels {
+      font-size:clamp(0.9rem,1.8vw,1.05rem);
+      color:rgba(255,255,255,0.5);
+      letter-spacing:0.06em;
+      font-weight:300;
+    }
+    .weather-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:3px 10px;
+      margin-left:4px;
+      border:1px solid rgba(255,255,255,0.25);
+      border-radius:50px;
+      font-size:clamp(0.85rem,1.6vw,1rem);
+      color:rgba(255,255,255,0.75);
+      letter-spacing:0.06em;
+      background:rgba(255,255,255,0.08);
+      backdrop-filter:blur(6px);
+      white-space:nowrap;
+    }
+
+    /* Divider */
+    .sky-divider { position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.15); z-index:20; transform:translateX(-50%); }
+
+    /* Center connection */
+    .sky-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:30; display:flex; flex-direction:column; align-items:center; gap:10px; pointer-events:none; }
+    .sky-heart  { font-size:clamp(1.4rem,3vw,2rem); animation:heartbeat 2.2s ease-in-out infinite; filter:drop-shadow(0 0 14px rgba(255,100,150,0.9)); }
+    @keyframes heartbeat { 0%,100%{transform:scale(1)} 14%{transform:scale(1.25)} 28%{transform:scale(1)} 42%{transform:scale(1.15)} 56%{transform:scale(1)} }
+    .sky-dist { font-size:clamp(0.6rem,1.5vw,0.72rem); color:rgba(255,255,255,0.7); letter-spacing:0.15em; text-transform:uppercase; text-shadow:0 1px 8px rgba(0,0,0,0.7); text-align:center; line-height:1.6; }
+
+    /* Flying emoji — 3 фазы: подъём → торможение → уход влево-вверх */
+    .fly-msg {
+      position: absolute;
+      z-index: 25;
+      pointer-events: none;
+      font-size: 1.4rem;
+      filter: drop-shadow(0 0 10px rgba(255,220,80,0.95));
+      animation: starPhase1 0.55s cubic-bezier(0.2,0.9,0.4,1) forwards;
+    }
+    @keyframes starPhase1 {
+      0%   { opacity:0; transform: translateY(0)   scale(0.4); }
+      30%  { opacity:1; }
+      100% { opacity:1; transform: translateY(-55px) scale(1.1); }
+    }
+    .fly-msg.phase2 {
+      animation: starPhase2 0.6s cubic-bezier(0.6,0,0.8,0.5) forwards;
+    }
+    @keyframes starPhase2 {
+      0%   { opacity:1; transform: translateY(-55px) scale(1.1); }
+      100% { opacity:1; transform: translateY(-70px) scale(1); }
+    }
+    .fly-msg.phase3 {
+      animation: starPhase3 1.8s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    @keyframes starPhase3 {
+      0%   { opacity:1; transform: translateY(-70px) translateX(0)      scale(1); }
+      80%  { opacity:0.7; }
+      100% { opacity:0; transform: translateY(-220px) translateX(-160px) scale(0.5); }
+    }
+
+    /* Star notification banner */
+    /* ── Уведомление об отправке звезды ── */
+    #starNotif {
+      position: absolute;
+      top: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      background: rgba(15,20,45,0.75);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 50px;
+      padding: 9px 18px 9px 14px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: white;
+      font-size: 0.82rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      transition: top 0.4s cubic-bezier(0.34,1.2,0.64,1), opacity 0.35s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #starNotif.visible {
+      top: 18px;
+      opacity: 1;
+    }
+
+    /* ── Счётчик отправленных (постоянный, слева от уведомления) ── */
+    #starSentCounter {
+      position: absolute;
+      top: 18px;
+      z-index: 50;
+      background: rgba(15,20,45,0.75);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 50px;
+      padding: 9px 14px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      color: white;
+      font-size: 0.82rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      white-space: nowrap;
+      pointer-events: none;
+      /* позиционируется через JS рядом с #starNotif */
+    }
+    #starSentCounter.has-stars {
+      display: flex;
+    }
+    .notif-check {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .notif-check svg { width:10px; height:10px; }
+    #starNotifText { color: rgba(255,255,255,0.9); }
+
+    /* ── Star inbox overlay ───────────────────────────────────── */
+    #starInbox {
+      position: absolute;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    #starInbox.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* Частицы звёзд летящие сверху */
+    .inbox-star-particle {
+      position: absolute;
+      top: -40px;
+      font-size: 1.6rem;
+      pointer-events: none;
+      animation: inboxStarFall var(--dur) cubic-bezier(0.2, 0.8, 0.4, 1) var(--del) both;
+      filter: drop-shadow(0 0 12px rgba(255,220,80,0.9));
+    }
+    @keyframes inboxStarFall {
+      0%   { transform: translateY(0) translateX(0) rotate(0deg) scale(0); opacity: 0; }
+      15%  { opacity: 1; transform: translateY(20px) scale(1.2); }
+      60%  { opacity: 1; }
+      100% { transform: translateY(var(--fy)) translateX(var(--fx)) rotate(var(--rot)) scale(0.7);
+             opacity: 0; }
+    }
+
+    /* Карточка сообщения */
+    .inbox-card {
+      position: relative;
+      z-index: 2;
+      background: rgba(10, 8, 30, 0.72);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 28px;
+      padding: 36px 40px 32px;
+      text-align: center;
+      max-width: 320px;
+      width: 88%;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.1);
+      animation: inboxCardPop 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+    }
+    @keyframes inboxCardPop {
+      from { transform: scale(0.7) translateY(30px); opacity: 0; }
+      to   { transform: scale(1)   translateY(0);    opacity: 1; }
+    }
+
+    /* Верхняя полоска-градиент */
+    .inbox-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 20px; right: 20px;
+      height: 2px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, transparent, rgba(255,220,80,0.8), rgba(255,160,200,0.8), transparent);
+    }
+
+    .inbox-emoji-row {
+      font-size: 2.8rem;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      animation: inboxEmojiBounce 0.6s cubic-bezier(0.34,1.5,0.64,1) 0.2s both;
+    }
+    @keyframes inboxEmojiBounce {
+      from { transform: scale(0); }
+      to   { transform: scale(1); }
+    }
+
+    .inbox-from {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 220, 100, 0.75);
+      margin-bottom: 10px;
+    }
+
+    .inbox-count {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2.6rem, 10vw, 4rem);
+      font-weight: 300;
+      font-style: italic;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 6px;
+      text-shadow: 0 0 40px rgba(255,220,80,0.6);
+    }
+
+    .inbox-label {
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.06em;
+      margin-bottom: 28px;
+    }
+
+    .inbox-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: white;
+      padding: 12px 32px;
+      border-radius: 50px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      font-style: italic;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: all 0.2s;
+      backdrop-filter: blur(8px);
+    }
+    .inbox-btn:hover {
+      background: rgba(255,255,255,0.2);
+      transform: scale(1.04);
+    }
+    .inbox-btn:active { transform: scale(0.97); }
+
+    /* Sky buttons */
+    .sky-btn {
+      background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); color:white;
+      padding:12px 26px; border-radius:50px;
+      font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-style:italic;
+      cursor:pointer; backdrop-filter:blur(10px); transition:all 0.2s; letter-spacing:0.05em; white-space:nowrap;
+    }
+    .sky-btn:hover  { background:rgba(255,255,255,0.2); border-color:rgba(255,255,255,0.4); transform:scale(1.04); }
+    .sky-btn:active { transform:scale(0.97); }
+    #btnSend   { position:absolute; bottom:calc(max(40px, env(safe-area-inset-bottom, 40px)) + 130px); left:50%; transform:translateX(-50%); z-index:40; }
+    #btnClose  { position:absolute; bottom:max(16px, env(safe-area-inset-bottom, 16px)); left:50%; transform:translateX(-50%); z-index:40; font-size:0.85rem; padding:8px 20px; background:rgba(0,0,0,0.28); border-color:rgba(255,255,255,0.12); font-style:normal; letter-spacing:0.12em; opacity:0.65; }
+    #btnClose:hover  { opacity:1; transform:translateX(-50%) scale(1.04); }
+    #btnSwitch { position:absolute; bottom:calc(max(40px, env(safe-area-inset-bottom, 40px)) + 74px); left:50%; transform:translateX(-50%); z-index:40; font-size:0.8rem; padding:8px 20px; background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.2); font-style:normal; letter-spacing:0.06em; }
+    #btnSwitch:hover { background:rgba(255,255,255,0.18); transform:translateX(-50%) scale(1.04); }
+
+    /* Single panel mode — один из панелей скрыт, разделитель и центр тоже */
+    #skyView.single-mode .sky-divider,
+    #skyView.single-mode .sky-center { display: none; }
+    #skyView.single-mode .sky-panel  { flex: 0; overflow: hidden; transition: flex 0.5s cubic-bezier(0.4,0,0.2,1); }
+    #skyView.single-mode .sky-panel.active { flex: 1; }
+
+    /* ══════════════════════════════════════
+       INTRO / LOADING SCREEN
+    ══════════════════════════════════════ */
+    #skyIntro {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: #060410;
+      overflow: hidden;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    #skyIntro.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+    /* Звёзды фона интро */
+    .intro-star {
+      position: absolute;
+      border-radius: 50%;
+      background: white;
+      animation: introStarTwinkle var(--d) ease-in-out infinite var(--dl);
+    }
+    @keyframes introStarTwinkle {
+      0%,100% { opacity: var(--op); }
+      50%      { opacity: 0.05; }
+    }
+
+    /* Карта */
+    .intro-map-wrap {
+      position: relative;
+      width: min(90vw, 400px);
+      height: 260px;
+      margin-bottom: 32px;
+    }
+    #introCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Подписи городов */
+    .intro-city-label {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      transform: translate(-50%, -100%);
+      padding-bottom: 10px; /* отступ над точкой canvas */
+    }
+    .intro-city-label.visible { opacity: 1; }
+    .intro-city-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.3rem;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.9);
+      white-space: nowrap;
+      text-shadow: 0 0 20px rgba(180,160,255,0.8);
+    }
+    .intro-city-time {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      color: rgba(180,160,255,0.7);
+      text-transform: uppercase;
+    }
+
+    /* Текст под картой */
+    .intro-text-area {
+      text-align: center;
+      min-height: 56px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .intro-typed {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.4rem, 5vw, 1.9rem);
+      font-style: italic;
+      font-weight: 300;
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 0.04em;
+      min-height: 1.6em;
+      text-shadow: 0 0 24px rgba(180,140,255,0.5);
+    }
+    .intro-typed .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1em;
+      background: rgba(200,180,255,0.8);
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: cursorBlink 0.9s step-end infinite;
+    }
+    @keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Кнопка "Войти в небо" */
+    #introBtnEnter {
+      margin-top: 32px;
+      padding: 14px 36px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.22);
+      color: #fff;
+      border-radius: 50px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      font-style: italic;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.3s ease;
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+    }
+    #introBtnEnter.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: all;
+      animation: btnPulse 2.8s ease-in-out infinite;
+    }
+    @keyframes btnPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(200,180,255,0), 0 0 18px rgba(180,150,255,0.12); }
+      45%     { box-shadow: 0 0 0 8px rgba(200,180,255,0.08), 0 0 32px rgba(180,150,255,0.28); }
+      50%     { box-shadow: 0 0 0 10px rgba(200,180,255,0.04), 0 0 36px rgba(180,150,255,0.22); }
+    }
+    #introBtnEnter:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.4);
+      box-shadow: 0 0 32px rgba(180,140,255,0.25);
+      transform: translateY(-2px);
+    }
+    #introBtnEnter:active { transform: scale(0.97); }
+
+    /* Fade-out интро */
+    #skyIntro.fade-out {
+      animation: introFadeOut 0.7s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+    @keyframes introFadeOut {
+      0%   { opacity:1; }
+      100% { opacity:0; pointer-events:none; }
+    }
+
+    /* Самолётик на маршруте */
+    .intro-plane {
+      position: absolute;
+      font-size: 1.1rem;
+      pointer-events: none;
+      filter: drop-shadow(0 0 8px rgba(255,230,100,0.9));
+      transform-origin: center;
+      z-index: 5;
+    }
+
+    /* Текст на маршруте */
+
+    .intro-route-text.visible { opacity: 1; }
+  
+    /* ── Skip intro notification ── */
+    #introSkipNotif {
+      position: fixed;
+      bottom: -160px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      width: min(360px, calc(100vw - 32px));
+      background: rgba(10,8,25,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 20px 20px 16px;
+      box-shadow: 0 -4px 40px rgba(0,0,0,0.5);
+      transition: bottom 0.4s cubic-bezier(0.34,1.2,0.64,1), opacity 0.35s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #introSkipNotif.visible {
+      bottom: 28px;
+      opacity: 1;
+      pointer-events: all;
+    }
+    .skip-notif-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      font-weight: 400;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: 0.02em;
+    }
+    .skip-notif-sub {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.4);
+      font-weight: 300;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .skip-notif-btns {
+      display: flex;
+      gap: 10px;
+    }
+    .skip-btn-keep {
+      flex: 1; padding: 11px; border-radius: 12px;
+      background: rgba(34,197,94,0.18);
+      border: 1px solid rgba(34,197,94,0.4);
+      color: #4ade80;
+      font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .skip-btn-keep:hover   { background: rgba(34,197,94,0.28); }
+    .skip-btn-keep:active  { transform: scale(0.96); }
+    .skip-btn-skip {
+      flex: 1; padding: 11px; border-radius: 12px;
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.35);
+      color: #f87171;
+      font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .skip-btn-skip:hover   { background: rgba(239,68,68,0.25); }
+    .skip-btn-skip:active  { transform: scale(0.96); }
+
+</style>
+</head>
+<body>
+
+<!-- ══ INTRO SCREEN ══ -->
+<div id="skyIntro">
+  <!-- Звёзды генерируются JS -->
+  <div class="intro-map-wrap" id="introMapWrap">
+    <canvas id="introCanvas"></canvas>
+    <!-- Moscow — верхний левый (реальное положение) -->
+    <div class="intro-city-label" id="introLabelMoscow">
+      <div class="intro-city-name" id="introNameMoscow"></div>
+      <div class="intro-city-time" id="introTimeMoscow"></div>
+    </div>
+    <!-- Bishkek — нижний правый -->
+    <div class="intro-city-label" id="introLabelBishkek">
+      <div class="intro-city-name" id="introNameBishkek"></div>
+      <div class="intro-city-time" id="introTimeBishkek"></div>
+    </div>
+  </div>
+  <div class="intro-text-area">
+    <div class="intro-typed" id="introTyped"><span class="cursor"></span></div>
+  </div>
+  <button id="introBtnEnter" onclick="enterSky()">✦ открыть наше небо</button>
+
+<div id="introSkipNotif">
+  <div class="skip-notif-title">Ты хочешь пропустить анимацию?</div>
+  <div class="skip-notif-sub">Я бы на твоём месте не пропускал её)</div>
+  <div class="skip-notif-btns">
+    <button class="skip-btn-keep" onclick="_hideSkipNotif()">оставить</button>
+    <button class="skip-btn-skip" onclick="_doSkipIntro()">пропустить</button>
+  </div>
+</div>
+</div>
+
+<!-- ══ FULLSCREEN SKY ══ -->
+<div id="skyView">
+  <div class="sky-wrap">
+
+    <div class="sky-panel" id="panelMoscow">
+      <canvas class="sky-canvas" id="canvasMoscow"></canvas>
+      <div class="stars-layer" id="starsMoscow"></div>
+      <div class="sky-horizon" id="horizonMoscow"></div>
+      <div class="aurora" id="auroraMoscow"></div>
+      <div class="city-info">
+        <div class="city-info-left">
+          <div class="city-name city-name-moscow"></div>
+          <div class="city-time" id="timeMoscow">--:--</div>
+          <div class="city-phase" id="phaseMoscow"></div>
+        </div>
+        <div class="city-info-right" id="weatherMoscow"></div>
+      </div>
+    </div>
+
+    <div class="sky-divider"></div>
+    <div class="sky-center">
+      <div class="sky-heart">💗</div>
+      <div class="sky-dist"><span id="skyDistLabel">4 000 км</span><br><span id="timeDiff"></span></div>
+    </div>
+
+    <div class="sky-panel" id="panelBishkek">
+      <canvas class="sky-canvas" id="canvasBishkek"></canvas>
+      <div class="stars-layer" id="starsBishkek"></div>
+      <div class="sky-horizon" id="horizonBishkek"></div>
+      <div class="aurora" id="auroraBishkek"></div>
+      <div class="city-info">
+        <div class="city-info-left">
+          <div class="city-name city-name-bishkek"></div>
+          <div class="city-time" id="timeBishkek">--:--</div>
+          <div class="city-phase" id="phaseBishkek"></div>
+        </div>
+        <div class="city-info-right" id="weatherBishkek"></div>
+      </div>
+    </div>
+
+    <!-- Star notification -->
+    <!-- Star inbox: показывается получателю когда партнёр отправил звёзды -->
+    <div id="starInbox">
+      <!-- Частицы генерируются JS -->
+      <div class="inbox-card">
+        <div class="inbox-emoji-row" id="inboxEmoji">⭐</div>
+        <div class="inbox-from" id="inboxFrom"></div>
+        <div class="inbox-count" id="inboxCount">1</div>
+        <div class="inbox-label" id="inboxLabel">звёздочек тебе отправлено ❤️</div>
+        <button class="inbox-btn" onclick="closeStarInbox()">УРАААААА ✨</button>
+      </div>
+    </div>
+
+    <div id="starSentCounter">
+      <span>⭐</span><span id="starSentCount">0</span>
+    </div>
+    <div id="starNotif">
+      <div class="notif-check">
+        <svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 5.5L4 7.5L8 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span id="starNotifText">Отправлена 1 звезда</span>
+    </div>
+    <button class="sky-btn" id="btnSend">✦ отправить звезду</button>
+    <button class="sky-btn" id="btnSwitch" onclick="switchSkyPanel()"></button>
+    <button class="sky-btn" id="btnClose" onclick="closeSky()">✕ закрыть</button>
+
+  </div>
+</div>
+
+<script>
+// ── Серверные инъекции (должны быть ПЕРВЫМИ) ─────────────────
+window.SKY_CFG        = {{SKY_CFG_JSON}};
+window.API_SECRET_KEY = '{{API_SECRET_KEY}}';
+
+// ════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════
+const _skyCfg = window.SKY_CFG || {};
+const CITIES = {
+  moscow:  { offset: (_skyCfg.moscow  || {}).offsetHours ?? 0, lat: (_skyCfg.moscow  || {}).lat ?? 0, lon: (_skyCfg.moscow  || {}).lon ?? 0, el: 'Moscow',  nameEl: 'timeMoscow',  phaseEl: 'phaseMoscow'  },
+  bishkek: { offset: (_skyCfg.bishkek || {}).offsetHours ?? 0, lat: (_skyCfg.bishkek || {}).lat ?? 0, lon: (_skyCfg.bishkek || {}).lon ?? 0, el: 'Bishkek', nameEl: 'timeBishkek', phaseEl: 'phaseBishkek' },
+};
+
+// Расставляем названия городов и расстояние динамически при загрузке
+(function _applySkyCfg() {
+  const mLabel = (_skyCfg.moscow  || {}).cityLabel || '—';
+  const bLabel = (_skyCfg.bishkek || {}).cityLabel || '—';
+  const mEls = document.querySelectorAll('.city-name-moscow');
+  const bEls = document.querySelectorAll('.city-name-bishkek');
+  const distEl = document.getElementById('skyDistLabel');
+  _log('SKY_CFG', '_applySkyCfg', { mLabel, bLabel, mEls: mEls.length, bEls: bEls.length });
+  if (distEl) distEl.textContent = _skyCfg.distanceLabel || '';
+  mEls.forEach(el => { el.textContent = mLabel; });
+  bEls.forEach(el => { el.textContent = bLabel; });
+})();
+
+// Погода: см. fetchWeatherData() ниже
+
+// Weather загружается через fetchWeatherData() при openSky()
+
+// Simulation: 10 real seconds = 1 simulated hour, starts at midnight
+// ═══════════════════════════════════════════════════════════
+// РЕАЛЬНОЕ ВРЕМЯ (не симуляция)
+// ═══════════════════════════════════════════════════════════
+function getHour(offset) {
+  return realHour(offset);
+}
+function getTimeStr(offset) {
+  return realTimeStr(offset);
+}
+function realHour(offset) {
+  const now = new Date();
+  const ct  = new Date(now.getTime() + now.getTimezoneOffset()*60000 + offset*3600000);
+  return ct.getHours() + ct.getMinutes()/60 + ct.getSeconds()/3600;
+}
+function realTimeStr(offset) {
+  const now = new Date();
+  const ct  = new Date(now.getTime() + now.getTimezoneOffset()*60000 + offset*3600000);
+  return `${ct.getHours().toString().padStart(2,'0')}:${ct.getMinutes().toString().padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ПОГОДА — open-meteo.com (бесплатно, без ключа, CORS OK)
+// Загружается параллельно с интро-анимацией
+// ═══════════════════════════════════════════════════════════
+const WEATHER_DATA = {
+  moscow:  null,
+  bishkek: null,
+};
+let _weatherLoaded = false;
+let _weatherPromise = null;
+
+// Словарь кодов → описание
+// Иконка по коду погоды
+function _weatherIcon(code) {
+  if (code === 0)               return '☀️';
+  if (code === 1)               return '🌤';
+  if (code === 2)               return '⛅';
+  if (code === 3)               return '☁️';
+  if (code === 45 || code === 48) return '🌫';
+  if (code >= 51 && code <= 57) return '🌦';
+  if (code >= 61 && code <= 67) return '🌧';
+  if (code >= 71 && code <= 77) return '❄️';
+  if (code >= 80 && code <= 82) return '🌧';
+  if (code >= 85 && code <= 86) return '🌨';
+  if (code >= 95)               return '⛈';
+  return '';
+}
+
+function weatherCodeDesc(code) {
+  const m = {
+    0:'ясно', 1:'преимущественно ясно', 2:'переменная облачность',
+    3:'пасмурно', 45:'туман', 48:'туман с инеем',
+    51:'лёгкая морось', 53:'морось', 55:'сильная морось',
+    61:'небольшой дождь', 63:'умеренный дождь', 65:'сильный дождь',
+    71:'небольшой снег', 73:'снег', 75:'сильный снег', 77:'снежные зёрна',
+    80:'небольшой ливень', 81:'ливень', 82:'сильный ливень',
+    85:'снегопад', 86:'сильный снегопад',
+    95:'гроза', 96:'гроза с градом', 99:'сильная гроза с градом',
+  };
+  return m[code] || '';
+}
+
+// Парсим "2026-03-20T06:14" → часы в виде числа (5.5 etc.)
+function _isoToLocalHour(isoStr, offsetHours) {
+  if (!isoStr) return null;
+  // Строка вида "2026-03-20T06:14" — локальное время города (timezone=auto)
+  const [, timePart] = isoStr.split('T');
+  if (!timePart) return null;
+  const [hh, mm] = timePart.split(':').map(Number);
+  return hh + mm / 60;
+}
+
+
+// ── Сезонные данные если API недоступен ─────────────────────────
+// Определяем климатическую зону по широте города (из CITIES[key].lat).
+// 4 зоны: тропики (<25°), субтропики (25–40°), умеренный (40–55°), холодный (>55°).
+// Для южного полушария сезоны инвертируются.
+function _seasonalWeather(key) {
+  const month   = new Date().getMonth(); // 0=янв, 11=дек
+  const cityLat = (CITIES[key] || {}).lat ?? 50;
+  const absLat  = Math.abs(cityLat);
+  const isSouth = cityLat < 0;
+  const m       = isSouth ? (month + 6) % 12 : month;
+
+  // [t]=температура °C, [c]=облачность%, [w]=WMO-код, [sr]=рассвет ч, [ss]=закат ч
+  const TROP = {
+    t:  [26,27,28,29,29,27,26,26,27,27,26,26],
+    c:  [40,35,45,55,70,80,75,70,65,60,50,40],
+    w:  [ 1, 0, 1, 2,51,51,61,61,51,51, 2, 1],
+    sr: [6.3,6.2,6.1,6.0,6.0,6.1,6.2,6.3,6.2,6.1,6.2,6.3],
+    ss: [18.7,18.7,18.5,18.3,18.2,18.2,18.3,18.5,18.5,18.3,18.2,18.5],
+  };
+  const SUBT = {
+    t:  [8,10,14,18,22,27,30,30,25,19,13,9],
+    c:  [55,50,45,40,30,15,10,10,20,35,50,60],
+    w:  [ 2, 2, 1, 1, 0, 0, 0, 0, 0, 1, 2, 2],
+    sr: [7.8,7.2,6.5,5.8,5.2,5.0,5.2,5.8,6.5,7.0,7.5,7.9],
+    ss: [17.2,17.9,18.7,19.5,20.2,20.7,20.5,19.8,18.9,18.0,17.2,16.9],
+  };
+  const TEMP = {
+    t:  [-2,0,5,11,16,20,22,21,16,10,4,0],
+    c:  [70,65,60,55,50,45,40,45,55,65,75,75],
+    w:  [51,51, 2, 1, 1, 1, 0, 1, 2,51,61,71],
+    sr: [8.3,7.6,6.7,5.7,4.8,4.4,4.7,5.5,6.5,7.4,8.1,8.5],
+    ss: [16.1,17.0,18.1,19.3,20.4,21.0,20.7,19.8,18.5,17.2,16.1,15.7],
+  };
+  const COLD = {
+    t:  [-10,-8,-2, 7,15,19,21,19,13, 5,-2,-7],
+    c:  [80,75,70,60,55,50,45,50,60,70,80,85],
+    w:  [71,71,51, 1, 1, 1, 1, 1, 2,80,51,71],
+    sr: [9.0,8.0,7.0,5.8,4.5,4.0,4.5,5.5,6.8,7.8,8.5,9.2],
+    ss: [15.5,17.0,18.5,20.5,21.5,22.0,21.5,20.0,18.5,17.0,15.5,14.8],
+  };
+
+  const zone = absLat < 25 ? TROP : absLat < 40 ? SUBT : absLat < 55 ? TEMP : COLD;
+
+  const temp  = zone.t[m] + (Math.random() * 4 - 2);
+  const feels = temp - 1.5;
+
+  return {
+    code:        zone.w[m],
+    clouds:      zone.c[m],
+    temp:        +temp.toFixed(1),
+    feels:       +feels.toFixed(1),
+    wind:        Math.round(3 + Math.random() * 8),
+    rain:        zone.w[m] === 51 || zone.w[m] === 80,
+    sunriseHour: zone.sr[m],
+    sunsetHour:  zone.ss[m],
+    desc:        weatherCodeDesc(zone.w[m]),
+    isFallback:  true,
+  };
+}
+
+async function fetchWeatherData() {
+  const _cm = _skyCfg.moscow  || {};
+  const _cb = _skyCfg.bishkek || {};
+  const cities = {
+    moscow:  { lat: _cm.lat ?? 0, lon: _cm.lon ?? 0, tz: _cm.tzId || 'UTC' },
+    bishkek: { lat: _cb.lat ?? 0, lon: _cb.lon ?? 0, tz: _cb.tzId || 'UTC' },
+  };
+  const promises = Object.entries(cities).map(async ([key, city]) => {
+    try {
+      const url = 'https://api.open-meteo.com/v1/forecast'
+        + `?latitude=${city.lat}&longitude=${city.lon}`
+        + `&current=temperature_2m,apparent_temperature,weathercode,cloudcover`
+        + `&daily=sunrise,sunset`
+        + `&timezone=${city.tz}`
+        + `&forecast_days=1`;
+      const r = await fetch(url);
+      const d = await r.json();
+
+      // API возвращает d.current с полями temperature_2m, apparent_temperature, weathercode, cloudcover
+      const cur   = d.current || {};
+      const daily = d.daily   || {};
+
+      const temp   = cur.temperature_2m       ?? null;
+      const feels  = cur.apparent_temperature  ?? null;
+      const code   = cur.weathercode           ?? 0;
+      const clouds = cur.cloudcover            ?? 30;
+
+      WEATHER_DATA[key] = {
+        code,
+        clouds,
+        temp,
+        feels,
+        wind:        null,
+        rain:        code >= 51 && code <= 67 || code >= 80 && code <= 82,
+        sunriseHour: _isoToLocalHour((daily.sunrise || [])[0], 0),
+        sunsetHour:  _isoToLocalHour((daily.sunset  || [])[0], 0),
+        desc:        weatherCodeDesc(code),
+      };
+    } catch(e) {
+      _logWarn('Weather', 'API недоступен, сезонные данные для', key);
+      WEATHER_DATA[key] = _seasonalWeather(key);
+    }
+  });
+  await Promise.all(promises);
+  _weatherLoaded = true;
+  _log('Weather', 'MOSCOW:', WEATHER_DATA.moscow);
+  _log('Weather', 'BISHKEK:', WEATHER_DATA.bishkek);
+
+  // Сбрасываем флаги и принудительно вставляем погоду в DOM
+  ['moscow','bishkek'].forEach(key => {
+    const elId = 'weather' + (key === 'moscow' ? 'Moscow' : 'Bishkek');
+    const wEl = document.getElementById(elId);
+    _log('Weather', 'el', elId, wEl ? 'found' : 'NOT FOUND');
+    if (!wEl) return;
+    wEl._weatherDone = false;
+    const wd = WEATHER_DATA[key];
+    _log('Weather', 'data for', key, wd);
+    if (!wd || wd.temp == null) return;
+
+    wEl.innerHTML = '';
+    const icon = _weatherIcon(wd.code);
+
+    const t = document.createElement('div');
+    t.className = 'weather-temp';
+    t.textContent = Math.round(wd.temp) + '°C';
+    wEl.appendChild(t);
+
+    const f = document.createElement('div');
+    f.className = 'weather-feels';
+    f.textContent = 'Ощущается как ' + (wd.feels != null ? Math.round(wd.feels) + '°C' : '—');
+    wEl.appendChild(f);
+
+    if (wd.desc) {
+      const b = document.createElement('div');
+      b.className = 'weather-badge';
+      b.textContent = (icon ? icon + ' ' : '') + wd.desc;
+      wEl.appendChild(b);
+    }
+
+    wEl._weatherDone = true;
+    _log('Weather', 'rendered for', key, 'children:', wEl.children.length);
+  });
+  if (_skyInterval) _lastSlowUpdate = 0;
+}
+
+// Запускаем сразу при загрузке страницы (в фоне)
+_weatherPromise = fetchWeatherData();
+
+// Погода-зависимый getSky:
+// если sunrise/sunset известны из API — используем их, иначе дефолты
+function _getSkyForCity(key, h) {
+  const w  = WEATHER_DATA[key];
+  const rise = (w && w.sunriseHour != null) ? w.sunriseHour : 6;
+  const set  = (w && w.sunsetHour  != null) ? w.sunsetHour  : 20;
+  const dawnEnd    = rise + 1;   // рассвет заканчивается через ~1ч после восхода
+  const dawnStart  = rise - 1;   // преддверие рассвета
+  const duskStart  = set  - 1;   // начало заката
+  const duskEnd    = set  + 1;   // полные сумерки
+
+  if (h < 3)           return { top:'#020614', bot:'#0a0f2e', phase:'глубокая ночь',   stars:1,   sun:0,    moon:0.9,  hor:null };
+  if (h < dawnStart)   return { top:'#060821', bot:'#0d1030', phase:'ночь',            stars:0.9, sun:0,    moon:0.75, hor:null };
+  if (h < rise)        return { top:'#1a0f3a', bot:'#2a1250', phase:'перед рассветом', stars:0.4, sun:0,    moon:0.3,  hor:null };
+  if (h < dawnEnd)     return { top:'#1a3a6e', bot:'#ff7040', phase:'рассвет',         stars:0.1, sun:0.5,  moon:0,    hor:'rgba(255,112,64,0.6)' };
+  if (h < rise + 2.5)  return { top:'#1a4a80', bot:'#ffaa66', phase:'раннее утро',     stars:0,   sun:0.72, moon:0,    hor:'rgba(255,170,102,0.45)' };
+  if (h < duskStart - 5) return { top:'#0d5fa8', bot:'#4da8e0', phase:'день',          stars:0,   sun:1,    moon:0,    hor:'rgba(77,168,224,0.15)' };
+  if (h < duskStart)   return { top:'#1565a0', bot:'#5bb8f5', phase:'после полудня',   stars:0,   sun:0.9,  moon:0,    hor:'rgba(91,184,245,0.2)' };
+  if (h < set)         return { top:'#0f3460', bot:'#e87040', phase:'вечер',           stars:0.1, sun:0.4,  moon:0,    hor:'rgba(232,112,64,0.55)' };
+  if (h < duskEnd)     return { top:'#0a1a3e', bot:'#c0392b', phase:'закат',           stars:0.4, sun:0.1,  moon:0.3,  hor:'rgba(192,57,43,0.45)' };
+  if (h < duskEnd + 1) return { top:'#06102a', bot:'#1a1250', phase:'сумерки',         stars:0.7, sun:0,    moon:0.6,  hor:'rgba(26,18,80,0.3)' };
+  return               { top:'#020614', bot:'#080d28', phase:'ночь',                  stars:1,   sun:0,    moon:0.85, hor:null };
+}
+
+// getSky используется в preview — теперь через _getSkyForCity
+function getSky(h) { return _getSkyForCity('moscow', h); }
+
+// ════════════════════════════════════════════
+//  CARD PREVIEW (real time, not sim)
+// ════════════════════════════════════════════
+function drawPreview() {
+  const canvas = document.getElementById('previewCanvas');
+  const wrap   = canvas.parentElement;
+  canvas.width  = wrap.offsetWidth;
+  canvas.height = wrap.offsetHeight;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, half = W / 2;
+
+  function gradColors(h) {
+    return getSky(h);
+  }
+
+  // Draw each half (используем реальные смещения из SKY_CFG)
+  const _prevOffM = (_skyCfg.moscow  || {}).offsetHours ?? 0;
+  const _prevOffB = (_skyCfg.bishkek || {}).offsetHours ?? 0;
+  [{ offset:_prevOffM, x0:0 }, { offset:_prevOffB, x0:half }].forEach(({ offset, x0 }) => {
+    const h = realHour(offset);
+    const c = gradColors(h);
+    const g = ctx.createLinearGradient(x0, 0, x0, H);
+    g.addColorStop(0, c.top); g.addColorStop(1, c.bot);
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, 0, half, H);
+
+    // Horizon glow
+    if (c.hor) {
+      const hg = ctx.createLinearGradient(x0, H*0.5, x0, H);
+      hg.addColorStop(0, 'transparent');
+      hg.addColorStop(1, c.hor);
+      ctx.fillStyle = hg;
+      ctx.fillRect(x0, 0, half, H);
+    }
+
+    // Stars
+    if (c.stars > 0) {
+      ctx.save();
+      ctx.globalAlpha = c.stars * 0.8;
+      for (let i = 0; i < 18; i++) {
+        const sx = x0 + Math.random() * half;
+        const sy = Math.random() * H * 0.65;
+        const r  = Math.random() * 1.2 + 0.3;
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Sun
+    if (c.sun > 0) {
+      const px  = Math.max(0.05, Math.min(0.95, (h-6)/14));
+      const bx  = x0 + px * half;
+      const by  = H * 0.1 + (1 - Math.sin(px * Math.PI)) * H * 0.55;
+      const gold = h < 8.5 || h > 17;
+      const sc   = gold ? '#ffcc44' : '#fff7e0';
+      const gc   = gold ? 'rgba(255,160,30,' : 'rgba(255,240,180,';
+      // Glow
+      const rg = ctx.createRadialGradient(bx, by, 0, bx, by, Math.max(0.001, 22 * c.sun));
+      rg.addColorStop(0, gc + '0.5)');
+      rg.addColorStop(1, gc + '0)');
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(bx, by, 22*c.sun, 0, Math.PI*2); ctx.fill();
+      // Body
+      ctx.save();
+      ctx.shadowColor = sc; ctx.shadowBlur = 14 * c.sun;
+      ctx.fillStyle = sc;
+      ctx.beginPath(); ctx.arc(bx, by, 8 * c.sun, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      // Rays at golden hour
+      if (gold && c.sun > 0.3) {
+        ctx.save();
+        ctx.strokeStyle = gc + '0.3)';
+        ctx.lineWidth = 1.5;
+        for (let a = 0; a < 8; a++) {
+          const ang = (a/8)*Math.PI*2;
+          ctx.beginPath();
+          ctx.moveTo(bx + Math.cos(ang)*11, by + Math.sin(ang)*11);
+          ctx.lineTo(bx + Math.cos(ang)*18, by + Math.sin(ang)*18);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
+    // Moon
+    if (c.moon > 0) {
+      const prog = h < 6 ? (h+12)/18 : (h-18)/18;
+      const px   = Math.max(0.05, Math.min(0.95, prog));
+      const bx   = x0 + px * half;
+      const by   = H * 0.1 + (1 - Math.sin(px*Math.PI)) * H * 0.55;
+      ctx.save();
+      ctx.shadowColor = 'rgba(220,210,180,0.5)'; ctx.shadowBlur = 10;
+      ctx.fillStyle = '#e8e0d0';
+      ctx.beginPath(); ctx.arc(bx, by, 7*c.moon, 0, Math.PI*2); ctx.fill();
+      // Shadow on moon
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.arc(bx + 3, by + 1, 6*c.moon, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+  });
+
+  // Update time labels (используем реальные смещения из SKY_CFG)
+  document.getElementById('ptMoscow').textContent  = realTimeStr(CITIES.moscow.offset);
+  document.getElementById('ptBishkek').textContent = realTimeStr(CITIES.bishkek.offset);
+}
+
+// ════════════════════════════════════════════
+//  FULLSCREEN SKY ENGINE
+// ════════════════════════════════════════════
+// Store last sky colors for smooth transition
+const _lastSkyColors = {};
+
+function drawSkyCanvas(id, c) {
+  // Use CSS transition on the panel background for smooth phase changes
+  const panel = document.getElementById('panel' + id);
+  const key   = id.toLowerCase();
+
+  // Only update if colors changed
+  const sig = c.top + c.bot;
+  if (_lastSkyColors[key] === sig) return;
+  _lastSkyColors[key] = sig;
+
+  // Apply gradient as panel background with CSS transition
+  panel.style.transition = 'background 4s ease';
+  panel.style.background = `linear-gradient(to bottom, ${c.top} 0%, ${c.top} 55%, ${c.bot} 100%)`;
+
+  // Hide canvas (we use panel background now)
+  const canvas = document.getElementById('canvas' + id);
+  canvas.style.display = 'none';
+}
+
+function updateStars(key, vis) {
+  const el = document.getElementById('stars' + CITIES[key].el);
+  el.style.opacity = String(vis);
+  if (el.childElementCount > 0) return;
+  for (let i = 0; i < 140; i++) {
+    const s  = document.createElement('div');
+    s.className = 's';
+    const sz  = Math.random() < 0.12 ? 3 : Math.random() < 0.35 ? 2 : 1;
+    const op  = 0.35 + Math.random() * 0.65;
+    const top = Math.random() * 72;
+    s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${top}%;--d:${2+Math.random()*5}s;--dl:${-Math.random()*6}s;--mo:${op};opacity:${op};`;
+    el.appendChild(s);
+  }
+}
+
+// ── Perlin-like smooth noise ──────────────────────────────────────
+function fade(t) { return t*t*t*(t*(t*6-15)+10); }
+function lerp(a,b,t) { return a+t*(b-a); }
+const _p = [];
+(function(){const a=Array.from({length:256},(_,i)=>i); for(let i=255;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} for(let i=0;i<512;i++)_p[i]=a[i&255];})();
+function grad(h,x,y){const v=h&3;const u=v<2?x:y,w=v<2?y:x;return((h&1)?-u:u)+((h&2)?-w:w);}
+function noise2(x,y){
+  const X=Math.floor(x)&255,Y=Math.floor(y)&255,xf=x-Math.floor(x),yf=y-Math.floor(y);
+  const u=fade(xf),v=fade(yf);
+  const a=_p[X]+Y,b=_p[X+1]+Y;
+  return lerp(lerp(grad(_p[a],xf,yf),grad(_p[b],xf-1,yf),u),lerp(grad(_p[a+1],xf,yf-1),grad(_p[b+1],xf-1,yf-1),u),v);
+}
+function fbm(x,y,oct){let v=0,a=0.5,f=1;for(let i=0;i<oct;i++){v+=a*noise2(x*f,y*f);a*=0.5;f*=2;}return v;}
+
+// ── Draw realistic sun on canvas ─────────────────────────────────
+function drawRealisticSun(panel, x, y, hour, sunVis) {
+  let canvas = panel.querySelector('.sun-canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.className = 'sun-canvas';
+    canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3;';
+    panel.appendChild(canvas);
+  }
+  canvas.width  = panel.offsetWidth;
+  canvas.height = panel.offsetHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (sunVis <= 0) return;
+
+  const gold    = hour < 8.5 || hour > 17;
+  const lowSun  = hour < 7 || hour > 18.5;
+  const sz      = 28 * sunVis;
+
+  // ── 1. Atmospheric halo (large soft glow) ──
+  const haloR = sz * 7;
+  const halo  = ctx.createRadialGradient(x, y, 0, x, y, Math.max(0.001,haloR));
+  if (gold) {
+    halo.addColorStop(0,   'rgba(255,200,60,0.22)');
+    halo.addColorStop(0.3, 'rgba(255,140,20,0.12)');
+    halo.addColorStop(0.7, 'rgba(255,80,0,0.04)');
+    halo.addColorStop(1,   'transparent');
+  } else {
+    halo.addColorStop(0,   'rgba(255,250,230,0.15)');
+    halo.addColorStop(0.4, 'rgba(200,230,255,0.06)');
+    halo.addColorStop(1,   'transparent');
+  }
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(x, y, haloR, 0, Math.PI*2); ctx.fill();
+
+  // ── 2. Corona / outer glow ──
+  const coronaR = sz * 2.8;
+  const corona  = ctx.createRadialGradient(x, y, Math.max(0.001,sz*0.7), x, y, Math.max(0.001,coronaR));
+  corona.addColorStop(0, gold ? 'rgba(255,220,80,0.55)' : 'rgba(255,248,220,0.45)');
+  corona.addColorStop(0.5, gold ? 'rgba(255,160,30,0.2)' : 'rgba(220,240,255,0.15)');
+  corona.addColorStop(1, 'transparent');
+  ctx.fillStyle = corona;
+  ctx.beginPath(); ctx.arc(x, y, coronaR, 0, Math.PI*2); ctx.fill();
+
+  // ── 3. Light rays (god rays) ──
+  if (gold || lowSun) {
+    const numRays = 18;
+    const t = performance.now() * 0.00008;
+    ctx.save();
+    for (let i = 0; i < numRays; i++) {
+      const ang  = (i/numRays) * Math.PI*2 + t;
+      const len  = sz * (2.5 + fbm(i*0.4+t, 0.5, 2) * 2.5);
+      const w    = (0.8 + fbm(i*0.3, 1, 1) * 0.8) * sunVis;
+      const grd  = ctx.createLinearGradient(
+        x + Math.cos(ang)*sz*0.6, y + Math.sin(ang)*sz*0.6,
+        x + Math.cos(ang)*len,    y + Math.sin(ang)*len
+      );
+      const base = gold ? `rgba(255,200,50,` : `rgba(255,240,200,`;
+      grd.addColorStop(0, base + (0.35*sunVis) + ')');
+      grd.addColorStop(1, base + '0)');
+      ctx.strokeStyle = grd;
+      ctx.lineWidth   = w * 2.5;
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(ang)*sz*0.6, y + Math.sin(ang)*sz*0.6);
+      ctx.lineTo(x + Math.cos(ang)*len,    y + Math.sin(ang)*len);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── 4. Limb darkening (realistic solar disc) ──
+  const disc = ctx.createRadialGradient(x-sz*0.15, y-sz*0.1, 0, x, y, Math.max(0.001,sz));
+  if (gold) {
+    disc.addColorStop(0,   '#fff9e0');
+    disc.addColorStop(0.4, '#ffe566');
+    disc.addColorStop(0.75,'#ffb820');
+    disc.addColorStop(0.9, '#ff8c00');
+    disc.addColorStop(1,   '#c85000');
+  } else {
+    disc.addColorStop(0,   '#ffffff');
+    disc.addColorStop(0.5, '#fffde8');
+    disc.addColorStop(0.85,'#ffd080');
+    disc.addColorStop(1,   '#ffaa30');
+  }
+  ctx.fillStyle = disc;
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI*2); ctx.fill();
+
+  // ── 5. Specular highlight ──
+  const spec = ctx.createRadialGradient(x-sz*0.3, y-sz*0.3, 0, x, y, Math.max(0.001,sz*0.8));
+  spec.addColorStop(0, 'rgba(255,255,255,0.5)');
+  spec.addColorStop(1, 'transparent');
+  ctx.fillStyle = spec;
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI*2); ctx.fill();
+
+  // ── 6. Atmosphere scattering at horizon ──
+  if (lowSun) {
+    const H2 = canvas.height;
+    const scatter = ctx.createRadialGradient(x, y, Math.max(0.001,sz), x, y, Math.max(0.001,sz*12));
+    if (hour < 7) {
+      scatter.addColorStop(0, 'rgba(255,120,40,0.18)');
+      scatter.addColorStop(0.4,'rgba(200,60,100,0.08)');
+      scatter.addColorStop(1, 'transparent');
+    } else {
+      scatter.addColorStop(0, 'rgba(255,100,20,0.22)');
+      scatter.addColorStop(0.35,'rgba(220,50,80,0.1)');
+      scatter.addColorStop(1, 'transparent');
+    }
+    ctx.fillStyle = scatter;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+// ── Moon phase (0=new, 0.5=full, 1=new again) ────────────────────
+function getMoonPhase() {
+  // Known new moon reference: Jan 6 2000 18:14 UTC
+  const ref   = new Date('2000-01-06T18:14:00Z').getTime();
+  const cycle = 29.53058867 * 24 * 3600 * 1000; // ms
+  const now   = Date.now();
+  return ((now - ref) % cycle) / cycle; // 0..1
+}
+
+// ── Draw realistic moon ───────────────────────────────────────────
+function drawRealisticMoon(panel, x, y, moonVis) {
+  let canvas = panel.querySelector('.moon-canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.className = 'moon-canvas';
+    canvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3;';
+    panel.appendChild(canvas);
+  }
+  canvas.width  = panel.offsetWidth;
+  canvas.height = panel.offsetHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (moonVis <= 0) return;
+
+  const sz = 26 * moonVis;
+  const phase = getMoonPhase();
+
+  // ── 1. Дальнее атмосферное свечение (большое, мягкое) ──
+  const atmo = ctx.createRadialGradient(x, y, 0, x, y, Math.max(0.001, sz * 7));
+  atmo.addColorStop(0,   'rgba(210,225,255,0.13)');
+  atmo.addColorStop(0.3, 'rgba(180,200,240,0.07)');
+  atmo.addColorStop(0.7, 'rgba(150,170,220,0.03)');
+  atmo.addColorStop(1,   'transparent');
+  ctx.fillStyle = atmo;
+  ctx.beginPath(); ctx.arc(x, y, sz * 7, 0, Math.PI * 2); ctx.fill();
+
+  // ── 2. Ближнее свечение — corona ──
+  const t = performance.now() * 0.0003;
+  const glowR = sz * (3.2 + Math.sin(t) * 0.15);
+  const corona = ctx.createRadialGradient(x, y, Math.max(0.001, sz * 0.8), x, y, Math.max(0.001, glowR));
+  corona.addColorStop(0,   'rgba(220,230,255,0.28)');
+  corona.addColorStop(0.4, 'rgba(200,215,250,0.12)');
+  corona.addColorStop(0.8, 'rgba(180,200,240,0.04)');
+  corona.addColorStop(1,   'transparent');
+  ctx.fillStyle = corona;
+  ctx.beginPath(); ctx.arc(x, y, glowR, 0, Math.PI * 2); ctx.fill();
+
+  // ── 3. Диск луны — тёплый жемчужный тон ──
+  const disc = ctx.createRadialGradient(x - sz * 0.28, y - sz * 0.22, 0, x, y, Math.max(0.001, sz));
+  disc.addColorStop(0,    '#fdfaf2');   // яркий центр
+  disc.addColorStop(0.45, '#f0ead8');   // тёплая середина
+  disc.addColorStop(0.78, '#ddd4bc');   // потемнее к краю
+  disc.addColorStop(0.92, '#c8bfa8');   // limb darkening
+  disc.addColorStop(1,    '#b0a48a');   // самый край
+  ctx.fillStyle = disc;
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI * 2); ctx.fill();
+
+  // ── 4. Текстура морей (тёмные пятна как у реальной луны) ──
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI * 2); ctx.clip();
+  ctx.globalCompositeOperation = 'multiply';
+
+  const seas = [
+    { dx: -0.18, dy: -0.22, rx: 0.38, ry: 0.28, a: 0.18 }, // Mare Imbrium
+    { dx:  0.10, dy: -0.15, rx: 0.22, ry: 0.20, a: 0.14 }, // Mare Serenitatis
+    { dx:  0.12, dy:  0.08, rx: 0.28, ry: 0.22, a: 0.16 }, // Mare Tranquillitatis
+    { dx: -0.05, dy:  0.28, rx: 0.20, ry: 0.15, a: 0.12 }, // Mare Nubium
+    { dx:  0.30, dy: -0.05, rx: 0.14, ry: 0.18, a: 0.10 }, // Mare Crisium
+    { dx: -0.30, dy:  0.10, rx: 0.16, ry: 0.20, a: 0.11 }, // Oceanus Procellarum
+  ];
+  seas.forEach(s => {
+    const sx = x + s.dx * sz, sy = y + s.dy * sz;
+    const rw = s.rx * sz, rh = s.ry * sz;
+    const seaG = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.max(0.001, Math.max(rw, rh)));
+    seaG.addColorStop(0,   `rgba(100,90,75,${s.a})`);
+    seaG.addColorStop(0.6, `rgba(110,100,82,${s.a * 0.5})`);
+    seaG.addColorStop(1,   'transparent');
+    ctx.fillStyle = seaG;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.scale(rw / Math.max(0.001, rh), 1);
+    ctx.beginPath(); ctx.arc(0, 0, rh, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  });
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+
+  // ── 5. Фаза — тень ──
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI * 2); ctx.clip();
+
+  const waxing     = phase < 0.5;
+  const phaseAngle = waxing ? (phase * 2) : ((phase - 0.5) * 2);
+  const ellipseRx  = Math.abs(Math.cos(phaseAngle * Math.PI)) * sz;
+
+  // Тёмная половина
+  ctx.fillStyle = 'rgba(5, 8, 28, 0.86)';
+  ctx.beginPath();
+  ctx.arc(x, y, sz, -Math.PI / 2, Math.PI / 2, !waxing);
+  ctx.closePath();
+  ctx.fill();
+
+  // Мягкий терминатор (размытый переход свет/тень)
+  const termG = ctx.createLinearGradient(x - ellipseRx - sz * 0.15, y, x + ellipseRx + sz * 0.15, y);
+  if (waxing) {
+    termG.addColorStop(0,    'rgba(5,8,28,0.86)');
+    termG.addColorStop(0.35, 'rgba(5,8,28,0.6)');
+    termG.addColorStop(0.55, 'rgba(5,8,28,0.15)');
+    termG.addColorStop(1,    'transparent');
+  } else {
+    termG.addColorStop(0,    'transparent');
+    termG.addColorStop(0.45, 'rgba(5,8,28,0.15)');
+    termG.addColorStop(0.65, 'rgba(5,8,28,0.6)');
+    termG.addColorStop(1,    'rgba(5,8,28,0.86)');
+  }
+  ctx.fillStyle = termG;
+  ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.001, ellipseRx + sz * 0.18), Math.max(0.001, sz), 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // ── 6. Яркий блик (specular) — как отражение солнца ──
+  const specX = waxing ? x + sz * 0.28 : x - sz * 0.28;
+  const specY = y - sz * 0.25;
+  const spec  = ctx.createRadialGradient(specX, specY, 0, specX, specY, Math.max(0.001, sz * 0.55));
+  spec.addColorStop(0,   'rgba(255,255,255,0.32)');
+  spec.addColorStop(0.5, 'rgba(255,255,255,0.10)');
+  spec.addColorStop(1,   'transparent');
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = spec;
+  ctx.beginPath(); ctx.arc(specX, specY, sz * 0.55, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // ── 7. Тонкий яркий обод (limb brightening на освещённой стороне) ──
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI * 2); ctx.clip();
+  const rimA = waxing ? Math.PI * 0.5 : -Math.PI * 0.5;
+  const rimG  = ctx.createRadialGradient(x, y, Math.max(0.001, sz * 0.82), x, y, Math.max(0.001, sz));
+  rimG.addColorStop(0,   'transparent');
+  rimG.addColorStop(0.7, 'rgba(255,252,240,0.08)');
+  rimG.addColorStop(1,   'rgba(255,252,240,0.22)');
+  ctx.fillStyle = rimG;
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function updateSunMoon(key, hour, c) {
+  const panel = document.getElementById('panel' + CITIES[key].el);
+  const W = panel.offsetWidth, H = panel.offsetHeight;
+
+  // Remove old simple divs if present
+  panel.querySelectorAll('.sky-body,.sky-glow,.sun-rays').forEach(el => el.remove());
+
+  if (c.sun > 0) {
+    const px = Math.max(0.05, Math.min(0.95, (hour-6)/14));
+    const x  = px * W;
+    const y  = H * 0.12 + (1 - Math.sin(px * Math.PI)) * H * 0.52;
+    drawRealisticSun(panel, x, y, hour, c.sun);
+  } else {
+    let sc = panel.querySelector('.sun-canvas');
+    if (sc) { sc.getContext('2d').clearRect(0,0,sc.width,sc.height); }
+  }
+
+  if (c.moon > 0) {
+    const prog = hour < 6 ? (hour+12)/18 : (hour-18)/18;
+    const px   = Math.max(0.05, Math.min(0.95, prog));
+    const x    = px * W;
+    const y    = H * 0.08 + (1 - Math.sin(px*Math.PI)) * H * 0.52;
+    drawRealisticMoon(panel, x, y, c.moon);
+  } else {
+    let mc = panel.querySelector('.moon-canvas');
+    if (mc) { mc.getContext('2d').clearRect(0,0,mc.width,mc.height); }
+  }
+}
+
+function ensureClouds(key, c) {
+  const panel = document.getElementById('panel' + CITIES[key].el);
+  if (panel.querySelector('.sky-cloud-wrap')) return;
+  const W = panel.offsetWidth, H = panel.offsetHeight;
+
+  // Цвет SVG облака по времени суток
+  let cc, cs, cop;
+  if (c.stars > 0.5) {
+    cc = '#1e2d5a'; cs = 'rgba(5,10,30,0.6)'; cop = 0.7;
+  } else if (c.phase === 'рассвет' || c.phase === 'раннее утро') {
+    cc = '#ffd0a0'; cs = 'rgba(160,70,20,0.4)'; cop = 0.88;
+  } else if (c.phase === 'закат' || c.phase === 'вечер') {
+    cc = '#ffaa55'; cs = 'rgba(130,45,10,0.45)'; cop = 0.9;
+  } else {
+    // День — как в оригинальном SVG, чуть более белый
+    cc = '#dff0fc'; cs = 'rgba(80,130,180,0.45)'; cop = 0.92;
+  }
+
+  // SVG path из примера (viewBox 0 0 426.671 426.671)
+  const svgPath = 'M355.145,201.003c-5.103,0-10.048,0.533-14.844,1.536c0-0.26,0.03-0.521,0.03-0.772c0-65.839-53.363-119.159-119.164-119.159c-55.561,0-102.255,38.046-115.401,89.515c-6.063-1.318-12.331-2.044-18.782-2.044C38.955,170.082,0,209.02,0,257.097c0,48.038,38.955,86.967,86.989,86.967h268.16c39.488,0,71.522-32.009,71.522-71.514C426.667,233.011,394.633,201.003,355.145,201.003z';
+
+  // Количество облаков зависит от реальной облачности
+  const cloudCover = (WEATHER_DATA[key] && WEATHER_DATA[key].clouds != null)
+    ? WEATHER_DATA[key].clouds : 40;  // 0-100%
+  const allConfigs = [
+    { size: 160, top: 0.05, sx: -0.05, spd: 70 },
+    { size: 120, top: 0.12, sx:  0.30, spd: 90 },
+    { size: 190, top: 0.18, sx:  0.60, spd: 55 },
+    { size: 105, top: 0.07, sx:  0.50, spd: 82 },
+    { size: 145, top: 0.24, sx:  0.15, spd: 66 },
+    { size: 175, top: 0.10, sx:  0.75, spd: 78 },
+    { size: 130, top: 0.20, sx: -0.10, spd: 62 },
+    { size: 150, top: 0.16, sx:  0.45, spd: 85 },
+  ];
+  // cloudCover 0-10 → 0 clouds, 10-30 → 2, 30-60 → 4, 60-80 → 6, 80-100 → 8
+  const nClouds = cloudCover < 10 ? 0
+    : cloudCover < 30 ? 2
+    : cloudCover < 60 ? 4
+    : cloudCover < 80 ? 6
+    : allConfigs.length;
+  const configs = allConfigs.slice(0, nClouds);
+
+  configs.forEach((cfg, idx) => {
+    const top = cfg.top * H;
+    const sx  = cfg.sx * W - cfg.size;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'sky-cloud-wrap';
+    wrap.style.cssText =
+      `top:${top}px;left:0;` +
+      `--cd:${cfg.spd}s;` +
+      `--from:${sx}px;` +
+      `--to:${sx + W + cfg.size * 2}px;` +
+      `--cdelay:-${(idx / configs.length) * cfg.spd}s;`;
+
+    // SVG облако
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 426.671 426.671');
+    svg.setAttribute('width', cfg.size);
+    svg.setAttribute('height', Math.round(cfg.size * 426.671 / 426.671 * 0.62));
+    svg.className = 'cloud-svg';
+    svg.style.cssText = `--cs:${cs};--cop:${cop};`;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', svgPath);
+    path.setAttribute('fill', cc);
+
+    svg.appendChild(path);
+    wrap.appendChild(svg);
+    panel.appendChild(wrap);
+  });
+}
+
+function renderSkyFrame() {
+  Object.entries(CITIES).forEach(([key, city]) => {
+    const hour = getHour(city.offset);
+    const c    = _getSkyForCity(key, hour);
+
+    drawSkyCanvas(city.el, c);
+    updateStars(key, c.stars);
+    updateSunMoon(key, hour, c);
+    ensureClouds(key, c);
+
+    // Horizon
+    const hz = document.getElementById('horizon' + city.el);
+    hz.style.background = c.hor
+      ? `linear-gradient(transparent, ${c.hor})`
+      : 'linear-gradient(transparent, transparent)';
+
+    // Aurora
+    const au = document.getElementById('aurora' + city.el);
+    au.style.opacity = (c.stars > 0.8 && Math.random() > 0.65) ? '1' : '0';
+
+    document.getElementById(city.nameEl).textContent  = getTimeStr(city.offset);
+    document.getElementById(city.phaseEl).textContent = c.phase;
+
+    // Погода — правая колонка (рендерим один раз когда данные появились)
+    const wEl = document.getElementById('weather' + city.el);
+    if (wEl && wEl.dataset.rendered !== '1') {
+      const wd = WEATHER_DATA[key];
+      if (wd && wd.temp != null) {
+        wEl.innerHTML = '';
+        const tempStr  = Math.round(wd.temp) + '°C';
+        const feelsStr = wd.feels != null ? Math.round(wd.feels) + '°C' : null;
+        const badge    = wd.desc  || '';
+        const icon     = _weatherIcon(wd.code);
+
+        const t = document.createElement('div');
+        t.className = 'weather-temp';
+        t.textContent = tempStr;
+        wEl.appendChild(t);
+
+        if (feelsStr) {
+          const f = document.createElement('div');
+          f.className = 'weather-feels';
+          f.textContent = 'Ощущается как ' + feelsStr;
+          wEl.appendChild(f);
+        }
+
+        if (badge) {
+          const b = document.createElement('div');
+          b.className = 'weather-badge';
+          b.textContent = (icon ? icon + ' ' : '') + badge;
+          wEl.appendChild(b);
+        }
+
+        wEl.dataset.rendered = '1';
+      }
+    }
+  });
+  document.getElementById('timeDiff').textContent = _skyCfg.timeDiffLabel || '';
+}
+
+// ════════════════════════════════════════════
+//  SHOOTING STARS
+// ════════════════════════════════════════════
+setInterval(() => {
+  ['Moscow','Bishkek'].forEach(id => {
+    if (Math.random() < 0.4) {
+      const key   = id === 'Moscow' ? 'moscow' : 'bishkek';
+      const c     = getSky(getHour(CITIES[key].offset));
+      if (c.stars < 0.3) return;
+      const panel = document.getElementById('panel' + id);
+      const el    = document.createElement('div');
+      el.className = 'sstar';
+      el.style.cssText = `left:${10+Math.random()*60}%;top:${5+Math.random()*28}%;--dur:${0.7+Math.random()*0.7}s;`;
+      panel.appendChild(el);
+      el.addEventListener('animationend', () => el.remove(), { once:true });
+    }
+  });
+}, 3000);
+
+// ════════════════════════════════════════════
+//  STAR SYSTEM — localStorage + надёжный WS + _log
+// ════════════════════════════════════════════
+
+// ── API helper ───────────────────────────────────────────────
+
+// ── Диагностика SKY_CFG (инъекция произошла в начале скрипта) ─
+(function _diagSkyCfg() {
+  const cfg = window.SKY_CFG;
+  const isSubstituted = cfg && typeof cfg === 'object' && !Array.isArray(cfg);
+  const mLabel = (cfg && cfg.moscow && cfg.moscow.cityLabel) || null;
+  const bLabel = (cfg && cfg.bishkek && cfg.bishkek.cityLabel) || null;
+  const urlV   = new URLSearchParams(location.search).get('v') || null;
+  _log('SKY_CFG', 'loaded', {
+    hasData:  isSubstituted,
+    moscow:   mLabel,
+    bishkek:  bLabel,
+    distanceLabel: cfg && cfg.distanceLabel,
+    sameTimezone:  cfg && cfg.sameTimezone,
+    urlV:     urlV,
+    cookie_visitor_id: (document.cookie.match(/visitor_id=([^;]+)/)||[])[1] || null,
+  });
+  if (!mLabel || !bLabel) {
+    _logWarn('SKY_CFG', '⚠ cityLabel пустой — будут прочерки. SKY_CFG:', JSON.stringify(cfg).slice(0, 300));
+  }
+})();
+function _apiKey() { return window.API_SECRET_KEY || ''; }
+
+async function _apiFetch(path, opts) {
+  const headers = Object.assign({ 'Content-Type': 'application/json', 'X-Api-Key': _apiKey() }, (opts||{}).headers);
+  const res = await fetch(path, Object.assign({}, opts, { headers }));
+  return res.json();
+}
+
+// ── WS с нарастающим реконнектом ─────────────────────────────────
+let _wsConn  = null;
+let _wsDelay = 1000;
+let _wsTimer = null;
+
+function initSkyWS() {
+  const role = getUserRole();
+  _log('WS', 'initSkyWS, role=' + role);
+  if (!role) { _logWarn('WS', 'no role, abort'); return; }
+  if (_wsConn && (_wsConn.readyState === WebSocket.OPEN || _wsConn.readyState === WebSocket.CONNECTING)) {
+    _log('WS', 'already connected/connecting, state=' + _wsConn.readyState);
+    return;
+  }
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url   = proto + '//' + location.host + '/ws/site?v=' + encodeURIComponent(role);
+  _log('WS', 'connecting to ' + url);
+  try {
+    _wsConn = new WebSocket(url);
+    _wsConn.onopen = () => {
+      _wsDelay = 1000;
+      _log('WS', 'connected! delay reset, flushing pending');
+      _flushPending();
+    };
+    _wsConn.onmessage = (e) => {
+      _log('WS', 'message: ' + e.data.slice(0, 120));
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'star_sent') {
+          const myRole     = getUserRole();
+          const senderRole = msg.from || '';
+          _log('WS', 'star_sent myRole=' + myRole + ' senderRole=' + senderRole + ' count=' + msg.count);
+          if (myRole === senderRole) { _log('WS', 'ignoring own stars'); return; }
+          const count = parseInt(msg.count) || 1;
+          const from  = senderRole === 'creator'
+            ? (_skyCfg.leftName  || 'создателя')
+            : (_skyCfg.rightName || 'партнёра');
+          const skyView = document.getElementById('skyView');
+          if (skyView && skyView.style.display !== 'none') {
+            _log('WS', 'sky open → showStarInbox');
+            showStarInbox(count, from);
+          } else {
+            _log('WS', 'sky not open → accumulate in localStorage');
+            const existing = _lsGet('inbox');
+            const newCount = (existing && existing.count ? existing.count : 0) + count;
+            _lsSet('inbox', { count: newCount, from, ts: Date.now() });
+            _log('WS', 'inbox accumulated: ' + newCount);
+          }
+        }
+        if (msg.type === 'stars_seen') {
+          // Партнёр закрыл inbox — сбрасываем счётчик отправленных
+          _log('WS', 'stars_seen → clearing sent counter');
+          _clearSentTotal();
+        }
+      } catch(err) { _logErr('WS', 'parse error: ' + err); }
+    };
+    _wsConn.onerror = (e) => { _logErr('WS', 'error event'); };
+    _wsConn.onclose = (e) => {
+      _log('WS', 'closed code=' + e.code + ' next retry in ' + _wsDelay + 'ms');
+      _wsConn = null;
+      _wsScheduleReconnect();
+    };
+  } catch(e) {
+    _logErr('WS', 'failed to create WebSocket: ' + e);
+    _wsScheduleReconnect();
+  }
+}
+
+function _wsScheduleReconnect() {
+  clearTimeout(_wsTimer);
+  _wsTimer = setTimeout(() => { initSkyWS(); }, _wsDelay);
+  _wsDelay = Math.min(_wsDelay * 1.5, 30000);
+}
+
+function _wsSendRaw(data) {
+  if (_wsConn && _wsConn.readyState === WebSocket.OPEN) {
+    try { _wsConn.send(JSON.stringify(data)); _log('WS', 'sent: ' + JSON.stringify(data)); return true; }
+    catch(e) { _logErr('WS', 'send error: ' + e); return false; }
+  }
+  _logWarn('WS', 'cannot send, state=' + (_wsConn ? _wsConn.readyState : 'null'));
+  return false;
+}
+function _siteWsSend(data) { _wsSendRaw(data); }
+
+// ── Счётчик отправленных звёзд (до подтверждения партнёром) ──────
+function _sentKey() { return 'sky_sent_total_' + getUserRole(); }
+
+function _addSentTotal(n) {
+  const cur = parseInt(localStorage.getItem(_sentKey()) || '0') + n;
+  localStorage.setItem(_sentKey(), String(cur));
+  _updateSentCounterUI(cur);
+}
+
+function _clearSentTotal() {
+  localStorage.setItem(_sentKey(), '0');
+  _updateSentCounterUI(0);
+}
+
+function _updateSentCounterUI(n) {
+  const el    = document.getElementById('starSentCounter');
+  const numEl = document.getElementById('starSentCount');
+  if (!el || !numEl) return;
+  numEl.textContent = n;
+  if (n > 0) {
+    el.classList.add('has-stars');
+    // Позиционируем: по центру как starNotif, но сдвинуто влево
+    const notif = document.getElementById('starNotif');
+    const wrap  = document.querySelector('.sky-wrap');
+    if (notif && wrap) {
+      const wW      = wrap.offsetWidth;
+      const elW     = el.offsetWidth || 80;
+      const notifW  = notif.offsetWidth || 180;
+      const gap     = 8;
+      // starNotif стоит по center (left:50% transform:-50%)
+      // счётчик ставим правее — right от центра
+      const centerX = wW / 2;
+      el.style.left  = (centerX + notifW / 2 + gap) + 'px';
+      el.style.transform = 'none';
+    }
+  } else {
+    el.classList.remove('has-stars');
+  }
+}
+
+function _initSentCounter() {
+  const cur = parseInt(localStorage.getItem(_sentKey()) || '0');
+  _updateSentCounterUI(cur);
+}
+
+// ── Проверка pending звёзд через сервер ──────────────────────────
+// Вызывается при открытии неба — проверяем есть ли звёзды в БД
+async function _checkInboxOnLoad() {
+  const role = getUserRole();
+  if (!role) return;
+  _log('Stars', 'checkInboxOnLoad: checking server');
+  try {
+    const d = await _apiFetch('/api/stars/pending?role=' + role);
+    _log('Stars', 'server pending: count=' + d.count);
+    if (d.ok && d.count > 0) {
+      setTimeout(() => {
+        showStarInbox(d.count, d.from || _skyCfg.leftName || 'создателя');
+      }, 800);
+    }
+  } catch(e) { _logErr('Stars', 'checkInboxOnLoad error: ' + e); }
+}
+
+// _startInboxPoll / _stopInboxPoll — больше не нужны (сервер хранит), оставляем no-op
+function _startInboxPoll() {}
+function _stopInboxPoll() {}
+
+// _flushPending — больше не нужен (отправка сразу через API)
+function _flushPending() {}
+
+// ── Уведомление об отправке ───────────────────────────────────────
+let _starCount    = 0;
+let _starHideTimer = null;
+
+function showStarNotif() {
+  _starCount++;
+  _log('Stars', 'showStarNotif count=' + _starCount);
+  const notif = document.getElementById('starNotif');
+  const text  = document.getElementById('starNotifText');
+  if (!notif || !text) { _logErr('Stars', 'starNotif elements not found!'); return; }
+  if (_starHideTimer) { clearTimeout(_starHideTimer); _starHideTimer = null; }
+  const myRole  = getUserRole();
+  // creator отправляет партнёру (rightName), партнёр — создателю (leftName)
+  const partner = myRole === 'creator'
+    ? (_skyCfg.rightName || 'партнёру')
+    : (_skyCfg.leftName  || 'создателю');
+  const n = _starCount;
+  text.textContent = n === 1 ? 'Отправлена 1 звезда ' + partner
+    : (n <= 4 ? 'Отправлено ' + n + ' звезды ' + partner : 'Отправлено ' + n + ' звёзд ' + partner);
+  notif.classList.add('visible');
+  _starHideTimer = setTimeout(async () => {
+    notif.classList.remove('visible');
+    _starHideTimer = null;
+    const total = _starCount;
+    _log('Stars', 'hide timer: sending total=' + total + ' via API');
+    // 1. Сохраняем в БД — работает даже если получатель офлайн
+    try {
+      const d = await _apiFetch('/api/stars/send', {
+        method: 'POST',
+        body: JSON.stringify({ from: getUserRole(), count: total }),
+      });
+      _log('Stars', 'api/stars/send ok=' + d.ok + ' pending=' + d.pending);
+    } catch(e) { _logErr('Stars', 'api/stars/send error: ' + e); }
+    // 2. Также пробуем WS (мгновенно если получатель онлайн — сервер дублирует push)
+    _wsSendRaw({ type: 'star_sent', from: getUserRole(), count: total });
+    // Накапливаем счётчик отправленных (ждём подтверждения от партнёра)
+    _addSentTotal(total);
+    setTimeout(() => { _starCount = 0; }, 400);
+  }, 2000);
+}
+
+// ── Анимация звезды ───────────────────────────────────────────────
+function launchStar() {
+  const emojis = ['⭐','✨','💫','🌟','💗','🌸','☄️'];
+  const wrap   = document.querySelector('.sky-wrap');
+  const btn    = document.getElementById('btnSend');
+  if (!wrap || !btn) return;
+  const btnRect  = btn.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'fly-msg';
+  el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+  const startX = btnRect.left - wrapRect.left + btnRect.width/2 + (Math.random()*80 - 40);
+  const startY = btnRect.top  - wrapRect.top  - 8;
+  el.style.cssText = 'left:' + startX + 'px;top:' + startY + 'px;';
+  wrap.appendChild(el);
+  el.addEventListener('animationend', () => {
+    el.classList.add('phase2');
+    el.addEventListener('animationend', () => {
+      el.classList.add('phase3');
+      el.addEventListener('animationend', () => el.remove(), { once: true });
+    }, { once: true });
+  }, { once: true });
+}
+
+document.getElementById('btnSend').addEventListener('click', () => {
+  _log('Stars', 'btnSend clicked, wsState=' + (_wsConn ? _wsConn.readyState : 'null'));
+  launchStar();
+  showStarNotif();
+});
+
+// ── STAR INBOX ────────────────────────────────────────────────────
+// Накапливаем полученные звёзды в сессии — сбрасываем через 30с после последнего пакета
+let _inboxTotal = 0;
+let _inboxFrom  = '';
+let _inboxResetTimer = null;
+
+function _starEmoji(n) {
+  if (n >= 10) return '🌟💫✨';
+  if (n >= 5)  return '⭐✨';
+  if (n >= 3)  return '⭐⭐';
+  return '⭐';
+}
+function _starLabel(n) { return 'звёздочек тебе отправлено ❤️'; }
+
+function _spawnInboxParticles(count) {
+  const inbox = document.getElementById('starInbox');
+  inbox.querySelectorAll('.inbox-star-particle').forEach(el => el.remove());
+  const emojis = ['⭐','✨','💫','🌟','💗','🌸'];
+  const total  = Math.min(count * 3 + 6, 28);
+  for (let i = 0; i < total; i++) {
+    const el = document.createElement('div');
+    el.className = 'inbox-star-particle';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    const startX = 10 + Math.random() * 80;
+    const fallY  = 60 + Math.random() * 100;
+    const driftX = (Math.random() - 0.5) * 80;
+    const rot    = (Math.random() - 0.5) * 360 + 'deg';
+    const dur    = (1.2 + Math.random() * 1.8).toFixed(2) + 's';
+    const del    = (Math.random() * 0.8).toFixed(2) + 's';
+    el.style.cssText = 'left:' + startX + '%;--fy:' + fallY + 'vh;--fx:' + driftX + 'px;--rot:' + rot + ';--dur:' + dur + ';--del:' + del + ';';
+    inbox.insertBefore(el, inbox.querySelector('.inbox-card'));
+  }
+}
+
+function showStarInbox(count, fromName) {
+  _log('Stars', 'showStarInbox count=' + count + ' from=' + fromName);
+
+  // Накапливаем между пакетами, сбрасываем через 30с без новых звёзд
+  if (_inboxResetTimer) { clearTimeout(_inboxResetTimer); _inboxResetTimer = null; }
+  _inboxTotal += count;
+  _inboxFrom   = fromName || _inboxFrom || _skyCfg.leftName || 'создателя';
+  _inboxResetTimer = setTimeout(() => { _inboxTotal = 0; _inboxFrom = ''; }, 30000);
+
+  const inbox   = document.getElementById('starInbox');
+  const emojiEl = document.getElementById('inboxEmoji');
+  const fromEl  = document.getElementById('inboxFrom');
+  const countEl = document.getElementById('inboxCount');
+  const labelEl = document.getElementById('inboxLabel');
+  emojiEl.textContent = _starEmoji(_inboxTotal);
+  fromEl.textContent  = 'от ' + _inboxFrom;
+  countEl.textContent = _inboxTotal;
+  labelEl.textContent = _starLabel(_inboxTotal);
+  _spawnInboxParticles(_inboxTotal);
+  const card = inbox.querySelector('.inbox-card');
+  card.style.animation = 'none';
+  void card.offsetHeight;
+  card.style.animation = '';
+  inbox.classList.add('visible');
+}
+
+async function closeStarInbox() {
+  const role = getUserRole();
+  // 1. Сообщаем серверу — сбрасывает счётчик в БД + уведомляет отправителя через WS
+  try {
+    await _apiFetch('/api/stars/seen', { method: 'POST', body: JSON.stringify({ role }) });
+    _log('Stars', 'stars_seen sent to server');
+  } catch(e) { _logErr('Stars', 'stars_seen error: ' + e); }
+  // 2. WS на случай если сервер не дотянулся (уже обработано сервером, но дублируем)
+  _wsSendRaw({ type: 'stars_seen', from: role });
+  // Сбрасываем счётчик сессии
+  _inboxTotal = 0;
+  _inboxFrom  = '';
+  if (_inboxResetTimer) { clearTimeout(_inboxResetTimer); _inboxResetTimer = null; }
+  const inbox = document.getElementById('starInbox');
+  inbox.style.transition = 'opacity 0.4s ease';
+  inbox.style.opacity = '0';
+  setTimeout(() => {
+    inbox.classList.remove('visible');
+    inbox.style.opacity = '';
+    inbox.style.transition = '';
+    inbox.querySelectorAll('.inbox-star-particle').forEach(el => el.remove());
+  }, 420);
+}
+
+// ════════════════════════════════════════════
+//  OPEN / CLOSE
+// ════════════════════════════════════════════
+let _skyInterval = null;
+let _lastSlowUpdate = 0;
+let _introAborted = false;  // флаг пропуска анимации
+
+// Роль из куки memories_role ('creator' = создатель пары, 'ksyusha' = партнёр)
+function getUserRole() {
+  const cookies = document.cookie.split(';');
+  for (const c of cookies) {
+    const [k, v] = c.trim().split('=');
+    if (k === 'memories_role') return decodeURIComponent(v || '').trim();
+  }
+  return '';
+}
+
+// Текущая активная панель ('moscow' = небо создателя/leftName, 'bishkek' = небо партнёра/rightName)
+let _activePanel = 'bishkek'; // начинаем с неба текущего пользователя
+
+function _getPanelForRole(role) {
+  // creator (user1) всегда видит левую панель (moscow), partner (ksyusha/user2) — правую (bishkek)
+  return role === 'creator' ? 'moscow' : 'bishkek';
+}
+
+function _getOtherPanel(panel) {
+  return panel === 'moscow' ? 'bishkek' : 'moscow';
+}
+
+function _getPartnerName(panel) {
+  // Возвращает имя человека на противоположной панели (для кнопки переключения)
+  const leftName  = _skyCfg.leftName  || (_skyCfg.moscow  || {}).cityLabel || 'Создатель';
+  const rightName = _skyCfg.rightName || (_skyCfg.bishkek || {}).cityLabel || 'Партнёр';
+  return panel === 'moscow' ? rightName : leftName;
+}
+
+function _updateSendBtn() {
+  const btn    = document.getElementById('btnSend');
+  if (!btn) return;
+  const role    = getUserRole();
+  const myPanel = _getPanelForRole(role);  // creator→'moscow', ksyusha→'bishkek'
+  // Показываем кнопку только когда смотрим своё небо
+  btn.style.display = (_activePanel === myPanel) ? '' : 'none';
+}
+
+function _applySingleMode(activeKey) {
+  const view        = document.getElementById('skyView');
+  const panelMoscow = document.getElementById('panelMoscow');
+  const panelBishkek= document.getElementById('panelBishkek');
+  const btnSwitch   = document.getElementById('btnSwitch');
+
+  view.classList.add('single-mode');
+
+  if (activeKey === 'moscow') {
+    panelMoscow.classList.add('active');
+    panelBishkek.classList.remove('active');
+  } else {
+    panelBishkek.classList.add('active');
+    panelMoscow.classList.remove('active');
+  }
+
+  _activePanel = activeKey;
+  const otherName = _getPartnerName(activeKey);
+  if (btnSwitch) btnSwitch.textContent = '⇄ небо ' + otherName;
+  _updateSendBtn();
+}
+
+function _applyDualMode() {
+  const view = document.getElementById('skyView');
+  view.classList.remove('single-mode');
+  document.getElementById('panelMoscow').classList.remove('active');
+  document.getElementById('panelBishkek').classList.remove('active');
+  document.getElementById('btnSwitch').textContent = '';
+}
+
+function switchSkyPanel() {
+  const other = _getOtherPanel(_activePanel);
+  _applySingleMode(other);
+}
+
+function openSky() {
+  // Сбрасываем состояние интро для повторного открытия
+  _introAborted = false;
+  const intro = document.getElementById('skyIntro');
+  intro.classList.remove('active','fade-out');
+  intro.style.display = '';
+  const btn = document.getElementById('introBtnEnter');
+  btn.classList.remove('visible');
+  const typedEl = document.getElementById('introTyped');
+  typedEl.textContent = '';
+  // Убираем старые звёзды интро
+  intro.querySelectorAll('.intro-star').forEach(s => s.remove());
+
+  if (!_weatherLoaded) _weatherPromise = fetchWeatherData();
+  openSkyIntro();
+}
+
+function closeSky() {
+  if (_skyInterval) { cancelAnimationFrame(_skyInterval); _skyInterval = null; }
+  _stopInboxPoll();
+  window.location.href = '/';
+}
+
+window.addEventListener('resize', () => {
+  document.querySelectorAll('.sky-cloud-wrap,.sky-body,.sky-glow,.sun-rays,.sun-canvas,.moon-canvas').forEach(el => el.remove());
+  if (document.getElementById('skyView').style.display !== 'none') renderSkyFrame();
+});
+
+// ════════════════════════════════════════════
+//  AUTOSTART on /sky page
+// ════════════════════════════════════════════
+// Читаем роль из URL параметра ?v= (как /stats читает tz)
+(function() {
+  const params = new URLSearchParams(location.search);
+  const vParam = (params.get('v') || '').trim();
+  if (vParam) {
+    // Устанавливаем куку memories_role чтобы getUserRole() работал
+    const exp = new Date(Date.now() + 365*24*3600*1000).toUTCString();
+    document.cookie = `memories_role=${encodeURIComponent(vParam)};path=/;expires=${exp}`;
+    // Также visitor_id
+    document.cookie = `visitor_id=${encodeURIComponent(vParam)};path=/;expires=${exp}`;
+  }
+  // Если роль не установлена — редирект на главную
+  const role = getUserRole();
+  if (!role) {
+    window.location.replace('/');
+    return;
+  }
+  // Намертво блокируем скролл страницы
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
+  // Блокируем тач-скролл (iOS safari)
+  document.addEventListener('touchmove', function(e) {
+    // Разрешаем скролл только внутри элементов с классом overscroll-allowed
+    if (!e.target.closest('.overscroll-allowed')) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // Автозапуск intro + WS
+  _log('Sky', 'autostart: role=' + getUserRole());
+  initSkyWS();
+  openSky();
+})();
+
+
+
+// ════════════════════════════════════════════
+//  INTRO ANIMATION
+// ════════════════════════════════════════════
+
+// Проецирует реальные координаты городов на canvas introAnimation
+// Использует простую равноугольную проекцию с padding 15°/10°
+function _introGetPoints(W, H) {
+  const mCfg = _skyCfg.moscow  || { lat: 0, lon: 0 };
+  const bCfg = _skyCfg.bishkek || { lat: 0, lon: 0 };
+  const latA = mCfg.lat, lonA = mCfg.lon;
+  const latB = bCfg.lat, lonB = bCfg.lon;
+
+  // Если координаты неизвестны (lat=lon=0) — используем фиксированные позиции
+  if (latA === 0 && lonA === 0) return { moscow: { x: W * 0.18, y: H * 0.30 }, bishkek: { x: W * 0.82, y: H * 0.70 } };
+  if (latB === 0 && lonB === 0) return { moscow: { x: W * 0.18, y: H * 0.30 }, bishkek: { x: W * 0.82, y: H * 0.70 } };
+
+  const padLat = 12, padLon = 18;
+  const latMin = Math.min(latA, latB) - padLat;
+  const latMax = Math.max(latA, latB) + padLat;
+  const lonMin = Math.min(lonA, lonB) - padLon;
+  const lonMax = Math.max(lonA, lonB) + padLon;
+
+  function project(lat, lon) {
+    const x = ((lon - lonMin) / (lonMax - lonMin)) * W * 0.8 + W * 0.1;
+    const y = ((latMax - lat) / (latMax - latMin)) * H * 0.8 + H * 0.1;
+    return { x, y };
+  }
+  return { moscow: project(latA, lonA), bishkek: project(latB, lonB) };
+}
+
+// Типирование текста с курсором
+function _typeText(el, text, speed) {
+  return new Promise(resolve => {
+    if (_introAborted) { el.innerHTML = text + '<span class="cursor"></span>'; resolve(); return; }
+    let i = 0;
+    el.innerHTML = '<span class="cursor"></span>';
+    const timer = setInterval(() => {
+      if (_introAborted) { clearInterval(timer); el.innerHTML = text + '<span class="cursor"></span>'; resolve(); return; }
+      if (i >= text.length) { clearInterval(timer); setTimeout(resolve, 350); return; }
+      el.innerHTML = text.slice(0, ++i) + '<span class="cursor"></span>';
+    }, speed);
+  });
+}
+
+// Стирание текста
+function _eraseText(el, speed) {
+  return new Promise(resolve => {
+    if (_introAborted) { el.innerHTML = '<span class="cursor"></span>'; resolve(); return; }
+    let text = el.textContent.replace('|','').trim();
+    const timer = setInterval(() => {
+      if (_introAborted) { clearInterval(timer); el.innerHTML = '<span class="cursor"></span>'; resolve(); return; }
+      if (!text.length) {
+        el.innerHTML = '<span class="cursor"></span>';
+        clearInterval(timer);
+        setTimeout(resolve, 200);
+        return;
+      }
+      text = text.slice(0, -1);
+      el.innerHTML = text + '<span class="cursor"></span>';
+    }, speed);
+  });
+}
+
+function _delay(ms) {
+  return new Promise(r => {
+    if (_introAborted) { r(); return; }
+    const t = setTimeout(r, ms);
+    // Если пропуск случился пока ждём — разрешаем сразу
+    const check = setInterval(() => { if (_introAborted) { clearTimeout(t); clearInterval(check); r(); } }, 50);
+    setTimeout(() => clearInterval(check), ms + 100);
+  });
+}
+
+// Плавный bezier для дуги самолёта (t от 0 до 1)
+function _quadBezier(p0, p1, p2, t) {
+  const mt = 1 - t;
+  return {
+    x: mt*mt*p0.x + 2*mt*t*p1.x + t*t*p2.x,
+    y: mt*mt*p0.y + 2*mt*t*p1.y + t*t*p2.y,
+  };
+}
+
+
+// ── ЭКГ: рисует пульс сердца вдоль маршрута ─────────────────
+async function _drawHeartbeat(canvas, M, B) {
+  return new Promise(resolve => {
+    // Создаём отдельный overlay-canvas поверх интро, не трогаем canvas маршрута
+    const wrap = canvas.parentElement;
+    const ov = document.createElement('canvas');
+    ov.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:5;';
+    ov.width  = canvas.width;
+    ov.height = canvas.height;
+    wrap.appendChild(ov);
+    const ctx = ov.getContext('2d');
+    const W = ov.width, H = ov.height;
+
+    // Серединная точка между двумя городами
+    const mx = (M.x + B.x) / 2;
+    const my = (M.y + B.y) / 2 - H * 0.04; // чуть выше центра
+
+    // Ширина ЭКГ
+    const len = Math.min(W * 0.32, 180);
+
+    // ECG точки: плоская → P-зуб → QRS-комплекс → T-зуб → плоская
+    function ecgX(t) { return mx - len/2 + t * len; }
+    const ecgPts = [
+      [0,    0   ],
+      [0.18, 0   ],
+      [0.24, -0.06],   // P-зуб
+      [0.30, 0   ],
+      [0.38, -0.05],   // Q
+      [0.44, 0.85],    // R (пик вверх)
+      [0.50, -0.32],   // S (спуск)
+      [0.56, 0   ],
+      [0.62, 0.14],    // T-зуб
+      [0.70, 0   ],
+      [1,    0   ],
+    ];
+    const amp = Math.min(H * 0.10, 52);
+
+    function getY(t) {
+      for (let i = 0; i < ecgPts.length - 1; i++) {
+        const [t0, y0] = ecgPts[i], [t1, y1] = ecgPts[i+1];
+        if (t >= t0 && t <= t1) {
+          const frac = (t - t0) / (t1 - t0);
+          // Лёгкое сглаживание
+          const s = frac * frac * (3 - 2 * frac);
+          return my - (y0 + (y1 - y0) * s) * amp;
+        }
+      }
+      return my;
+    }
+
+    const TOTAL_MS = 1800;  // рисование
+    const HOLD_MS  = 400;   // пауза на полной линии
+    const FADE_MS  = 800;   // затухание
+    let start = null;
+
+    function frame(ts) {
+      if (_introAborted) { ov.remove(); resolve(); return; }
+      if (!start) start = ts;
+      const elapsed = ts - start;
+      ctx.clearRect(0, 0, W, H);
+
+      let alpha, drawT;
+      if (elapsed < TOTAL_MS) {
+        drawT = elapsed / TOTAL_MS;
+        alpha = Math.min(drawT * 4, 1);
+      } else if (elapsed < TOTAL_MS + HOLD_MS) {
+        drawT = 1;
+        alpha = 1;
+      } else {
+        drawT = 1;
+        alpha = Math.max(0, 1 - (elapsed - TOTAL_MS - HOLD_MS) / FADE_MS);
+      }
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // Основная линия (пройденная часть)
+      ctx.shadowColor = '#ff7eb3';
+      ctx.shadowBlur  = 18;
+      ctx.strokeStyle = '#ffb6d9';
+      ctx.lineWidth   = 2;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+
+      const steps = 150;
+      const maxI  = Math.floor(steps * drawT);
+      ctx.beginPath();
+      for (let i = 0; i <= maxI; i++) {
+        const pt = i / steps;
+        const px = ecgX(pt);
+        const py = getY(pt);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // Бегущая точка
+      if (drawT < 1) {
+        const hx = ecgX(drawT);
+        const hy = getY(drawT);
+        ctx.shadowBlur = 26;
+        ctx.shadowColor = '#ff4da0';
+        ctx.fillStyle   = '#ff6eb4';
+        ctx.beginPath();
+        ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+
+      if (elapsed < TOTAL_MS + HOLD_MS + FADE_MS) {
+        requestAnimationFrame(frame);
+      } else {
+        ov.remove();
+        resolve();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+async function runIntroAnimation() {
+  const intro   = document.getElementById('skyIntro');
+  const canvas  = document.getElementById('introCanvas');
+  const wrap    = document.getElementById('introMapWrap');
+  const typedEl = document.getElementById('introTyped');
+  const btn     = document.getElementById('introBtnEnter');
+
+  // Размеры canvas
+  canvas.width  = wrap.offsetWidth;
+  canvas.height = wrap.offsetHeight;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+
+  const pts = _introGetPoints(W, H);
+  const M   = pts.moscow, B = pts.bishkek;
+
+  // Вычисляем ctrl заранее — нужен для пропуска анимации в любой момент
+  const ctrl = { x: (M.x + B.x)/2, y: Math.min(M.y, B.y) - H * 0.28 };
+
+  // Регистрируем функцию пропуска СРАЗУ — до любого await
+  // Она доступна с первого же кадра анимации
+  window._introSkipToEnd = function() {
+    clearInterval(typeof _citytimer !== 'undefined' ? _citytimer : null);
+    document.querySelectorAll('.intro-plane').forEach(el => el.remove());
+    const introWr = document.getElementById('introMapWrap');
+    if (introWr) introWr.querySelectorAll('canvas:not(#introCanvas)').forEach(el => el.remove());
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Сетка
+    ctx.strokeStyle = 'rgba(100,120,200,0.07)';
+    ctx.lineWidth = 1;
+    for (let gi = 0; gi <= 4; gi++) {
+      ctx.beginPath(); ctx.moveTo(W*gi/4, 0); ctx.lineTo(W*gi/4, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, H*gi/4); ctx.lineTo(W, H*gi/4); ctx.stroke();
+    }
+
+    // Дуга — толстая, сплошная, яркая
+    ctx.save();
+    const lg = ctx.createLinearGradient(M.x, M.y, B.x, B.y);
+    lg.addColorStop(0, 'rgba(200,180,255,1)');
+    lg.addColorStop(1, 'rgba(255,200,150,1)');
+    ctx.strokeStyle = lg;
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = 'rgba(200,180,255,0.9)';
+    ctx.shadowBlur = 12;
+    ctx.setLineDash([]); // сплошная!
+    ctx.beginPath();
+    ctx.moveTo(M.x, M.y);
+    for (let si = 1; si <= 80; si++) {
+      const spt = _quadBezier(M, ctrl, B, si/80);
+      ctx.lineTo(spt.x, spt.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Точки городов — крупные
+    [{ pt:M, c0:'rgba(200,180,255,0.5)' }, { pt:B, c0:'rgba(255,200,180,0.5)' }].forEach(({pt, c0}) => {
+      const grd = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, 22);
+      grd.addColorStop(0, c0); grd.addColorStop(1, 'transparent');
+      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(pt.x, pt.y, 22, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(pt.x, pt.y, 6, 0, Math.PI*2); ctx.fill();
+    });
+
+    // Лейблы
+    const lm = document.getElementById('introLabelMoscow');
+    const lb = document.getElementById('introLabelBishkek');
+    if (lm) { lm.style.left = M.x+'px'; lm.style.top = M.y+'px'; lm.classList.add('visible'); }
+    if (lb) { lb.style.left = B.x+'px'; lb.style.top = B.y+'px'; lb.classList.add('visible'); }
+    const nm = document.getElementById('introNameMoscow');
+    const nb = document.getElementById('introNameBishkek');
+    if (nm) nm.textContent = (_skyCfg.moscow  || {}).cityLabel || '—';
+    if (nb) nb.textContent = (_skyCfg.bishkek || {}).cityLabel || '—';
+
+    // Текст — мгновенно
+    typedEl.style.transition = 'none';
+    typedEl.style.opacity = '1';
+    typedEl.innerHTML = 'Мы ближе когда мы вместе ✦';
+
+    // Кнопка — сразу
+    btn.classList.add('visible');
+
+    window._introSkipToEnd = null;
+  };
+
+  // Позиционируем лейблы точно над canvas-точками
+  const _wrapRect = wrap.getBoundingClientRect();
+  function _posLabel(id, pt) {
+    const el = document.getElementById(id);
+    el.style.left = pt.x + 'px';
+    el.style.top  = pt.y + 'px';
+  }
+  _posLabel('introLabelMoscow',  M);
+  _posLabel('introLabelBishkek', B);
+
+  document.getElementById('introNameMoscow').textContent  = (_skyCfg.moscow  || {}).cityLabel || '—';
+  document.getElementById('introNameBishkek').textContent = (_skyCfg.bishkek || {}).cityLabel || '—';
+
+  // Звёзды на фоне интро
+  const introEl = document.getElementById('skyIntro');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'intro-star';
+    const sz = Math.random() < 0.15 ? 2.5 : Math.random() < 0.4 ? 1.5 : 1;
+    s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${2+Math.random()*4}s;--dl:${-Math.random()*4}s;--op:${0.2+Math.random()*0.55};`;
+    introEl.insertBefore(s, introEl.firstChild);
+  }
+
+  // Обновлять время городов
+  function updateIntroCityTimes() {
+    const _offM = (_skyCfg.moscow  || {}).offsetHours ?? 0;
+    const _offB = (_skyCfg.bishkek || {}).offsetHours ?? 0;
+    document.getElementById('introTimeMoscow').textContent  = realTimeStr(_offM);
+    document.getElementById('introTimeBishkek').textContent = realTimeStr(_offB);
+  }
+  updateIntroCityTimes();
+  const _citytimer = setInterval(updateIntroCityTimes, 10000);
+
+  // ── Шаг 1: Печатаем вступление ────────────────────────
+  await _delay(400);
+  await _typeText(typedEl, 'два человека. одно сердце ❤️', 55);
+  await _delay(600);
+
+  // ── Шаг 2: Рисуем точку Москвы + подпись ──────────────
+  // Рисуем точку Москвы на canvas
+  ctx.clearRect(0,0,W,H);
+  // Лёгкая сетка координат (очень тонкая)
+  ctx.strokeStyle = 'rgba(100,120,200,0.07)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    ctx.beginPath(); ctx.moveTo(W*i/4, 0); ctx.lineTo(W*i/4, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, H*i/4); ctx.lineTo(W, H*i/4); ctx.stroke();
+  }
+
+  // Анимировать появление точки Москвы
+  let dotRad = 0;
+  await new Promise(r => {
+    const t0 = performance.now();
+    function frame(now) {
+      const p = Math.min((now-t0)/500, 1);
+      const ease = Math.max(0, 1 - Math.pow(1-p, 3));
+      dotRad = Math.max(0, 5 * ease);
+      ctx.clearRect(M.x-20, M.y-20, 40, 40);
+      // Halo
+      const grd = ctx.createRadialGradient(M.x,M.y,0,M.x,M.y,Math.max(0.001,18*ease));
+      grd.addColorStop(0,'rgba(200,180,255,0.35)');
+      grd.addColorStop(1,'transparent');
+      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(M.x,M.y,Math.max(0.001,18*ease),0,Math.PI*2); ctx.fill();
+      // Dot
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(M.x, M.y, Math.max(0.001,dotRad), 0, Math.PI*2); ctx.fill();
+      if (p < 1) requestAnimationFrame(frame); else r();
+    }
+    requestAnimationFrame(frame);
+  });
+  document.getElementById('introLabelMoscow').classList.add('visible');
+  await _delay(300);
+
+  // ── Шаг 3: Меняем текст на что-то про Москву ──────────
+  // ── Шаг 4: Рисуем точку Бишкека ───────────────────────
+  await new Promise(r => {
+    const t0 = performance.now();
+    function frame(now) {
+      const p = Math.min((now-t0)/500, 1);
+      const ease = Math.max(0, 1 - Math.pow(1-p, 3));
+      ctx.clearRect(B.x-20, B.y-20, 40, 40);
+      const grd = ctx.createRadialGradient(B.x,B.y,0,B.x,B.y,Math.max(0.001,18*ease));
+      grd.addColorStop(0,'rgba(255,200,180,0.35)');
+      grd.addColorStop(1,'transparent');
+      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(B.x,B.y,Math.max(0.001,18*ease),0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(B.x, B.y, Math.max(0.001,5*ease), 0, Math.PI*2); ctx.fill();
+      if (p < 1) requestAnimationFrame(frame); else r();
+    }
+    requestAnimationFrame(frame);
+  });
+  document.getElementById('introLabelBishkek').classList.add('visible');
+  await _delay(300);
+
+  // ── Шаг 6: Анимируем самолёт от Москвы до Бишкека ─────
+  // _introSkipToEnd уже зарегистрирован выше
+
+  // Сначала рисуем пунктирную линию маршрута постепенно
+  const plane = document.createElement('div');
+  plane.className = 'intro-plane';
+  plane.textContent = '✈';
+  wrap.appendChild(plane);
+
+  // Рисуем маршрут (кривая) и летим по ней
+  const FLIGHT_MS = 3000;
+  let routeProgress = 0;
+
+  await new Promise(r => {
+    const t0 = performance.now();
+    function frame(now) {
+      const p = Math.min((now - t0) / FLIGHT_MS, 1);
+      routeProgress = p;
+
+      // Полностью перерисовываем canvas
+      ctx.clearRect(0,0,W,H);
+
+      // Сетка
+      ctx.strokeStyle = 'rgba(100,120,200,0.07)'; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        ctx.beginPath(); ctx.moveTo(W*i/4,0); ctx.lineTo(W*i/4,H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,H*i/4); ctx.lineTo(W,H*i/4); ctx.stroke();
+      }
+
+      // Точки городов
+      [
+        {pt:M, c0:'rgba(200,180,255,0.3)'},
+        {pt:B, c0:'rgba(255,200,180,0.3)'}
+      ].forEach(({pt,c0}) => {
+        const grd = ctx.createRadialGradient(pt.x,pt.y,0,pt.x,pt.y,18);
+        grd.addColorStop(0,c0); grd.addColorStop(1,'transparent');
+        ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(pt.x,pt.y,18,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(pt.x,pt.y,5,0,Math.PI*2); ctx.fill();
+      });
+
+      // Пройденная часть маршрута — светящаяся линия
+      if (p > 0) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(M.x, M.y);
+        const steps = Math.floor(p * 60);
+        for (let i = 1; i <= steps; i++) {
+          const t = i/60;
+          const pt = _quadBezier(M, ctrl, B, t);
+          ctx.lineTo(pt.x, pt.y);
+        }
+        // Градиент вдоль линии
+        const lg = ctx.createLinearGradient(M.x,M.y,B.x,B.y);
+        lg.addColorStop(0,'rgba(200,180,255,0.9)');
+        lg.addColorStop(1,'rgba(255,200,150,0.9)');
+        ctx.strokeStyle = lg;
+        ctx.shadowColor = 'rgba(200,180,255,0.6)';
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Пунктир оставшегося пути (бледный)
+      if (p < 0.98) {
+        ctx.save();
+        ctx.setLineDash([4,6]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const startT = p;
+        const stPt = _quadBezier(M, ctrl, B, startT);
+        ctx.moveTo(stPt.x, stPt.y);
+        for (let i = 1; i <= 30; i++) {
+          const t2 = startT + (1-startT)*i/30;
+          const pt2 = _quadBezier(M, ctrl, B, t2);
+          ctx.lineTo(pt2.x, pt2.y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Позиция самолёта
+      const planePos = _quadBezier(M, ctrl, B, p);
+      const planeNext = _quadBezier(M, ctrl, B, Math.min(p+0.01, 1));
+      const angle = Math.atan2(planeNext.y - planePos.y, planeNext.x - planePos.x) * 180 / Math.PI;
+      plane.style.left = (planePos.x - 10) + 'px';
+      plane.style.top  = (planePos.y - 10) + 'px';
+      plane.style.transform = `rotate(${angle}deg)`;
+      plane.style.opacity = String(Math.min(p * 10, 1));
+
+      if (p < 1 && !_introAborted) requestAnimationFrame(frame);
+      else {
+        plane.style.opacity = '0';
+        setTimeout(() => plane.remove(), 200);
+        r();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+
+  await _delay(200);
+
+  // ── Шаг 7: Текст на маршруте — 3 фразы ───────────────
+  // Координата середины дуги
+  // Фразы маршрута печатаем в основном typedEl внизу
+
+  const _distTxt = _skyCfg.distanceLabel ? _skyCfg.distanceLabel + ' между нами' : 'далеко между нами';
+  const phrases = [
+    { text: _distTxt, type: 48, erase: 30 },
+    { text: 'я так сильно жду этой встречи ❤️', type: 42, erase: 0 },
+  ];
+
+  for (let i = 0; i < phrases.length; i++) {
+    const ph = phrases[i];
+    if (i === 0) await _eraseText(typedEl, 28);
+    await _typeText(typedEl, ph.text, ph.type);
+    await _delay(i < 2 ? 1800 : 2000);
+    if (ph.erase) await _eraseText(typedEl, ph.erase);
+  }
+
+  await _delay(500);
+
+  // ── Шаг 8: Финальный текст + кнопка ──────────────────
+  await _eraseText(typedEl, 28);
+  await _delay(200);
+  // ── ЭКГ: пульс на маршруте ─────────────────────────────
+  await _drawHeartbeat(introCanvas, M, B);
+
+  await _typeText(typedEl, 'Мы ближе когда мы вместе ✦', 50);
+
+  clearInterval(_citytimer);
+
+  // Показываем кнопку
+  await _delay(600);
+  btn.classList.add('visible');
+}
+
+
+// ════════════════════════════════════════════
+//  SKIP INTRO — двойной тап
+// ════════════════════════════════════════════
+let _skipLastTap = 0;
+let _skipNotifVisible = false;
+let _skipNotifTimer = null;
+
+function _initSkipDoubleTap() {
+  const intro = document.getElementById('skyIntro');
+  if (!intro) return;
+
+  function _handleTap() {
+    const now = Date.now();
+    const diff = now - _skipLastTap;
+
+    if (_skipLastTap > 0 && diff < 500) {
+      // Второй тап — достаточно быстро после первого
+      _skipLastTap = 0;
+      _showSkipNotif();
+    } else {
+      // Первый тап — просто запоминаем время
+      _skipLastTap = now;
+      // Сбрасываем через 600мс если второго не последовало
+      setTimeout(() => {
+        if (Date.now() - _skipLastTap >= 500) _skipLastTap = 0;
+      }, 600);
+    }
+  }
+
+  intro.addEventListener('click', function(e) {
+    if (e.target.closest('#introSkipNotif') || e.target.closest('#introBtnEnter')) return;
+    _handleTap();
+  });
+
+  // Touch — используем только touchend, чтобы не было двойного срабатывания с click
+  intro.addEventListener('touchend', function(e) {
+    if (e.target.closest('#introSkipNotif') || e.target.closest('#introBtnEnter')) return;
+    e.preventDefault(); // блокируем синтетический click после touch
+    _handleTap();
+  }, { passive: false });
+}
+
+function _showSkipNotif() {
+  if (_skipNotifVisible) return;
+  const notif = document.getElementById('introSkipNotif');
+  if (!notif) return;
+  _skipNotifVisible = true;
+  notif.classList.add('visible');
+
+  // Авто-скрытие через 4 секунды если не нажали
+  if (_skipNotifTimer) clearTimeout(_skipNotifTimer);
+  _skipNotifTimer = setTimeout(() => {
+    _hideSkipNotif();
+  }, 4000);
+}
+
+function _hideSkipNotif() {
+  const notif = document.getElementById('introSkipNotif');
+  if (!notif) return;
+  _skipNotifVisible = false;
+  notif.classList.remove('visible');
+  if (_skipNotifTimer) { clearTimeout(_skipNotifTimer); _skipNotifTimer = null; }
+}
+
+function _doSkipIntro() {
+  _hideSkipNotif();
+  _introAborted = true;
+
+  // Сразу убиваем самолёт и ЭКГ overlay-canvas
+  document.querySelectorAll('.intro-plane').forEach(el => el.remove());
+  const introWrap = document.getElementById('introMapWrap');
+  if (introWrap) {
+    introWrap.querySelectorAll('canvas:not(#introCanvas)').forEach(el => el.remove());
+  }
+
+  // Вызываем финальное состояние — оно зарегистрировано внутри runIntroAnimation
+  // и имеет доступ ко всем canvas-переменным через замыкание
+  if (typeof window._introSkipToEnd === 'function') {
+    window._introSkipToEnd();
+  } else {
+    // Fallback если анимация ещё не дошла до регистрации ctrl
+    const typedEl = document.getElementById('introTyped');
+    const btn     = document.getElementById('introBtnEnter');
+    if (typedEl) { typedEl.style.transition = 'none'; typedEl.innerHTML = 'Мы ближе когда мы вместе ✦'; }
+    if (btn)     btn.classList.add('visible');
+    document.getElementById('introLabelMoscow')?.classList.add('visible');
+    document.getElementById('introLabelBishkek')?.classList.add('visible');
+  }
+}
+
+function openSkyIntro() {
+  if (!_weatherLoaded) _weatherPromise = fetchWeatherData();
+  const intro = document.getElementById('skyIntro');
+  intro.classList.add('active');
+  // Инициализируем двойной тап для скипа (один раз)
+  if (!intro._skipInited) { intro._skipInited = true; _initSkipDoubleTap(); }
+  runIntroAnimation();
+}
+
+async function enterSky() {
+  // Ждём погоду (должна загрузиться за время анимации интро ~15 сек)
+  if (!_weatherLoaded) {
+    try { await Promise.race([_weatherPromise, new Promise(r => setTimeout(r, 2500))]); }
+    catch(e) {}
+  }
+  const intro = document.getElementById('skyIntro');
+  intro.classList.add('fade-out');
+  intro.addEventListener('animationend', () => {
+    intro.classList.remove('active','fade-out');
+    intro.style.display = 'none';
+  }, { once: true });
+
+  // Открываем небо
+  const view = document.getElementById('skyView');
+  view.style.display = 'block';
+  view.style.animation = 'skyIn 0.5s cubic-bezier(0.4,0,0.2,1) both';
+  const role    = getUserRole();
+  const myPanel = _getPanelForRole(role);
+  _applySingleMode(myPanel);
+  renderSkyFrame();
+  // rAF-цикл: солнце/луна каждый кадр (плавно), фон/облака раз в 2 сек
+  function _skyRafLoop() {
+    _skyInterval = requestAnimationFrame(_skyRafLoop);
+    const now = performance.now();
+    if (now - _lastSlowUpdate > 2000) {
+      _lastSlowUpdate = now;
+      Object.entries(CITIES).forEach(([key, city]) => {
+        const hour = getHour(city.offset);
+        const sky  = _getSkyForCity(key, hour);
+        drawSkyCanvas(city.el, sky);
+        updateStars(key, sky.stars);
+        ensureClouds(key, sky);
+        const hz = document.getElementById('horizon' + city.el);
+        hz.style.background = sky.hor
+          ? `linear-gradient(transparent, ${sky.hor})`
+          : 'linear-gradient(transparent, transparent)';
+        const au = document.getElementById('aurora' + city.el);
+        au.style.opacity = (sky.stars > 0.8 && Math.random() > 0.65) ? '1' : '0';
+        document.getElementById(city.nameEl).textContent  = getTimeStr(city.offset);
+        document.getElementById(city.phaseEl).textContent = sky.phase;
+
+        // Погода — правая колонка
+        const wEl = document.getElementById('weather' + city.el);
+        if (wEl) {
+          const wd = WEATHER_DATA[key];
+          if (wd && wd.temp != null && !wEl._weatherDone) {
+            wEl._weatherDone = true;
+            wEl.innerHTML = '';
+            const icon = _weatherIcon(wd.code);
+
+            const t = document.createElement('div');
+            t.className = 'weather-temp';
+            t.textContent = Math.round(wd.temp) + '°C';
+            wEl.appendChild(t);
+
+            if (wd.feels != null) {
+              const f = document.createElement('div');
+              f.className = 'weather-feels';
+              f.textContent = 'Ощущается как ' + Math.round(wd.feels) + '°C';
+              wEl.appendChild(f);
+            }
+
+            if (wd.desc) {
+              const b = document.createElement('div');
+              b.className = 'weather-badge';
+              b.textContent = (icon ? icon + ' ' : '') + wd.desc;
+              wEl.appendChild(b);
+            }
+          }
+        }
+      });
+    }
+    // Солнце и луна — каждый кадр
+    Object.entries(CITIES).forEach(([key, city]) => {
+      const hour = getHour(city.offset);
+      const sky  = _getSkyForCity(key, hour);
+      updateSunMoon(key, hour, sky);
+    });
+  }
+  _skyRafLoop();
+  if (!_wsConn) initSkyWS();
+  _checkInboxOnLoad();
+  _startInboxPoll();
+  _initSentCounter();
+  _log('Sky', 'enterSky done, panel=' + _activePanel);
+}
+
+</script>
+</body>
+</html>

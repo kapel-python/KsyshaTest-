@@ -1,0 +1,30 @@
+[2026-05-23T16:09:12Z] START backup
+OK: created=/root/KsyshaTest/backups/memories-20260523-160912.sqlite3.gz
+OK: verified=memories-20260523-160912.sqlite3.gz
+OK: pruned=0
+[2026-05-23T16:09:12Z] END backup
+[2026-05-24T01:40:01Z] START backup
+OK: created=/root/KsyshaTest/backups/memories-20260524-014001.sqlite3.gz
+OK: verified=memories-20260524-014001.sqlite3.gz
+OK: pruned=0
+[2026-05-24T01:40:02Z] END backup
+[2026-05-25T01:40:01Z] START backup
+OK: created=/root/KsyshaTest/backups/memories-20260525-014001.sqlite3.gz
+OK: verified=memories-20260525-014001.sqlite3.gz
+OK: pruned=0
+[2026-05-25T01:40:01Z] END backup
+[2026-05-26T01:40:01Z] START backup
+OK: created=/root/KsyshaTest/backups/memories-20260526-014001.sqlite3.gz
+OK: verified=memories-20260526-014001.sqlite3.gz
+OK: pruned=0
+[2026-05-26T01:40:01Z] END backup
+[2026-05-27T01:40:02Z] START backup
+OK: created=/root/KsyshaTest/backups/memories-20260527-014002.sqlite3.gz
+OK: verified=memories-20260527-014002.sqlite3.gz
+OK: pruned=0
+[2026-05-27T01:40:02Z] END backup
+[2026-05-28T01:40:01Z] START backup
+OK: created=/root/KsyshaTest/backups/memories-20260528-014001.sqlite3.gz
+OK: verified=memories-20260528-014001.sqlite3.gz
+OK: pruned=0
+[2026-05-28T01:40:02Z] END backup

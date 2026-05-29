@@ -1,0 +1,8 @@
+# Health check every 10 minutes
+*/10 * * * * /root/KsyshaTest/scripts/healthcheck.sh
+
+# Daily backup at 03:40 UTC
+40 3 * * * /root/KsyshaTest/scripts/run_backup.sh
+
+# Weekly restore-check (Sunday 04:20 UTC)
+20 4 * * 0 /root/KsyshaTest/.venv/bin/python /root/KsyshaTest/scripts/restore_check_latest.py >> /root/KsyshaTest/backups/restore_check.log 2>&1

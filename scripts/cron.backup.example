@@ -1,0 +1,2 @@
+# Every day at 03:40 UTC
+40 3 * * * /root/KsyshaTest/scripts/run_backup.sh

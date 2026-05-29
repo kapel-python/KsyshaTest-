@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Твоя статистика ❤️</title>
+<script>
+(function(){
+  var theme = typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme');
+  if (!theme && typeof window.matchMedia === 'function')
+    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root, html.theme-light {
+  --bg: #fdf6f9;
+  --surface: #ffffff;
+  --accent: #d43f8d;
+  --accent2: #7c3aed;
+  --accent3: #4158d0;
+  --pink-soft: #fff0f7;
+  --pink-border: #fce4f2;
+  --text: #1a1a2e;
+  --muted: #9b7fa8;
+  --meta: #c4a8cc;
+}
+html.theme-dark {
+  --bg: #0d0b14;
+  --surface: #18152a;
+  --text: #f0ecff;
+  --muted: #a090b8;
+  --meta: #6a5880;
+  --pink-soft: rgba(212,63,141,0.12);
+  --pink-border: rgba(212,63,141,0.18);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ── Фоновые украшения ── */
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(212,63,141,0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -150px; left: -150px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(65,88,208,0.07) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 16px 60px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Hero шапка ── */
+.hero {
+  padding: 48px 0 36px;
+  text-align: center;
+  position: relative;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: var(--pink-soft);
+  border: 1px solid var(--pink-border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.2rem, 8vw, 3rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.hero-title em {
+  font-style: italic;
+  background: linear-gradient(135deg, #d43f8d, #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.hero-hearts {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.hero-hearts span {
+  font-size: 1rem;
+  animation: floatHeart 3s ease-in-out infinite;
+}
+.hero-hearts span:nth-child(2) { animation-delay: 0.4s; }
+.hero-hearts span:nth-child(3) { animation-delay: 0.8s; }
+
+@keyframes floatHeart {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ── Большой счётчик ── */
+.counter-wrap {
+  background: linear-gradient(135deg, #d43f8d 0%, #7c3aed 60%, #4158d0 100%);
+  border-radius: 28px;
+  padding: 32px 28px;
+  text-align: center;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.counter-wrap::before {
+  content: '';
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 180px; height: 180px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 50%;
+}
+.counter-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: -60px; left: -30px;
+  width: 150px; height: 150px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 50%;
+}
+
+.counter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.counter-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 5rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  margin-bottom: 6px;
+  position: relative;
+}
+
+.counter-desc {
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.75);
+  position: relative;
+}
+
+/* ── Сетка мини-карточек ── */
+.mini-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mini-card {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 18px 16px;
+  border: 1.5px solid var(--pink-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.mini-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 20px 20px 0 0;
+}
+.mini-card.mc1::before { background: linear-gradient(90deg, #ff9fd4, #d43f8d); }
+.mini-card.mc2::before { background: linear-gradient(90deg, #ffb347, #ff6b35); }
+.mini-card.mc3::before { background: linear-gradient(90deg, #7c3aed, #4158d0); }
+.mini-card.mc4::before { background: linear-gradient(90deg, #16a34a, #0d9488); }
+
+.mini-card-icon { font-size: 1.4rem; margin-bottom: 8px; display: block; }
+.mini-card-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 3px;
+}
+.mini-card-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── Основные карточки ── */
+.stat-card {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 22px 20px;
+  border: 1.5px solid var(--pink-border);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(212,63,141,0.1);
+}
+
+.stat-card-stripe {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+}
+.sc1 .stat-card-stripe { background: linear-gradient(180deg, #ff9fd4, #d43f8d); }
+.sc2 .stat-card-stripe { background: linear-gradient(180deg, #ffb347, #ff6b35); }
+.sc3 .stat-card-stripe { background: linear-gradient(180deg, #7c3aed, #4158d0); }
+.sc4 .stat-card-stripe { background: linear-gradient(180deg, #16a34a, #0d9488); }
+.sc5 .stat-card-stripe { background: linear-gradient(180deg, #db2777, #be185d); }
+.sc6 .stat-card-stripe { background: linear-gradient(180deg, #f59e0b, #d97706); }
+
+.stat-card-icon-wrap {
+  width: 46px; height: 46px;
+  border-radius: 14px;
+  background: var(--pink-soft);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.sc2 .stat-card-icon-wrap { background: #fff8f0; }
+.sc3 .stat-card-icon-wrap { background: #f5f0ff; }
+.sc4 .stat-card-icon-wrap { background: #f0fff8; }
+.sc5 .stat-card-icon-wrap { background: #fff0f5; }
+.sc6 .stat-card-icon-wrap { background: #fffbf0; }
+
+.stat-card-body { flex: 1; }
+.stat-card-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.stat-card-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+.stat-card-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* Таблетка категории внутри stat-card */
+.stat-card-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffb6c1;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+  color: #7a1040;
+  font-weight: 600;
+}
+
+/* ── Звёздный момент (featured) ── */
+.featured {
+  background: linear-gradient(135deg, #d43f8d 0%, #9b3ac7 50%, #4158d0 100%);
+  border-radius: 24px;
+  padding: 24px 22px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.featured::before {
+  content: '';
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 180px; height: 180px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.featured::after {
+  content: '⭐';
+  position: absolute;
+  right: 18px; bottom: 16px;
+  font-size: 3rem;
+  opacity: 0.12;
+}
+
+.featured-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+/* Таблетка категории — как в index.html */
+.featured-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.featured-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.22);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  color: #fff;
+  font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.3);
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.featured-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  position: relative;
+}
+
+.featured-meta {
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.75);
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.featured-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 6px;
+  position: relative;
+}
+
+.featured-bar-bg {
+  height: 6px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.featured-bar-fill {
+  height: 100%;
+  /* width задаётся инлайном из {{FAV_MEMORY_PERCENT}} с сервера */
+  min-width: 0;
+  background: rgba(255,255,255,0.85);
+  border-radius: 999px;
+}
+
+/* ── Активность по дням (тепловая карта) ── */
+.heatmap-section {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 22px 20px;
+  border: 1.5px solid var(--pink-border);
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.heatmap-days {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.hm-day {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: #f0eaf4;
+  cursor: default;
+  transition: transform 0.1s;
+}
+.hm-day:hover { transform: scale(1.15); z-index: 1; position: relative; }
+
+/* Light theme levels */
+.hm-day.d1 { background: rgba(212,63,141,0.18); color: #d43f8d; }
+.hm-day.d2 { background: rgba(212,63,141,0.36); color: #aa1f6d; }
+.hm-day.d3 { background: rgba(212,63,141,0.56); color: #fff; }
+.hm-day.d4 { background: rgba(212,63,141,0.78); color: #fff; }
+.hm-day.d5 { background: #d43f8d;               color: #fff; }
+
+/* Dark theme base + levels — much more distinct */
+html.theme-dark .hm-day      { background: rgba(255,255,255,0.06); color: var(--muted); }
+html.theme-dark .hm-day.d1   { background: rgba(212,63,141,0.22); color: #f090c0; }
+html.theme-dark .hm-day.d2   { background: rgba(212,63,141,0.42); color: #ffc0dc; }
+html.theme-dark .hm-day.d3   { background: rgba(212,63,141,0.62); color: #fff; }
+html.theme-dark .hm-day.d4   { background: rgba(212,63,141,0.82); color: #fff; }
+html.theme-dark .hm-day.d5   { background: #d43f8d;               color: #fff; }
+
+.hm-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+.hm-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.hm-legend-label { font-size: 0.72rem; color: var(--meta); }
+.hm-legend-dots {
+  display: flex;
+  gap: 3px;
+  margin: 0 4px;
+}
+.hm-legend-dot {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+}
+/* Legend dots — theme-aware */
+.hm-ld0 { background: #f0eaf4; }
+.hm-ld1 { background: rgba(212,63,141,0.2); }
+.hm-ld2 { background: rgba(212,63,141,0.4); }
+.hm-ld3 { background: rgba(212,63,141,0.65); }
+.hm-ld4 { background: #d43f8d; }
+html.theme-dark .hm-ld0 { background: rgba(255,255,255,0.06); }
+html.theme-dark .hm-ld1 { background: rgba(212,63,141,0.22); }
+html.theme-dark .hm-ld2 { background: rgba(212,63,141,0.42); }
+html.theme-dark .hm-ld3 { background: rgba(212,63,141,0.72); }
+html.theme-dark .hm-ld4 { background: #d43f8d; }
+
+/* ── Время суток ── */
+.time-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.time-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.time-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: #f5f0f5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.time-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff9fd4, #d43f8d);
+  transition: width 0.8s ease;
+}
+
+.time-pct {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Цитата ── */
+.quote-section {
+  background: linear-gradient(135deg, #1a0a12 0%, #0f0a20 100%);
+  border-radius: 24px;
+  padding: 28px 24px;
+  margin-bottom: 12px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.quote-section::before {
+  content: '❝';
+  position: absolute;
+  top: 10px; left: 16px;
+  font-size: 4rem;
+  color: rgba(255,255,255,0.06);
+  font-family: Georgia, serif;
+  line-height: 1;
+}
+
+.quote-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-style: italic;
+  color: rgba(255,255,255,0.9);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.quote-author {
+  font-size: 0.75rem;
+  color: rgba(255,180,220,0.6);
+  letter-spacing: 0.08em;
+}
+
+/* ── Рекорды ── */
+.records {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 22px 20px;
+  border: 1.5px solid var(--pink-border);
+  margin-bottom: 12px;
+}
+
+.record-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #fce4f2;
+}
+.record-row:last-child { border-bottom: none; padding-bottom: 0; }
+.record-row:first-child { padding-top: 0; }
+
+.record-medal { font-size: 1.2rem; flex-shrink: 0; width: 28px; text-align: center; }
+.record-body { flex: 1; }
+.record-name { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+.record-val { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
+.record-num {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Футер / кнопка возврата ── */
+.back-section {
+  text-align: center;
+  padding-top: 24px;
+}
+
+.back-eyebrow {
+  font-size: 0.75rem;
+  color: var(--meta);
+  margin-bottom: 16px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 28px;
+  background: linear-gradient(135deg, #d43f8d, #7c3aed);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 6px 24px rgba(212,63,141,0.35);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.back-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(212,63,141,0.45);
+}
+
+.back-link-icon { font-size: 1rem; }
+
+.back-made {
+  margin-top: 20px;
+  font-size: 0.75rem;
+  color: var(--meta);
+}
+
+.back-made a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ── Анимации при загрузке ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero           { animation: fadeUp 0.5s ease both; }
+.counter-wrap   { animation: fadeUp 0.5s 0.1s ease both; }
+.mini-grid      { animation: fadeUp 0.5s 0.15s ease both; }
+.featured       { animation: fadeUp 0.5s 0.2s ease both; }
+.stat-card      { animation: fadeUp 0.5s ease both; }
+.stat-card.sc1  { animation-delay: 0.25s; }
+.stat-card.sc2  { animation-delay: 0.3s; }
+.stat-card.sc3  { animation-delay: 0.35s; }
+.stat-card.sc4  { animation-delay: 0.4s; }
+.heatmap-section { animation: fadeUp 0.5s 0.45s ease both; }
+.time-section    { animation: fadeUp 0.5s 0.5s ease both; }
+.quote-section   { animation: fadeUp 0.5s 0.55s ease both; }
+.records         { animation: fadeUp 0.5s 0.6s ease both; }
+.back-section    { animation: fadeUp 0.5s 0.65s ease both; }
+
+/* ── Тёмная тема ── */
+html.theme-dark .time-bar-bg { background: rgba(255,255,255,0.06); }
+html.theme-dark .record-row { border-color: rgba(212,63,141,0.15); }
+html.theme-dark .stat-card-icon-wrap { background: rgba(255,255,255,0.08); }
+html.theme-dark .sc1 .stat-card-icon-wrap { background: rgba(212,63,141,0.2); }
+html.theme-dark .sc2 .stat-card-icon-wrap { background: rgba(255,179,71,0.2); }
+html.theme-dark .sc3 .stat-card-icon-wrap { background: rgba(124,58,237,0.2); }
+html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
+
+/* ── Серийчик — огонёк ── */
+.streak-fire {
+  display: inline-block;
+  animation: fireWobble 1.4s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+@keyframes fireWobble {
+  0%,100% { transform: rotate(-10deg) scale(1);    }
+  30%     { transform: rotate( 10deg) scale(1.18); }
+  60%     { transform: rotate( -6deg) scale(1.08); }
+  80%     { transform: rotate(  7deg) scale(1.13); }
+}
+.mc2.streak-hot .mini-card-value,
+.mc2.streak-hot .mini-card-icon  { color: #d43f8d !important; }
+.mc2.streak-hot .mini-card-label { color: #c850c0; }
+.mc2.streak-hot                   { border-color: rgba(212,63,141,0.45); }
+
+.hm-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.hm-nav-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+.hm-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--pink-border);
+  background: var(--pink-soft);
+  color: var(--accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  line-height: 1;
+}
+.hm-nav-arrow { font-size: 1rem; line-height: 1; }
+.hm-nav-btn:hover  { background: var(--pink-border); transform: scale(1.1); }
+.hm-nav-btn:active { transform: scale(0.93); }
+.hm-nav-btn:disabled { opacity: .3; cursor: default; transform: none !important; }
+.hm-month-label {
+  font-size: .8rem; font-weight: 700; color: var(--accent);
+  letter-spacing: .03em;
+  transition: opacity .18s;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <div class="hero-badge">{{STATS_HERO_BADGE}}</div>
+    <h1 class="hero-title">{{STATS_HERO_TITLE}}</h1>
+    <p class="hero-sub" data-i18n="statHeroSub">{{STATS_HERO_SUB}}</p>
+    <div class="hero-hearts">
+      <span>💗</span><span>❤️</span><span>💕</span>
+    </div>
+  </div>
+
+  <div class="counter-wrap">
+    <div class="counter-label" data-i18n="statVisits">Входов на сайт</div>
+    <div class="counter-num">{{TOTAL_VISITS}}</div>
+    <div class="counter-desc">{{COUNTER_DESC}}</div>
+  </div>
+
+  <div class="mini-grid">
+    <div class="mini-card mc1">
+      <span class="mini-card-icon">⏱</span>
+      <div class="mini-card-value">{{TOTAL_TIME}}</div>
+      <div class="mini-card-label" data-i18n="statTimeTotal">Всего времени ты была на сайте</div>
+    </div>
+    <div class="mini-card mc2" id="streakCard" data-streak="{{STREAK_DAYS_NUM}}">
+      <span class="mini-card-icon streak-fire" id="streakFire">🔥</span>
+      <div class="mini-card-value" id="streakVal">{{STREAK_DAYS}}</div>
+      <div class="mini-card-label" data-i18n="statStreak">Серийчик (как в тт)</div>
+    </div>
+    <div class="mini-card mc3">
+      <span class="mini-card-icon">📖</span>
+      <div class="mini-card-value">{{MEMORIES_COUNT}}</div>
+      <div class="mini-card-label" data-i18n="statMemCount">Воспоминаний</div>
+    </div>
+    <div class="mini-card mc4">
+      <span class="mini-card-icon">📸</span>
+      <div class="mini-card-value">{{PHOTOS_OPENED}}</div>
+      <div class="mini-card-label" data-i18n="statMediaOpened">Фото/видео или кружков открыто</div>
+    </div>
+  </div>
+
+  <div class="featured">
+    <div class="featured-badge" data-i18n="statFavBadge">⭐ Любимый момент</div>
+    <div class="featured-title">
+      <span class="featured-category">{{FAV_MEMORY_CATEGORY}}</span> {{FAV_MEMORY_TITLE}}
+    </div>
+    <div class="featured-meta">{{FAV_MEMORY_META}}</div>
+    <div class="featured-bar-label">
+      <span data-i18n="statViewTime">Время просмотра</span>
+        <span>{{FAV_MEMORY_PERCENT}} от всего времени</span>
+    </div>
+    <div class="featured-bar-bg">
+      <div class="featured-bar-fill" style="width:{{FAV_MEMORY_PERCENT}}"></div>
+    </div>
+  </div>
+
+  <!-- ── Основные карточки ── -->
+  <div class="stat-card sc1">
+    <div class="stat-card-stripe"></div>
+    <div class="stat-card-icon-wrap">📅</div>
+    <div class="stat-card-body">
+      <div class="stat-card-label" data-i18n="statFirstVisit">Первый вход</div>
+      <div class="stat-card-value">{{FIRST_VISIT_DATE}}</div>
+      <div class="stat-card-sub">{{FIRST_VISIT_SUB}}</div>
+    </div>
+  </div>
+
+  <div class="stat-card sc2">
+    <div class="stat-card-stripe"></div>
+    <div class="stat-card-icon-wrap">🕐</div>
+    <div class="stat-card-body">
+      <div class="stat-card-label" data-i18n="statFavTime">Любимое время</div>
+      <div class="stat-card-value">{{FAV_TIME_LABEL}}</div>
+      <div class="stat-card-sub">{{FAV_TIME_SUB}}</div>
+    </div>
+  </div>
+
+  <div class="stat-card sc3">
+    <div class="stat-card-stripe"></div>
+    <div class="stat-card-icon-wrap">💫</div>
+    <div class="stat-card-body">
+      <div class="stat-card-label" data-i18n="statFavCat">Любимая категория</div>
+      <div class="stat-card-category">{{FAV_CATEGORY_LABEL}}</div>
+      <div class="stat-card-value">{{FAV_CATEGORY_VALUE}}</div>
+      <div class="stat-card-sub">{{FAV_CATEGORY_SUB}}</div>
+    </div>
+  </div>
+
+  <div class="stat-card sc4">
+    <div class="stat-card-stripe"></div>
+    <div class="stat-card-icon-wrap">📱</div>
+    <div class="stat-card-body">
+      <div class="stat-card-label" data-i18n="statDevice">Устройство</div>
+      <div class="stat-card-value">{{LAST_DEVICE}}</div>
+      <div class="stat-card-sub">{{LAST_DEVICE_SUB}}</div>
+    </div>
+  </div>
+
+  <!-- ── Активность по дням ── -->
+  <div class="heatmap-section">
+    <!-- Заголовок + месяц/год в одной строке -->
+    <div class="hm-title-row">
+      <div class="section-title" style="margin-bottom:0" data-i18n="statHeatmapTitle">📆 Активность по дням</div>
+      <span class="hm-month-label" id="hmMonthLabel">{{HEATMAP_MONTH_YEAR}}</span>
+    </div>
+    <div class="heatmap-days" id="hmDays">
+      {{HEATMAP_DAYS_HTML}}
+    </div>
+    <!-- Легенда -->
+    <div class="hm-legend">
+      <span class="hm-legend-label" data-i18n="statLess">Меньше</span>
+      <div class="hm-legend-dots">
+        <div class="hm-legend-dot hm-ld0"></div>
+        <div class="hm-legend-dot hm-ld1"></div>
+        <div class="hm-legend-dot hm-ld2"></div>
+        <div class="hm-legend-dot hm-ld3"></div>
+        <div class="hm-legend-dot hm-ld4"></div>
+      </div>
+      <span class="hm-legend-label" data-i18n="statMore">Больше</span>
+    </div>
+    <!-- Стрелки навигации — под легендой, по краям -->
+    <div class="hm-nav">
+      <button class="hm-nav-btn" id="hmPrev" title="Предыдущий месяц">
+        <span class="hm-nav-arrow">‹</span><span class="hm-nav-label" data-i18n="statNavPrev">Назад</span>
+      </button>
+      <button class="hm-nav-btn" id="hmNext" title="Следующий месяц">
+        <span class="hm-nav-label" data-i18n="statNavNext">Вперёд</span><span class="hm-nav-arrow">›</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Время суток ── -->
+  <div class="heatmap-section time-section">
+    <div class="section-title" data-i18n="statTimeOfDay">🕐 По времени суток</div>
+    <div class="time-bars">
+      <div class="time-row">
+        <div class="time-label" data-i18n="statMorning">Утро 6–12</div>
+        <div class="time-bar-bg"><div class="time-bar-fill" style="width:{{TIME_MORNING_PCT}}%"></div></div>
+        <div class="time-pct">{{TIME_MORNING_PCT}}%</div>
+      </div>
+      <div class="time-row">
+        <div class="time-label" data-i18n="statDay">День 12–18</div>
+        <div class="time-bar-bg"><div class="time-bar-fill" style="width:{{TIME_DAY_PCT}}%"></div></div>
+        <div class="time-pct">{{TIME_DAY_PCT}}%</div>
+      </div>
+      <div class="time-row">
+        <div class="time-label" data-i18n="statEvening">Вечер 18–23</div>
+        <div class="time-bar-bg"><div class="time-bar-fill" style="width:{{TIME_EVENING_PCT}}%"></div></div>
+        <div class="time-pct">{{TIME_EVENING_PCT}}%</div>
+      </div>
+      <div class="time-row">
+        <div class="time-label" data-i18n="statNight">Ночь 23–6</div>
+        <div class="time-bar-bg"><div class="time-bar-fill" style="width:{{TIME_NIGHT_PCT}}%"></div></div>
+        <div class="time-pct">{{TIME_NIGHT_PCT}}%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Рекорды ── -->
+  <div class="records">
+    <div class="section-title" data-i18n="statRecords">🏆 Твои рекорды</div>
+    {{RECORDS_HTML}}
+  </div>
+
+  <div class="back-section">
+    <a class="back-link" href="/">
+      <span class="back-link-icon">❤️</span>
+      <span data-i18n="statBack">Вернуться к воспоминаниям</span>
+    </a>
+  </div>
+
+</div>
+<script>
+(function(){
+  /* ── I18N ── */
+  const STATS_I18N = {
+    ru: {
+      statVisits:     'Входов на сайт',
+      statTimeTotal:  'Всего времени ты была на сайте',
+      statStreak:     'Серийчик (как в тт)',
+      statMemCount:   'Воспоминаний',
+      statMediaOpened:'Фото/видео или кружков открыто',
+      statFavBadge:   '⭐ Любимый момент',
+      statFavMeta:    'Провела там дольше всего',
+      statViewTime:   'Время просмотра',
+      statFirstVisit: 'Первый вход',
+      statFavTime:    'Любимое время',
+      statFavCat:     'Любимая категория',
+      statDevice:     'Устройство',
+      statHeatmapTitle:'📆 Активность по дням',
+      statLess:       'Меньше',
+      statMore:       'Больше',
+      statNavPrev:    'Назад',
+      statNavNext:    'Вперёд',
+      statTimeOfDay:  '🕐 По времени суток',
+      statMorning:    'Утро 6–12',
+      statDay:        'День 12–18',
+      statEvening:    'Вечер 18–23',
+      statNight:      'Ночь 23–6',
+      statRecords:    '🏆 Твои рекорды',
+      statBack:       'Вернуться к воспоминаниям',
+    },
+    ky: {
+      statVisits:     'Сайтка кириштер',
+      statTimeTotal:  'Жалпы сайтта болгон убакытың',
+      statStreak:     'Сериялык (ТТ сыяктуу)',
+      statMemCount:   'Эскеруу',
+      statMediaOpened:'Сүрөт/видео же кружок ачылды',
+      statFavBadge:   '⭐ Сүйүктүү учур',
+      statFavMeta:    'Эң узак убакыт өткөргөн жери',
+      statViewTime:   'Көрүү убакыты',
+      statFirstVisit: 'Биринчи кириш',
+      statFavTime:    'Сүйүктүү убакыт',
+      statFavCat:     'Сүйүктүү категория',
+      statDevice:     'Түзмөк',
+      statHeatmapTitle:'📆 Күн боюнча активдүүлүк',
+      statLess:       'Аз',
+      statMore:       'Көп',
+      statNavPrev:    'Артка',
+      statNavNext:    'Алдыга',
+      statTimeOfDay:  '🕐 Күндүн убактысы боюнча',
+      statMorning:    'Эртең 6–12',
+      statDay:        'Күн 12–18',
+      statEvening:    'Кеч 18–23',
+      statNight:      'Түн 23–6',
+      statRecords:    '🏆 Сенин рекорддорун',
+      statBack:       'Эскеруулерге кайтуу',
+    },
+    de: {
+      statVisits:     'Besuche',
+      statTimeTotal:  'Gesamtzeit auf der Seite',
+      statStreak:     'Streakchen (wie TikTok)',
+      statMemCount:   'Erinnerungen',
+      statMediaOpened:'Fotos/Videos geöffnet',
+      statFavBadge:   '⭐ Lieblingsmoment',
+      statFavMeta:    'Am längsten dort verbracht',
+      statViewTime:   'Ansichtszeit',
+      statFirstVisit: 'Erster Besuch',
+      statFavTime:    'Lieblingszeit',
+      statFavCat:     'Lieblingskategorie',
+      statDevice:     'Gerät',
+      statHeatmapTitle:'📆 Aktivität nach Tag',
+      statLess:       'Weniger',
+      statMore:       'Mehr',
+      statNavPrev:    'Zurück',
+      statNavNext:    'Weiter',
+      statTimeOfDay:  '🕐 Nach Tageszeit',
+      statMorning:    'Morgen 6–12',
+      statDay:        'Tag 12–18',
+      statEvening:    'Abend 18–23',
+      statNight:      'Nacht 23–6',
+      statRecords:    '🏆 Deine Rekorde',
+      statBack:       'Zurück zu Erinnerungen',
+    },
+  };
+
+  function applyStatsI18n() {
+    const lang = localStorage.getItem('memories_lang') || 'ru';
+    const tr = STATS_I18N[lang] || STATS_I18N.ru;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      if (tr[key] !== undefined) el.textContent = tr[key];
+    });
+    // Hearts toggle
+    const heartsOn = localStorage.getItem('memories_hearts') !== 'off';
+    window._heartsOn = heartsOn;
+  }
+  applyStatsI18n();
+
+  /* ── Серийчик: розовый при 10+ ── */
+  var card = document.getElementById('streakCard');
+  if (card) {
+    var days = parseInt(card.dataset.streak, 10) || 0;
+    if (days >= 10) card.classList.add('streak-hot');
+  }
+
+  /* ── Тепловая карта: навигация ── */
+  var _statsLang = localStorage.getItem('memories_lang') || '{{STATS_LANG}}' || 'ru';
+  var MONTHS_ALL = {
+    ru: ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+    ky: ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+    de: ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+  };
+  var MONTHS = MONTHS_ALL[_statsLang] || MONTHS_ALL.ru;
+  var now = new Date();
+  var maxY = now.getFullYear(), maxM = now.getMonth() + 1;
+  var curY = maxY, curM = maxM;
+
+  /* Читаем visitor_id из URL (надёжнее чем инжект) */
+  function _getCookie(name) {
+    var v = '';
+    document.cookie.split(';').forEach(function(c) {
+      var p = c.trim().split('=');
+      if (p[0] === name && p[1]) v = decodeURIComponent(p[1]).trim();
+    });
+    return v;
+  }
+  var vid    = new URLSearchParams(window.location.search).get('v')
+               || _getCookie('visitor_id')
+               || window.__STATS_VID__ || '';
+  var apiKey = window.__STATS_APIKEY__ || '';
+
+  function setLabel() {
+    var el = document.getElementById('hmMonthLabel');
+    if (el) el.textContent = MONTHS[curM - 1] + ' ' + curY;
+    var nx = document.getElementById('hmNext');
+    if (nx) nx.disabled = (curY === maxY && curM === maxM);
+    var pv = document.getElementById('hmPrev');
+    if (pv) pv.disabled = false;
+  }
+
+  function loadMonth() {
+    var box = document.getElementById('hmDays');
+    if (!box) return;
+    box.style.opacity = '.35';
+    box.style.pointerEvents = 'none';
+    // No API key needed — endpoint is public
+    var url = '/api/heatmap?year=' + curY + '&month=' + curM + '&v=' + encodeURIComponent(vid) + '&lang=' + (localStorage.getItem('memories_lang')||'ru');
+    fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.html) {
+        box.innerHTML = d.html;
+      } else {
+        // Show error in box but don't leave stale data
+        console.error('heatmap error:', d && d.error);
+      }
+      box.style.opacity = '1';
+      box.style.pointerEvents = '';
+    })
+    .catch(function(e){
+      console.error('heatmap fetch error', e);
+      box.style.opacity = '1';
+      box.style.pointerEvents = '';
+    });
+  }
+
+  function nav(dir) {
+    curM += dir;
+    if (curM < 1)  { curM = 12; curY--; }
+    if (curM > 12) { curM = 1;  curY++; }
+    if (curY > maxY || (curY === maxY && curM > maxM)) {
+      curM -= dir;
+      if (curM < 1)  { curM = 12; curY--; }
+      if (curM > 12) { curM = 1;  curY++; }
+      return;
+    }
+    setLabel();
+    loadMonth();
+  }
+
+  var prevBtn = document.getElementById('hmPrev');
+  var nextBtn = document.getElementById('hmNext');
+  if (prevBtn) prevBtn.onclick = function(){ nav(-1); };
+  if (nextBtn) nextBtn.onclick = function(){ nav(1);  };
+
+  setLabel();
+})();
+</script>
+</body>
+</html>

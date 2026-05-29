@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Технический перерыв</title>
+<script>
+(function(){
+  var theme = typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme');
+  if (!theme && typeof window.matchMedia === 'function')
+    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root, html.theme-dark {
+  --bg: #0d0b14;
+  --surface: #18152a;
+  --surface2: #201c35;
+  --accent: #d43f8d;
+  --accent2: #7c3aed;
+  --accent3: #4158d0;
+  --text: #f0ecff;
+  --muted: #9080b0;
+  --meta: #5a4a78;
+  --border: rgba(212,63,141,0.18);
+}
+html.theme-light {
+  --bg: #fdf6f9;
+  --surface: #ffffff;
+  --surface2: #fce4f2;
+  --accent: #d43f8d;
+  --accent2: #7c3aed;
+  --accent3: #4158d0;
+  --text: #1a1a2e;
+  --muted: #9b7fa8;
+  --meta: #6a5880;
+  --border: rgba(212,63,141,0.22);
+}
+html.theme-light .star { background: #d43f8d; opacity: 0.15; }
+html.theme-light .bg-orb.o1 { background: radial-gradient(circle, rgba(212,63,141,0.12), transparent); }
+html.theme-light .bg-orb.o2 { background: radial-gradient(circle, rgba(65,88,208,0.08), transparent); }
+html.theme-light .bg-orb.o3 { background: radial-gradient(circle, rgba(124,58,237,0.06), transparent); }
+html.theme-light .timer-bar-bg { background: rgba(0,0,0,0.08); }
+html.theme-light .fact-box { border-color: rgba(212,63,141,0.2); }
+html.theme-light .game-btn { border-color: rgba(0,0,0,0.1); }
+html.theme-light .game-btn:hover { border-color: rgba(212,63,141,0.45); background: rgba(212,63,141,0.1); }
+html.theme-light .game-score { border-top-color: rgba(0,0,0,0.08); }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ── Анимированный фон ── */
+.bg-orb {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+  animation: orbFloat 8s ease-in-out infinite;
+}
+.bg-orb.o1 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(212,63,141,0.15), transparent);
+  top: -100px; right: -100px;
+  animation-delay: 0s;
+}
+.bg-orb.o2 {
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(65,88,208,0.12), transparent);
+  bottom: -80px; left: -80px;
+  animation-delay: 3s;
+}
+.bg-orb.o3 {
+  width: 250px; height: 250px;
+  background: radial-gradient(circle, rgba(124,58,237,0.1), transparent);
+  top: 40%; left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 1.5s;
+}
+
+@keyframes orbFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-30px) scale(1.05); }
+}
+
+/* ── Звёздочки ── */
+.stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.star {
+  position: absolute;
+  width: 2px; height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  animation: twinkle var(--d) ease-in-out infinite;
+  animation-delay: var(--delay);
+  opacity: 0;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: var(--opacity); transform: scale(1); }
+}
+
+/* ── Основной контент ── */
+.page {
+  max-width: 480px;
+  width: 100%;
+  padding: 48px 20px 60px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ── Иконка ── */
+.icon-wrap {
+  width: 88px; height: 88px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #d43f8d, #7c3aed);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.4rem;
+  box-shadow: 0 16px 48px rgba(212,63,141,0.35);
+  animation: iconPulse 2s ease-in-out infinite;
+  position: relative;
+}
+.icon-wrap::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 32px;
+  background: linear-gradient(135deg, #d43f8d, #7c3aed);
+  opacity: 0.2;
+  animation: iconRing 2s ease-in-out infinite;
+}
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 16px 48px rgba(212,63,141,0.35); }
+  50% { transform: scale(1.05); box-shadow: 0 20px 56px rgba(212,63,141,0.5); }
+}
+@keyframes iconRing {
+  0%, 100% { transform: scale(1); opacity: 0.2; }
+  50% { transform: scale(1.15); opacity: 0; }
+}
+
+/* ── Заголовок ── */
+.main-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  font-weight: 900;
+  text-align: center;
+  line-height: 1.2;
+  color: var(--text);
+}
+.main-title em {
+  font-style: italic;
+  background: linear-gradient(135deg, #ff9fd4, #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.main-sub {
+  font-size: 0.92rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.6;
+  max-width: 340px;
+}
+
+/* ── Таймер ── */
+.timer-card {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 24px 20px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.timer-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.timer-digits {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+
+.timer-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.timer-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.8rem;
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(135deg, #ff9fd4, #d43f8d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  min-width: 56px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-unit-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--meta);
+}
+
+.timer-sep {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--meta);
+  margin-bottom: 16px;
+  animation: sepBlink 1s step-end infinite;
+}
+@keyframes sepBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.timer-bar-bg {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+.timer-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d43f8d, #7c3aed);
+  animation: barPulse 2s ease-in-out infinite;
+}
+@keyframes barPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* ── Карточка "Пока ты ждёшь" ── */
+.while-card {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 22px 20px;
+  border: 1px solid var(--border);
+}
+
+.while-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.while-icon {
+  width: 36px; height: 36px;
+  background: rgba(212,63,141,0.15);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.while-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.while-sub { font-size: 0.75rem; color: var(--muted); }
+
+.fact-box {
+  background: var(--surface2);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.05);
+  position: relative;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+}
+
+.fact-text {
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.6;
+  font-style: italic;
+  opacity: 0;
+  animation: factFade 0.5s ease forwards;
+}
+
+@keyframes factFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fact-num {
+  position: absolute;
+  top: 10px; right: 12px;
+  font-size: 0.65rem;
+  color: var(--meta);
+  font-weight: 600;
+}
+
+.fact-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+.fact-dots {
+  display: flex;
+  gap: 5px;
+}
+.fact-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--meta);
+  transition: background 0.2s, transform 0.2s;
+  cursor: pointer;
+}
+.fact-dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+.fact-btn {
+  background: rgba(212,63,141,0.12);
+  border: 1px solid rgba(212,63,141,0.2);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+}
+.fact-btn:hover { background: rgba(212,63,141,0.22); }
+
+/* ── Мини-игра: угадай ── */
+.game-card {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 22px 20px;
+  border: 1px solid var(--border);
+}
+
+.game-question {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.game-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.game-btn {
+  padding: 12px 10px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-align: center;
+  line-height: 1.3;
+}
+.game-btn:hover { border-color: rgba(212,63,141,0.4); background: rgba(212,63,141,0.08); }
+.game-btn.correct { border-color: #16a34a; background: rgba(22,163,74,0.15); color: #4ade80; }
+.game-btn.wrong   { border-color: #dc2626; background: rgba(220,38,38,0.12); color: #f87171; }
+.game-btn:disabled { cursor: default; }
+
+.game-result {
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--muted);
+  min-height: 20px;
+}
+
+.game-score {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.game-score-label { font-size: 0.75rem; color: var(--muted); }
+.game-score-num {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ── Статус ── */
+.status-card {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.status-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(245,158,11,0.4);
+  animation: statusPulse 1.5s ease-in-out infinite;
+}
+@keyframes statusPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(245,158,11,0); }
+  100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+}
+
+.status-text { font-size: 0.85rem; color: var(--muted); flex: 1; }
+.status-text strong { color: var(--text); font-weight: 600; }
+
+/* ── Нижняя ссылка ── */
+.back-hint {
+  font-size: 0.78rem;
+  color: var(--meta);
+  text-align: center;
+}
+.back-hint a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ── Анимации появления ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.icon-wrap     { animation: fadeUp 0.4s 0.0s ease both; }
+.main-title    { animation: fadeUp 0.4s 0.08s ease both; }
+.main-sub      { animation: fadeUp 0.4s 0.14s ease both; }
+.timer-card    { animation: fadeUp 0.4s 0.2s ease both; }
+.status-card   { animation: fadeUp 0.4s 0.26s ease both; }
+.while-card    { animation: fadeUp 0.4s 0.32s ease both; }
+.game-card     { animation: fadeUp 0.4s 0.38s ease both; }
+.back-hint     { animation: fadeUp 0.4s 0.44s ease both; }
+</style>
+</head>
+<body>
+
+<!-- Фон -->
+<div class="bg-orb o1"></div>
+<div class="bg-orb o2"></div>
+<div class="bg-orb o3"></div>
+<div class="stars" id="stars"></div>
+
+<div class="page">
+
+  <!-- Иконка -->
+  <div class="icon-wrap">🔧</div>
+
+  <!-- Заголовок -->
+  <h1 class="main-title">Идёт<br><em>технический</em><br>перерыв</h1>
+  <p class="main-sub">{{MAINTENANCE_SUBTITLE}}</p>
+
+  <!-- Таймер -->
+  <div class="timer-card">
+    <div class="timer-label">Перерыв длится уже</div>
+    <div class="timer-digits">
+      <div class="timer-unit">
+        <div class="timer-num" id="t-hours">00</div>
+        <div class="timer-unit-label">часов</div>
+      </div>
+      <div class="timer-sep">:</div>
+      <div class="timer-unit">
+        <div class="timer-num" id="t-mins">00</div>
+        <div class="timer-unit-label">минут</div>
+      </div>
+      <div class="timer-sep">:</div>
+      <div class="timer-unit">
+        <div class="timer-num" id="t-secs">00</div>
+        <div class="timer-unit-label">секунд</div>
+      </div>
+    </div>
+    <div class="timer-bar-bg">
+      <div class="timer-bar-fill" id="timerBar" style="width: 100%"></div>
+    </div>
+  </div>
+
+  {{MAINTENANCE_VISITS_BLOCK}}
+  <!-- Статус -->
+  <div class="status-card">
+    <div class="status-dot"></div>
+    <div class="status-text"><strong>В процессе</strong>, страница обновится сама когда всё будет готово</div>
+  </div>
+
+  <!-- Пока ждёшь: факты -->
+  <div class="while-card">
+    <div class="while-header">
+      <div class="while-icon">💡</div>
+      <div>
+        <div class="while-title">Пока ты ждёшь</div>
+        <div class="while-sub">Интересный факт чтобы не скучать</div>
+      </div>
+    </div>
+    <div class="fact-box">
+      <div class="fact-text" id="factText"></div>
+      <div class="fact-num" id="factNum"></div>
+    </div>
+    <div class="fact-nav">
+      <div class="fact-dots" id="factDots"></div>
+      <button class="fact-btn" id="factNext">Следующий →</button>
+    </div>
+  </div>
+
+  <!-- Мини-игра -->
+  <div class="game-card">
+    <div class="while-header">
+      <div class="while-icon">🎮</div>
+      <div>
+        <div class="while-title">Мини-викторина</div>
+        <div class="while-sub">Угадай правильный ответ</div>
+      </div>
+    </div>
+    <div class="game-question" id="gameQuestion"></div>
+    <div class="game-options" id="gameOptions"></div>
+    <div class="game-result" id="gameResult"></div>
+    <div class="game-score">
+      <span class="game-score-label">Правильных ответов</span>
+      <span class="game-score-num" id="gameScore">0 / 0</span>
+    </div>
+  </div>
+
+  <!-- Назад -->
+  <div class="back-hint">
+    Когда перерыв закончится <a href="/">обнови страницу</a> ✨
+  </div>
+
+</div>
+
+<script>{{MAINTENANCE_START_SCRIPT}}</script>
+<script>
+// ── Звёзды ──
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 60; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  s.style.cssText = `
+    left: ${Math.random() * 100}%;
+    top: ${Math.random() * 100}%;
+    --d: ${2 + Math.random() * 4}s;
+    --delay: ${Math.random() * 4}s;
+    --opacity: ${0.3 + Math.random() * 0.7};
+  `;
+  starsEl.appendChild(s);
+}
+
+// ── Таймер (данные с сервера) ──
+const MAINTENANCE_START = typeof window.MAINTENANCE_START_MS === 'number' ? window.MAINTENANCE_START_MS : (Date.now() - 60 * 1000);
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - MAINTENANCE_START) / 1000);
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
+  const s = elapsed % 60;
+  document.getElementById('t-hours').textContent = pad(h);
+  document.getElementById('t-mins').textContent = pad(m);
+  document.getElementById('t-secs').textContent = pad(s);
+}
+
+setInterval(updateTimer, 1000);
+updateTimer();
+
+// ── Факты ──
+const facts = [
+  'Первая компьютерная программа была написана Адой Лавлейс ещё в 1843 году — задолго до появления самого компьютера.',
+  'Средний человек смотрит в телефон около 96 раз в день — примерно каждые 10 минут.',
+  'Осьминоги имеют три сердца, голубую кровь и девять мозгов — один центральный и по одному в каждом щупальце.',
+  'Мёд не портится никогда — в египетских гробницах находили мёду 3000 лет и он был съедобен.',
+  'Банан — это ягода, а клубника — нет. С точки зрения ботаники.',
+  'Первый SMS был отправлен 3 декабря 1992 года и содержал текст "Merry Christmas".',
+  'В Японии есть слово "木漏れ日" (komorebi) — оно означает солнечный свет, пробивающийся сквозь листья деревьев.',
+  'В подростковом возрасте мозг особенно чувствителен к окситоцину — гормону привязанности. Поэтому первая влюблённость переживается так ярко',
+  'Исследования показывают: подростковые отношения учат эмпатии и умению договариваться)',
+  'Первая любовь меняет активность мозга надолго: воспоминания о ней остаются одними из самых ярких даже во взрослом возрасте',
+  'Объятия длительностью больше 20 секунд повышают уровень окситоцина и снижают стресс это научно доказано. Намек поняла)?',
+  'Любовь активирует те же зоны мозга, что и удовольствие от еды или музыки, мозг буквально «светится» от счастья',
+  'Люди в счастливых отношениях чаще выздоравливают быстрее — поддержка любимого человека укрепляет иммунитет',
+  'Смех вместе с партнёром сближает: общие шутки создают ощущение «своего» мира на двоих',
+  'Маленькие знаки внимания — сообщение, комплимент, чашка чая — накапливаются и делают отношения теплее, поэтому не переживай приеду к тебе будем пить много чая))',
+  'Совместные мечты и планы на будущее делают пару крепче — общее «завтра» объединяет',
+  'Любить — это ещё и выбор: каждый день выбирать быть добрым, терпеливым и внимательным к другому 😊',
+  'Сердце голубого кита такое большое, что через его аорту мог бы проползти человек.',
+  'У улитки около 14 000 зубов — больше, чем у любого другого животного на Земле.',
+  'В космосе нет звука: там полная тишина, потому что звуковым волнам нечем распространяться.',
+  'Кофе — второй по объёму продаж товар в мире после нефти.',
+  'Молния в несколько раз горячее поверхности Солнца — до 30 000 °C.',
+  'В Швейцарии незаконно иметь только одну морскую свинку: им нужна пара, чтобы не скучать.',
+  'Ананасы растут по одному на растении, а само растение плодоносит только раз в жизни.',
+  'В Японии арбузы иногда выращивают в квадратной форме — так их удобнее хранить и перевозить.',
+  'Слово «робот» придумал чешский писатель Карел Чапек в 1920 году — от слова «работа».',
+  'Пчёлы общаются друг с другом при помощи танца: так они показывают, где находится нектар.',
+  'Один день на Венере длится дольше, чем один год на Венере — планета вращается очень медленно.',
+  'Человеческий мозг генерирует около 70 000 мыслей в день.',
+  'Клубника — единственная ягода, у которой семечки снаружи, а не внутри.',
+  'Снежинки всегда имеют шесть граней из-за формы молекулы воды.',
+];
+// Рандомный порядок фактов
+facts.sort(function() { return Math.random() - 0.5; });
+
+const MAX_DOTS = 10;
+let currentFact = 0;
+const factTextEl = document.getElementById('factText');
+const factNumEl = document.getElementById('factNum');
+const factDotsEl = document.getElementById('factDots');
+
+function renderDots() {
+  factDotsEl.innerHTML = '';
+  var n = Math.min(MAX_DOTS, facts.length);
+  // Скользящее окно: при фактах > 10 показываем последние 10 (окно сдвигается влево)
+  var startFact = (facts.length > MAX_DOTS && currentFact >= MAX_DOTS - 1) ? (currentFact - MAX_DOTS + 1) : 0;
+  var activeDot = (facts.length > MAX_DOTS && currentFact >= MAX_DOTS - 1) ? (MAX_DOTS - 1) : Math.min(currentFact, n - 1);
+  for (var i = 0; i < n; i++) {
+    var dot = document.createElement('div');
+    var factIdx = startFact + i;
+    var isActive = (i === activeDot);
+    dot.className = 'fact-dot' + (isActive ? ' active' : '');
+    dot.addEventListener('click', (function(f) { return function() { showFact(f); }; })(factIdx));
+    factDotsEl.appendChild(dot);
+  }
+}
+
+function showFact(idx) {
+  currentFact = idx;
+  factTextEl.style.animation = 'none';
+  void factTextEl.offsetHeight;
+  factTextEl.style.animation = '';
+  factTextEl.textContent = facts[idx];
+  factNumEl.textContent = (idx + 1) + ' / ' + facts.length;
+  renderDots();
+}
+
+document.getElementById('factNext').addEventListener('click', () => {
+  showFact((currentFact + 1) % facts.length);
+});
+
+// Автосмена каждые 8 секунд
+setInterval(() => {
+  showFact((currentFact + 1) % facts.length);
+}, 8000);
+
+showFact(0);
+
+// ── Мини-викторина ──
+var questions = [
+  {
+    q: '🤔 В каком году мы познакомились?',
+    options: ['2026', '2025', '2024', '2023'],
+    answer: 1,
+    explanation: 'Мы познакомились 30 октября 2025 года ❤️'
+  },
+  {
+    q: '💋 Как тебе больше всего нравится когда я тебя называю?',
+    options: ['Фуфырка', 'Ангелочек', 'Заечка', 'Солнышко'],
+    answer: 2,
+    explanation: 'Ну конечно же заечка! 🙄'
+  },
+  {
+    q: '👶 Что ты делаешь с детьми?',
+    options: ['любишь их и укладываешь спать', 'бьешь', 'орешь на них', 'ничего 🙄'],
+    answer: 0,
+    explanation: 'цитирую твои слова "очень люблю детей особенно играть с ними или укладывать из спать."'
+  },
+  {
+    q: 'Какое слово придумала именно ТЫ которое ассоциируется с любовью)? Но прочитай внимательно именно придумала слово значит тут может быть подвох 😁',
+    options: ['любими', 'любишься', 'отмашивается', 'ублю'],
+    answer: 1,
+    explanation: 'Конечно же любишься) Я же говорил тут будет подвох'
+  },
+  {
+    q: '❤️ Сколько ударов в день делает сердце человека?',
+    options: ['~10 000', '~50 000', '~100 000', '~500 000'],
+    answer: 2,
+    explanation: 'Около 100 000 ударов в день — примерно 35 миллионов в год, прикольно да)?'
+  },
+];
+questions.sort(function() { return Math.random() - 0.5; });
+
+let qIndex = 0;
+let score = 0;
+let total = 0;
+let answered = false;
+
+function renderQuestion() {
+  const q = questions[qIndex % questions.length];
+  answered = false;
+  document.getElementById('gameQuestion').textContent = q.q;
+  document.getElementById('gameResult').textContent = '';
+
+  const optEl = document.getElementById('gameOptions');
+  optEl.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'game-btn';
+    btn.textContent = opt;
+    btn.addEventListener('click', () => {
+      if (answered) return;
+      answered = true;
+      total++;
+      const btns = optEl.querySelectorAll('.game-btn');
+      btns.forEach(b => b.disabled = true);
+      btns[q.answer].classList.add('correct');
+      if (i === q.answer) {
+        score++;
+        document.getElementById('gameResult').textContent = '✅ Правильно! ' + q.explanation;
+      } else {
+        btn.classList.add('wrong');
+        document.getElementById('gameResult').textContent = '❌ Неа, ' + q.explanation;
+      }
+      document.getElementById('gameScore').textContent = score + ' / ' + total;
+      setTimeout(() => {
+        qIndex++;
+        renderQuestion();
+      }, 5000);
+    });
+    optEl.appendChild(btn);
+  });
+}
+
+renderQuestion();
+
+// ── WebSocket: автообновление при смене режима (вкл/выкл техперерыв) ──
+(function() {
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var url = proto + '//' + location.host + '/ws/maintenance';
+  var ws = new WebSocket(url);
+  ws.onmessage = function(ev) {
+    try {
+      var d = JSON.parse(ev.data);
+      if (!d) return;
+      if (d.reload || d.maintenance) {
+        // При любом сигнале от сервера просто перезагружаем страницу,
+        // чтобы она показала актуальное состояние (продакшн или техперерыв).
+        location.reload();
+      }
+    } catch (e) {}
+  };
+  ws.onclose = function() { /* переподключение не делаем — при перезагрузке страница закроется */ };
+})();
+</script>
+</body>
+</html>

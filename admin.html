@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Панель управления</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06050f;--surface:#0f0d1e;--surface2:#16132a;--border:rgba(124,58,237,0.18);--accent:#7c3aed;--accent2:#c850c0;--accent3:#4158d0;--green:#10b981;--red:#ef4444;--text:#f0ecff;--muted:#8b7fc0;--meta:#4a4570;}
+*{box-sizing:border-box;margin:0;padding:0;}html,body{height:100%;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 20% 0%,rgba(124,58,237,0.12) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(200,80,192,0.08) 0%,transparent 60%);pointer-events:none;z-index:0;}
+
+#accessDenied{display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:100;flex-direction:column;background:var(--bg);}
+#accessDenied.show{display:flex;}
+.denied-card{background:var(--surface);border:1px solid rgba(239,68,68,0.25);border-radius:28px;padding:48px 40px 40px;max-width:400px;width:90%;text-align:center;box-shadow:0 0 80px rgba(239,68,68,0.08);animation:fadeUp 0.5s ease both;}
+.denied-icon{font-size:3.5rem;margin-bottom:20px;display:block;animation:shake 0.6s ease 0.3s both;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.denied-title{font-family:'Unbounded',sans-serif;font-size:1.3rem;font-weight:800;color:var(--red);margin-bottom:12px;}
+.denied-sub{color:var(--muted);font-size:0.88rem;line-height:1.6;margin-bottom:28px;}
+.denied-link{display:inline-flex;align-items:center;gap:8px;background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.25);padding:10px 22px;border-radius:12px;text-decoration:none;font-size:0.85rem;font-weight:500;transition:all 0.15s;}
+.denied-link:hover{background:rgba(239,68,68,0.18);transform:scale(1.03);}
+
+#loadingScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:90;transition:opacity 0.4s ease;}
+#loadingScreen.hide{opacity:0;pointer-events:none;}
+.loading-inner{text-align:center;}
+.loading-logo{font-family:'Unbounded',sans-serif;font-size:1rem;font-weight:600;color:var(--accent);letter-spacing:0.1em;margin-bottom:24px;opacity:0.7;}
+.loading-spinner{width:40px;height:40px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:0.82rem;color:var(--muted);}
+
+#adminApp{display:none;position:relative;z-index:1;}
+#adminApp.show{display:block;animation:fadeUp 0.4s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+.admin-header{position:sticky;top:0;z-index:50;padding:16px 20px;background:rgba(6,5,15,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.admin-logo{font-family:'Unbounded',sans-serif;font-size:0.85rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:0.05em;}
+.admin-badge{background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:var(--accent);font-size:0.65rem;font-weight:600;padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;letter-spacing:0.08em;margin-left:10px;}
+.header-back{background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--muted);font-size:0.8rem;padding:7px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;text-decoration:none;display:flex;align-items:center;gap:6px;}
+.header-back:hover{background:rgba(255,255,255,0.1);color:var(--text);}
+
+.admin-content{max-width:900px;margin:0 auto;padding:24px 16px 60px;}
+.section{margin-bottom:28px;}
+.section-title{font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+@media(min-width:500px){.stats-grid{grid-template-columns:repeat(3,1fr);}}
+.health-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+@media(min-width:700px){.health-grid{grid-template-columns:repeat(3,1fr);}}
+.health-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 12px 10px;}
+.health-title{font-size:0.72rem;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+.health-val{font-family:'JetBrains Mono',monospace;font-size:0.95rem;color:var(--text);}
+.spark{width:100%;height:46px;display:block;}
+.spark path{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.spark-429 path{stroke:#f59e0b;}
+.spark-5xx path{stroke:#ef4444;}
+.spark-lat path{stroke:#22c55e;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 14px;animation:fadeUp 0.4s ease both;}
+.stat-label{font-size:0.7rem;color:var(--muted);font-weight:500;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:var(--text);line-height:1;}
+.stat-value.online{color:var(--green);}
+.online-dot{display:inline-block;width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse-green 2s ease-in-out infinite;}
+@keyframes pulse-green{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+
+.ksusha-card{background:var(--surface);border:1px solid rgba(200,80,192,0.2);border-radius:20px;padding:20px;position:relative;overflow:hidden;animation:fadeUp 0.4s ease 0.1s both;}
+.ksusha-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));}
+.ksusha-header{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.ksusha-avatar{width:48px;height:48px;background:linear-gradient(135deg,rgba(200,80,192,0.25),rgba(124,58,237,0.2));border:1px solid rgba(200,80,192,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;}
+.ksusha-name{font-family:'Unbounded',sans-serif;font-size:0.95rem;font-weight:600;color:var(--text);margin-bottom:3px;}
+.ksusha-online-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:var(--green);padding:2px 8px;border-radius:20px;font-size:0.68rem;font-weight:600;}
+.ksusha-offline-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(139,127,192,0.1);border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:20px;font-size:0.68rem;font-weight:600;}
+.ksusha-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(min-width:480px){.ksusha-grid{grid-template-columns:repeat(3,1fr);}}
+.ksusha-info-item{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+.ksusha-info-label{font-size:0.65rem;color:var(--muted);font-weight:500;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;}
+.ksusha-info-value{font-size:0.8rem;color:var(--text);font-weight:500;word-break:break-word;line-height:1.3;}
+.ksusha-last-online{margin-top:12px;background:rgba(200,80,192,0.06);border:1px solid rgba(200,80,192,0.15);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;}
+.ksusha-last-online-icon{font-size:1rem;flex-shrink:0;margin-top:1px;}
+.ksusha-last-online-text{font-size:0.8rem;line-height:1.5;}
+.ksusha-last-online-time{color:var(--accent2);font-weight:600;}
+.ksusha-last-online-source{color:var(--muted);font-size:0.72rem;margin-top:2px;}
+
+.controls-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+@media(min-width:600px){.controls-grid{grid-template-columns:repeat(3,1fr);}}
+.ctrl-btn{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;cursor:pointer;transition:all 0.18s;text-align:left;animation:fadeUp 0.4s ease both;}
+.ctrl-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+.ctrl-btn:active{transform:translateY(0);}
+.ctrl-btn.maintenance-on{border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);}
+.ctrl-btn.maintenance-on:hover{background:rgba(239,68,68,0.1);}
+.ctrl-btn.maintenance-off{border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.06);}
+.ctrl-btn-icon{font-size:1.4rem;margin-bottom:8px;display:block;}
+.ctrl-btn-label{font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:3px;}
+.ctrl-btn-sub{font-size:0.7rem;color:var(--muted);line-height:1.3;}
+.ctrl-btn.maintenance-on .ctrl-btn-label{color:#ef4444;}
+.ctrl-btn.maintenance-off .ctrl-btn-label{color:var(--green);}
+.ctrl-btn.ctrl-soon{opacity:0.65;position:relative;}
+.ctrl-btn.ctrl-soon::after{content:'скоро';position:absolute;top:8px;right:10px;font-size:0.6rem;font-family:'JetBrains Mono',monospace;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;background:var(--surface2);border:1px solid var(--border);padding:1px 6px;border-radius:6px;}
+
+.devices-list{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.device-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;}
+.device-role-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.device-role-dot.creator{background:var(--accent);}
+.device-role-dot.partner{background:var(--accent2);}
+.device-role-dot.ksyusha{background:var(--accent2);}
+.device-role-dot.unknown{background:var(--meta);}
+.device-info{flex:1;min-width:0;}
+.device-ua{font-size:0.78rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.device-meta{font-size:0.68rem;color:var(--muted);margin-top:2px;}
+.device-badge{font-family:'JetBrains Mono',monospace;font-size:0.65rem;padding:2px 7px;border-radius:8px;border:1px solid;flex-shrink:0;white-space:nowrap;}
+.device-badge.online-now{color:var(--green);border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);}
+.device-badge.offline{color:var(--muted);border-color:var(--border);background:transparent;}
+
+.admin-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 22px;border-radius:22px;font-size:0.82rem;font-weight:500;z-index:9999;pointer-events:none;animation:toastIn 0.25s ease both;white-space:nowrap;}
+.admin-toast.success{border-color:rgba(16,185,129,0.3);color:var(--green);}
+.admin-toast.error{border-color:rgba(239,68,68,0.3);color:#ef4444;}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+.refresh-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.refresh-btn{background:none;border:1px solid var(--border);color:var(--muted);font-size:0.75rem;padding:5px 12px;border-radius:8px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:5px;}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+.refresh-btn.spinning svg{animation:spin 0.8s linear infinite;}
+
+/* ── Модалки ── */
+.amodal-wrap{display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;padding:20px;}
+.amodal-wrap.open{display:flex;}
+.amodal-overlay{position:absolute;inset:0;background:rgba(6,5,15,0.82);backdrop-filter:blur(10px);}
+.amodal-card{position:relative;z-index:1;background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:28px 24px 22px;max-width:400px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.5);animation:fadeUp 0.25s ease both;max-height:90vh;overflow-y:auto;scrollbar-width:thin;}
+.amodal-icon{font-size:2.2rem;margin-bottom:14px;display:block;text-align:center;}
+.amodal-title{font-family:'Unbounded',sans-serif;font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:8px;text-align:center;}
+.amodal-text{font-size:0.82rem;color:var(--muted);line-height:1.6;text-align:center;margin-bottom:20px;}
+.amodal-btns{display:flex;gap:10px;}
+.amodal-btn{flex:1;padding:11px;border-radius:12px;font-size:0.82rem;font-weight:600;cursor:pointer;transition:all 0.15s;border:1px solid;}
+.amodal-btn.cancel{background:rgba(255,255,255,0.05);border-color:var(--border);color:var(--muted);}
+.amodal-btn.cancel:hover{background:rgba(255,255,255,0.09);}
+.amodal-btn.ok-red{background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:#ef4444;}
+.amodal-btn.ok-red:hover{background:rgba(239,68,68,0.22);}
+.amodal-btn.ok-green{background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.3);color:var(--green);}
+.amodal-btn.ok-green:hover{background:rgba(16,185,129,0.22);}
+.amodal-btn.ok-purple{background:rgba(124,58,237,0.12);border-color:rgba(124,58,237,0.3);color:var(--accent);}
+.amodal-btn.ok-purple:hover{background:rgba(124,58,237,0.22);}
+
+/* ── Модалка выбора формата экспорта ── */
+.export-format-btn{width:100%;padding:13px 16px;border-radius:14px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all 0.15s;border:1px solid;display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.export-format-btn:last-of-type{margin-bottom:0;}
+.export-format-btn.json-btn{background:rgba(65,88,208,0.1);border-color:rgba(65,88,208,0.3);color:#818cf8;}
+.export-format-btn.json-btn:hover{background:rgba(65,88,208,0.2);}
+.export-format-btn.pdf-btn{background:rgba(212,63,141,0.1);border-color:rgba(212,63,141,0.3);color:#f472b6;}
+.export-format-btn.pdf-btn:hover{background:rgba(212,63,141,0.2);}
+.export-format-icon{font-size:1.3rem;flex-shrink:0;}
+.export-format-info{text-align:left;}
+.export-format-name{font-weight:700;font-size:0.85rem;}
+.export-format-desc{font-size:0.7rem;opacity:0.7;margin-top:1px;}
+
+/* ── Написать партнёру ── */
+.compose-card{max-width:520px;}
+.compose-files-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+.compose-file-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:8px 10px;}
+.compose-file-row-name{flex:1;font-size:0.75rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.compose-file-row-progress{font-size:0.72rem;color:var(--accent);font-family:'JetBrains Mono',monospace;flex-shrink:0;min-width:34px;text-align:right;}
+.compose-file-row-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.9rem;padding:0 2px;line-height:1;flex-shrink:0;}
+.compose-file-row-remove:hover{color:var(--red);}
+.compose-area{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;padding:12px 14px;color:var(--text);font-size:0.88rem;font-family:'DM Sans',sans-serif;line-height:1.6;resize:vertical;min-height:100px;outline:none;margin-bottom:10px;transition:border-color 0.15s;}
+.compose-area:focus{border-color:rgba(124,58,237,0.4);}
+.compose-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.compose-attach-btn{background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.25);color:var(--accent);padding:7px 12px;border-radius:10px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;gap:6px;transition:background 0.15s;flex-shrink:0;}
+.compose-attach-btn:hover{background:rgba(124,58,237,0.2);}
+.compose-file-name{font-size:0.72rem;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.compose-hint{font-size:0.7rem;color:var(--meta);margin-bottom:12px;line-height:1.5;}
+.compose-hint code{background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:0.7rem;}
+.compose-preview-wrap{background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px;display:none;}
+.compose-preview-label{font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
+.compose-preview-media{width:100%;max-height:200px;object-fit:cover;border-radius:10px;margin-bottom:10px;display:block;}
+.compose-preview-text{font-size:0.88rem;line-height:1.6;color:var(--text);}
+.compose-btns{display:flex;gap:8px;flex-wrap:wrap;}
+.compose-btns .amodal-btn{flex:1;min-width:80px;}
+
+/* ── Галочка после действия (как в index.html) ── */
+.action-done-wrap{display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);}
+.action-done-wrap.show{display:flex;animation:adFadeIn 0.4s ease both;}
+@keyframes adFadeIn{from{opacity:0}to{opacity:1}}
+.action-done-card{background:var(--surface);border-radius:24px;padding:40px 36px 32px;box-shadow:0 20px 60px rgba(0,0,0,0.4);text-align:center;display:flex;flex-direction:column;align-items:center;gap:0;animation:adSlideUp 0.4s ease both;}
+@keyframes adSlideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.action-done-svg{width:80px;height:80px;margin-bottom:20px;}
+.action-done-circle{fill:none;stroke:var(--green);stroke-width:5;stroke-dasharray:283;stroke-dashoffset:283;animation:adCircleDraw 0.9s ease forwards;}
+.action-done-check{fill:none;stroke:var(--green);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100;animation:adCheckDraw 0.7s ease 0.6s forwards;}
+@keyframes adCircleDraw{to{stroke-dashoffset:0}}
+@keyframes adCheckDraw{to{stroke-dashoffset:0}}
+.action-done-title{font-family:'Unbounded',sans-serif;font-size:1rem;font-weight:700;color:var(--text);animation:adSlideUp 0.5s ease 0.3s both;margin-bottom:6px;}
+.action-done-sub{font-size:0.82rem;color:var(--muted);animation:adSlideUp 0.5s ease 0.45s both;}
+</style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div class="loading-inner">
+    <div class="loading-logo">ADMIN PANEL</div>
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Проверяю доступ…</div>
+  </div>
+</div>
+
+<div id="accessDenied">
+  <div class="denied-card">
+    <span class="denied-icon">🔒</span>
+    <div class="denied-title">Доступ запрещён</div>
+    <div class="denied-sub">Эта страница доступна только администратору.<br>Если ты заблудился — ничего страшного ❤️</div>
+    <a href="/" class="denied-link">← На главную</a>
+  </div>
+</div>
+
+<div id="adminApp">
+  <header class="admin-header">
+    <div style="display:flex;align-items:center">
+      <div class="admin-logo">⚙ PANEL</div>
+      <span class="admin-badge">CREATOR</span>
+    </div>
+    <a href="/" class="header-back">← Сайт</a>
+  </header>
+
+  <div class="admin-content">
+
+    <div class="section">
+      <div class="refresh-row">
+        <div class="section-title" style="flex:1;margin-bottom:0">Статистика</div>
+        <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2a4 4 0 0 1 2.83 1.17L10 4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><polyline points="8,2 10,4.34 7.66,4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Обновить
+        </button>
+      </div>
+      <div style="margin-top:12px">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-label">👥 Устройств</div><div class="stat-value" id="s-devices">—</div></div>
+          <div class="stat-card"><div class="stat-label"><span class="online-dot"></span> Онлайн</div><div class="stat-value online" id="s-online">—</div></div>
+          <div class="stat-card"><div class="stat-label">🧠 Сообщений ИИ</div><div class="stat-value" id="s-ai">—</div></div>
+          <div class="stat-card"><div class="stat-label">📸 Воспоминаний</div><div class="stat-value" id="s-mem">—</div></div>
+          <div class="stat-card"><div class="stat-label">🌐 Визитов</div><div class="stat-value" id="s-vis">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Здоровье API</div>
+      <div class="health-grid">
+        <div class="health-card">
+          <div class="health-title"><span>429 / минута</span><span class="health-val" id="hm-429">—</span></div>
+          <svg class="spark spark-429" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-429-path" d=""></path></svg>
+        </div>
+        <div class="health-card">
+          <div class="health-title"><span>5xx / минута</span><span class="health-val" id="hm-5xx">—</span></div>
+          <svg class="spark spark-5xx" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-5xx-path" d=""></path></svg>
+        </div>
+        <div class="health-card">
+          <div class="health-title"><span>Latency avg, ms</span><span class="health-val" id="hm-lat">—</span></div>
+          <svg class="spark spark-lat" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-lat-path" d=""></path></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Партнёр</div>
+      <div class="ksusha-card">
+        <div class="ksusha-header">
+          <div class="ksusha-avatar">🌸</div>
+          <div>
+            <div class="ksusha-name">Партнёр</div>
+            <span id="ksushaStatusBadge" class="ksusha-offline-badge">
+              <span id="ksushaStatusDot">⚫</span>&nbsp;<span id="ksushaStatusText">Загрузка…</span>
+            </span>
+          </div>
+        </div>
+        <div class="ksusha-grid">
+          <div class="ksusha-info-item"><div class="ksusha-info-label">Визитов на сайт</div><div class="ksusha-info-value" id="k-visits">—</div></div>
+          <div class="ksusha-info-item"><div class="ksusha-info-label">Последний раздел</div><div class="ksusha-info-value" id="k-category">—</div></div>
+          <div class="ksusha-info-item"><div class="ksusha-info-label">Чат с ИИ</div><div class="ksusha-info-value" id="k-ai">—</div></div>
+        </div>
+        <div class="ksusha-last-online">
+          <div class="ksusha-last-online-icon">🕐</div>
+          <div class="ksusha-last-online-text">
+            <div>Последний онлайн: <span class="ksusha-last-online-time" id="k-last-time">—</span></div>
+            <div class="ksusha-last-online-source" id="k-last-source"></div>
+            <div class="ksusha-last-online-source" id="k-bot-action"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Управление</div>
+      <div class="controls-grid">
+        <button class="ctrl-btn" id="maintenanceBtn" onclick="openMaintenanceModal()">
+          <span class="ctrl-btn-icon">🔧</span>
+          <div class="ctrl-btn-label" id="maintenanceBtnLabel">Техперерыв</div>
+          <div class="ctrl-btn-sub" id="maintenanceBtnSub">Загрузка…</div>
+        </button>
+        <button class="ctrl-btn" onclick="openComposeModal()">
+          <span class="ctrl-btn-icon">💬</span>
+          <div class="ctrl-btn-label">Написать партнёру</div>
+          <div class="ctrl-btn-sub">Уведомление появится при входе на сайт</div>
+        </button>
+        <button class="ctrl-btn" onclick="doExport()">
+          <span class="ctrl-btn-icon">📦</span>
+          <div class="ctrl-btn-label">Экспорт данных</div>
+          <div class="ctrl-btn-sub">Скачать все данные в JSON</div>
+        </button>
+        <button class="ctrl-btn" onclick="doBackup()">
+          <span class="ctrl-btn-icon">💾</span>
+          <div class="ctrl-btn-label">Бэкап БД</div>
+          <div class="ctrl-btn-sub">Перезаписать резервную копию</div>
+        </button>
+        <button class="ctrl-btn ctrl-soon" onclick="ctrlSoon('Смена ID партнёра')">
+          <span class="ctrl-btn-icon">🔑</span>
+          <div class="ctrl-btn-label">Сменить ID партнёра</div>
+          <div class="ctrl-btn-sub">Переопределить Telegram ID в настройках</div>
+        </button>
+        <button class="ctrl-btn" onclick="doTestCelebration()" style="border-color:rgba(212,63,141,0.3)">
+          <span class="ctrl-btn-icon">🎊</span>
+          <div class="ctrl-btn-label" style="color:#d43f8d">Тест анимации</div>
+          <div class="ctrl-btn-sub">Отправить тестовую праздничную анимацию</div>
+        </button>
+        <button class="ctrl-btn" onclick="window.location.href='/'">
+          <span class="ctrl-btn-icon">🏠</span>
+          <div class="ctrl-btn-label">На сайт</div>
+          <div class="ctrl-btn-sub">Перейти на главную страницу</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Устройства / Сессии</div>
+      <div class="devices-list" id="devicesList">
+        <div style="text-align:center;color:var(--muted);font-size:0.8rem;padding:20px">Загрузка…</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Техперерыв: модалка подтверждения -->
+<div class="amodal-wrap" id="maintenanceModal">
+  <div class="amodal-overlay" onclick="closeModal('maintenanceModal')"></div>
+  <div class="amodal-card">
+    <span class="amodal-icon" id="maintIcon">🔧</span>
+    <div class="amodal-title" id="maintTitle"></div>
+    <div class="amodal-text" id="maintText"></div>
+    <div class="amodal-btns">
+      <button class="amodal-btn cancel" onclick="closeModal('maintenanceModal')">Отмена</button>
+      <button class="amodal-btn ok-red" id="maintOkBtn" onclick="confirmMaintenance()">Подтвердить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Скоро: модалка -->
+<div class="amodal-wrap" id="soonModal">
+  <div class="amodal-overlay" onclick="closeModal('soonModal')"></div>
+  <div class="amodal-card">
+    <span class="amodal-icon">🚧</span>
+    <div class="amodal-title">Скоро</div>
+    <div class="amodal-text" id="soonModalText"></div>
+    <div class="amodal-btns"><button class="amodal-btn ok-purple" onclick="closeModal('soonModal')">Понял</button></div>
+  </div>
+</div>
+
+<!-- Экспорт: выбор формата -->
+<div class="amodal-wrap" id="exportModal">
+  <div class="amodal-overlay" onclick="closeModal('exportModal')"></div>
+  <div class="amodal-card" style="max-width:360px">
+    <span class="amodal-icon">📦</span>
+    <div class="amodal-title">Экспорт данных</div>
+    <div class="amodal-text">Будут собраны все данные: воспоминания, события, желания, история ИИ и статистика.</div>
+    <div style="margin-bottom:14px">
+      <button class="export-format-btn json-btn" onclick="closeModal('exportModal');doExportFormat('json')">
+        <span class="export-format-icon">📄</span>
+        <div class="export-format-info">
+          <div class="export-format-name">JSON</div>
+          <div class="export-format-desc">Структурированные данные для разработчика</div>
+        </div>
+      </button>
+      <button class="export-format-btn pdf-btn" onclick="closeModal('exportModal');doExportFormat('pdf')">
+        <span class="export-format-icon">📋</span>
+        <div class="export-format-info">
+          <div class="export-format-name">PDF / Печать</div>
+          <div class="export-format-desc">Красиво оформленный отчёт для чтения</div>
+        </div>
+      </button>
+    </div>
+    <div class="amodal-btns"><button class="amodal-btn cancel" onclick="closeModal('exportModal')">Отмена</button></div>
+  </div>
+</div>
+
+<!-- Написать партнёру: модалка -->
+<div class="amodal-wrap" id="composeModal">
+  <div class="amodal-overlay" onclick="closeModal('composeModal')"></div>
+  <div class="amodal-card compose-card">
+    <div class="amodal-title" style="margin-bottom:14px">💬 Написать партнёру</div>
+    <div class="compose-hint">HTML-теги: <code>&lt;b&gt;</code> <code>&lt;i&gt;</code> <code>&lt;u&gt;</code> <code>&lt;s&gt;</code> <code>&lt;br&gt;</code> — отобразятся как форматирование</div>
+    <textarea class="compose-area" id="composeText" placeholder="Напиши сообщение…"></textarea>
+    <div class="compose-toolbar">
+      <label class="compose-attach-btn" for="composeFile">📎 Фото / видео</label>
+      <input type="file" id="composeFile" accept="image/*,video/*" multiple style="display:none" onchange="onFileAttached(this)">
+    </div>
+    <div class="compose-files-list" id="composeFilesList"></div>
+    <div class="compose-preview-wrap" id="composePreviewWrap">
+      <div class="compose-preview-label">Предпросмотр</div>
+      <div id="composePreviewMedia"></div>
+      <div class="compose-preview-text" id="composePreviewText"></div>
+    </div>
+    <div class="compose-btns">
+      <button class="amodal-btn cancel" onclick="closeModal('composeModal')">Отмена</button>
+      <button class="amodal-btn ok-purple" onclick="togglePreview()">👁 Просмотр</button>
+      <button class="amodal-btn ok-green" onclick="sendCompose()">Отправить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Галочка -->
+<div class="action-done-wrap" id="actionDone">
+  <div class="action-done-card">
+    <svg class="action-done-svg" viewBox="0 0 100 100">
+      <circle class="action-done-circle" cx="50" cy="50" r="45"/>
+      <polyline class="action-done-check" points="28,52 43,67 72,34"/>
+    </svg>
+    <div class="action-done-title" id="actionDoneTitle">Готово!</div>
+    <div class="action-done-sub" id="actionDoneSub"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+const API_KEY = '{{API_SECRET_KEY}}';
+function _getCookie(name){
+  const parts = (document.cookie || '').split(';');
+  for(const p of parts){
+    const i = p.indexOf('=');
+    if(i < 0) continue;
+    const k = p.slice(0,i).trim();
+    if(k === name) return decodeURIComponent(p.slice(i+1));
+  }
+  return '';
+}
+const VISITOR_ID = new URLSearchParams(window.location.search).get('v') || _getCookie('visitor_id') || '';
+
+function h(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function relativeTime(utcStr) {
+  if (!utcStr) return null;
+  try {
+    const dt = new Date(utcStr.replace(' ','T')+(utcStr.includes('Z')?'':'Z'));
+    const diff = Math.floor((Date.now()-dt.getTime())/1000);
+    if(diff<60) return 'только что';
+    if(diff<3600) return Math.floor(diff/60)+' мин назад';
+    if(diff<86400) return Math.floor(diff/3600)+' ч назад';
+    if(diff<172800) return 'вчера';
+    return dt.toLocaleDateString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  } catch(e){ return utcStr; }
+}
+
+function isOnlineNow(utcStr) {
+  if(!utcStr) return false;
+  try { return (Date.now()-new Date(utcStr.replace(' ','T')+(utcStr.includes('Z')?'':'Z')).getTime())<5*60*1000; }
+  catch(e){ return false; }
+}
+
+function toast(text, type='') {
+  document.querySelectorAll('.admin-toast').forEach(t=>t.remove());
+  const t = document.createElement('div');
+  t.className = 'admin-toast'+(type?' '+type:'');
+  t.textContent = text;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, 2500);
+}
+
+const CAT = {'important_moments':'💫 Важные моменты','memories':'📖 Воспоминания','important_dates':'📅 Важные даты','wishes':'🎁 Желания','favorites':'⭐ Избранное','stats':'📊 Статистика'};
+
+// ── Модалки ───────────────────────────────────
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+window.closeModal = closeModal;
+
+// ── Проверка доступа ──────────────────────────
+async function checkAccess() {
+  try {
+    const r = await fetch('/api/admin/check?v='+encodeURIComponent(VISITOR_ID),{headers:{'X-Api-Key':API_KEY}});
+    const d = await r.json(); return d.ok && d.is_creator;
+  } catch(e){ return false; }
+}
+
+// ── Данные ────────────────────────────────────
+let _maintenanceOn = false;
+const HM_HISTORY = { t: [], r429: [], r5xx: [], lat: [] };
+let _hmPrev = null;
+
+function _sparkPath(values, w, h){
+  if(!values.length) return '';
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(1e-6, max - min);
+  const dx = values.length === 1 ? 0 : (w / (values.length - 1));
+  let d = '';
+  for(let i=0;i<values.length;i++){
+    const x = i * dx;
+    const y = h - ((values[i] - min) / span) * h;
+    d += (i===0?'M':'L') + x.toFixed(2) + ' ' + y.toFixed(2) + ' ';
+  }
+  return d.trim();
+}
+
+function _updateHealthCharts(){
+  const mk = (arr, idPath, idVal, suffix='') => {
+    const p = document.getElementById(idPath);
+    const v = document.getElementById(idVal);
+    const last = arr.length ? arr[arr.length-1] : 0;
+    if(v) v.textContent = String(last) + suffix;
+    if(p) p.setAttribute('d', _sparkPath(arr.slice(-20), 180, 46));
+  };
+  mk(HM_HISTORY.r429, 'hm-429-path', 'hm-429');
+  mk(HM_HISTORY.r5xx, 'hm-5xx-path', 'hm-5xx');
+  mk(HM_HISTORY.lat, 'hm-lat-path', 'hm-lat');
+}
+
+async function loadHealthMetrics() {
+  try {
+    const r = await fetch('/api/admin/health_metrics?v='+encodeURIComponent(VISITOR_ID),{headers:{'X-Api-Key':API_KEY}});
+    const d = await r.json();
+    if(!d.ok || !d.metrics) return;
+    const m = d.metrics;
+    const nowTs = Date.now();
+    const curr = {
+      total: +m.total_requests || 0,
+      r429: +m.rate_limited_429 || 0,
+      s5xx: +m.status_5xx || 0,
+      lat: +m.avg_latency_ms || 0,
+      ts: nowTs,
+    };
+    let perMin429 = 0;
+    let perMin5xx = 0;
+    if(_hmPrev){
+      const dtMin = Math.max(1/60, (curr.ts - _hmPrev.ts) / 60000);
+      perMin429 = Math.max(0, Math.round((curr.r429 - _hmPrev.r429) / dtMin));
+      perMin5xx = Math.max(0, Math.round((curr.s5xx - _hmPrev.s5xx) / dtMin));
+    }
+    _hmPrev = curr;
+    HM_HISTORY.t.push(curr.ts);
+    HM_HISTORY.r429.push(perMin429);
+    HM_HISTORY.r5xx.push(perMin5xx);
+    HM_HISTORY.lat.push(Math.round(curr.lat));
+    if(HM_HISTORY.t.length > 30){
+      HM_HISTORY.t.shift(); HM_HISTORY.r429.shift(); HM_HISTORY.r5xx.shift(); HM_HISTORY.lat.shift();
+    }
+    _updateHealthCharts();
+  } catch(e){}
+}
+
+async function loadData() {
+  const btn = document.getElementById('refreshBtn');
+  if(btn) btn.classList.add('spinning');
+  try {
+    const r = await fetch('/api/admin/stats?v='+encodeURIComponent(VISITOR_ID),{headers:{'X-Api-Key':API_KEY}});
+    const d = await r.json();
+    if(!d.ok) throw new Error();
+    const s = d.stats||{};
+    document.getElementById('s-devices').textContent = s.total_devices??'—';
+    document.getElementById('s-online').textContent  = s.online_count??'—';
+    document.getElementById('s-ai').textContent      = s.ai_messages??'—';
+    document.getElementById('s-mem').textContent     = s.memories??'—';
+    document.getElementById('s-vis').textContent     = s.site_visits??'—';
+
+    const k = d.ksusha||{};
+    const lo = k.last_online_utc;
+    const online = isOnlineNow(lo);
+    const badge = document.getElementById('ksushaStatusBadge');
+    badge.className = online?'ksusha-online-badge':'ksusha-offline-badge';
+    document.getElementById('ksushaStatusDot').textContent = online?'🟢':'⚫';
+    document.getElementById('ksushaStatusText').textContent = online?'В сети':(lo?relativeTime(lo):'Не заходила');
+    document.getElementById('k-visits').textContent = k.visit_count??'—';
+    const catLabel = k.last_category?(CAT[k.last_category]||k.last_category):'—';
+    document.getElementById('k-category').textContent = catLabel+(k.last_category_utc?' · '+relativeTime(k.last_category_utc):'');
+    document.getElementById('k-ai').textContent = k.last_ai_utc?relativeTime(k.last_ai_utc):'—';
+    document.getElementById('k-last-time').textContent = lo?relativeTime(lo):'Нет данных';
+    document.getElementById('k-last-source').textContent = k.last_online_source?('Источник: '+(k.last_online_source==='бот'?'📱 Telegram бот':'🌐 Сайт')):'';
+    document.getElementById('k-bot-action').textContent = k.bot_last_action?('В боте: '+k.bot_last_action):'';
+
+    _maintenanceOn = d.maintenance===true;
+    updateMaintenanceBtn();
+    renderDevices(d.devices||[]);
+    await loadHealthMetrics();
+  } catch(e){ toast('Ошибка загрузки','error'); }
+  finally{ if(btn) btn.classList.remove('spinning'); }
+}
+window.loadData = loadData;
+
+function updateMaintenanceBtn() {
+  const btn = document.getElementById('maintenanceBtn');
+  const lbl = document.getElementById('maintenanceBtnLabel');
+  const sub = document.getElementById('maintenanceBtnSub');
+  if(!btn) return;
+  if(_maintenanceOn){
+    btn.className='ctrl-btn maintenance-off';
+    lbl.textContent='Выключить техперерыв';
+    sub.textContent='Сайт в режиме обслуживания — выключить';
+  } else {
+    btn.className='ctrl-btn maintenance-on';
+    lbl.textContent='Включить техперерыв';
+    sub.textContent='Показать страницу обслуживания';
+  }
+}
+
+function renderDevices(devices) {
+  const list = document.getElementById('devicesList');
+  if(!devices.length){ list.innerHTML='<div style="text-align:center;color:var(--muted);font-size:0.8rem;padding:20px">Устройств нет</div>'; return; }
+  const cutoff = new Date(Date.now()-5*60*1000);
+  list.innerHTML = devices.slice(0,30).map((d,i)=>{
+    const online = d.last_seen_utc && new Date(d.last_seen_utc.replace(' ','T')+'Z')>cutoff;
+    const role = d.role||'unknown';
+    const timeStr = d.last_seen_utc?relativeTime(d.last_seen_utc):'—';
+    return `<div class="device-item" style="animation:fadeUp 0.3s ease ${i*0.04}s both">
+      <div class="device-role-dot ${role==='creator'?'creator':(role==='partner'||role==='ksyusha')?'partner':'unknown'}"></div>
+      <div class="device-info">
+        <div class="device-ua">${h(d.ua_pretty||'Неизвестное устройство')}</div>
+        <div class="device-meta">${timeStr}${d.visit_count?' · '+d.visit_count+' визитов':''}${role!=='unknown'?' · '+role:''}</div>
+      </div>
+      <span class="device-badge ${online?'online-now':'offline'}">${online?'online':timeStr}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Техперерыв ────────────────────────────────
+function openMaintenanceModal() {
+  const on = !_maintenanceOn;
+  document.getElementById('maintIcon').textContent = on?'🔧':'✅';
+  document.getElementById('maintTitle').textContent = on?'Включить техперерыв?':'Выключить техперерыв?';
+  document.getElementById('maintText').textContent  = on
+    ?'Сайт станет недоступен — посетители увидят страницу обслуживания.'
+    :'Сайт снова станет доступен для всех посетителей.';
+  const okBtn = document.getElementById('maintOkBtn');
+  okBtn.textContent = on?'Включить':'Выключить';
+  okBtn.className = 'amodal-btn '+(on?'ok-red':'ok-green');
+  openModal('maintenanceModal');
+}
+window.openMaintenanceModal = openMaintenanceModal;
+
+async function confirmMaintenance() {
+  closeModal('maintenanceModal');
+  const action = _maintenanceOn?'maintenance_off':'maintenance_on';
+  try {
+    const r = await fetch('/api/admin/action',{
+      method:'POST',headers:{'Content-Type':'application/json','X-Api-Key':API_KEY},
+      body:JSON.stringify({visitor_id:VISITOR_ID,action}),
+    });
+    const d = await r.json();
+    if(d.ok){ _maintenanceOn=!_maintenanceOn; updateMaintenanceBtn(); toast(_maintenanceOn?'🔧 Техперерыв включён':'✅ Сайт открыт',_maintenanceOn?'error':'success'); }
+    else toast('Ошибка: '+(d.error||'?'),'error');
+  } catch(e){ toast('Ошибка запроса','error'); }
+}
+window.confirmMaintenance = confirmMaintenance;
+
+async function doTestCelebration() {
+  try {
+    toast('⏳ Отправляю анимацию…');
+    const r = await fetch('/api/test_celebration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': API_KEY },
+      body: JSON.stringify({ visitor_id: VISITOR_ID }),
+    });
+    const d = await r.json();
+    if (d.ok) showActionDone('Анимация отправлена!', 'Все пользователи увидят её при следующем входе');
+    else toast('Ошибка: ' + (d.error || '?'), 'error');
+  } catch(e) { toast('Ошибка запроса', 'error'); }
+}
+window.doTestCelebration = doTestCelebration;
+
+// ── Написать партнёру ────────────────────────────
+let _attachedFiles = []; // [{file, id}]
+let _previewVisible = false;
+let _fileIdCounter = 0;
+
+function openComposeModal(){
+  document.getElementById('composeText').value='';
+  document.getElementById('composeFilesList').innerHTML='';
+  document.getElementById('composePreviewWrap').style.display='none';
+  document.getElementById('composePreviewMedia').innerHTML='';
+  document.getElementById('composePreviewText').innerHTML='';
+  document.getElementById('composeFile').value='';
+  _attachedFiles=[]; _previewVisible=false;
+  openModal('composeModal');
+}
+window.openComposeModal = openComposeModal;
+
+function onFileAttached(input){
+  const files = Array.from(input.files||[]);
+  if(!files.length) return;
+  files.forEach(file => {
+    const id = ++_fileIdCounter;
+    _attachedFiles.push({file, id, uploaded: false, path: null, mediaType: null});
+    renderFileRow({file, id});
+  });
+  input.value = ''; // сбрасываем input чтобы можно было добавлять ещё
+}
+window.onFileAttached = onFileAttached;
+
+function renderFileRow({file, id}){
+  const list = document.getElementById('composeFilesList');
+  const row = document.createElement('div');
+  row.className = 'compose-file-row';
+  row.id = 'file-row-'+id;
+  row.innerHTML = `
+    <span class="compose-file-row-name">${h(file.name)}</span>
+    <span class="compose-file-row-progress" id="fp-${id}"></span>
+    <button class="compose-file-row-remove" onclick="removeFile(${id})" title="Удалить">✕</button>`;
+  list.appendChild(row);
+}
+
+function removeFile(id){
+  _attachedFiles = _attachedFiles.filter(f => f.id !== id);
+  const row = document.getElementById('file-row-'+id);
+  if(row) row.remove();
+}
+window.removeFile = removeFile;
+
+// Загружает один файл с прогрессом, возвращает Promise<{path, mediaType}|null>
+function uploadFileWithProgress(entry){
+  return new Promise(resolve => {
+    const fd = new FormData();
+    fd.append('file', entry.file);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload_notification_media?v='+encodeURIComponent(VISITOR_ID));
+    xhr.setRequestHeader('X-Api-Key', API_KEY);
+    xhr.upload.onprogress = e => {
+      if(e.lengthComputable){
+        const pct = Math.round(e.loaded/e.total*100);
+        const el = document.getElementById('fp-'+entry.id);
+        if(el) el.textContent = pct+'%';
+      }
+    };
+    xhr.onload = () => {
+      const el = document.getElementById('fp-'+entry.id);
+      try{
+        const d = JSON.parse(xhr.responseText);
+        if(d.ok){
+          if(el) el.textContent = '✓';
+          resolve({path: d.path, type: d.media_type});
+        } else {
+          if(el) el.textContent = '✗';
+          resolve(null);
+        }
+      } catch(e){ if(el) el.textContent='✗'; resolve(null); }
+    };
+    xhr.onerror = () => {
+      const el = document.getElementById('fp-'+entry.id);
+      if(el) el.textContent='✗';
+      resolve(null);
+    };
+    xhr.send(fd);
+  });
+}
+
+function togglePreview(){
+  _previewVisible = !_previewVisible;
+  const wrap = document.getElementById('composePreviewWrap');
+  if(!_previewVisible){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  document.getElementById('composePreviewText').innerHTML = (document.getElementById('composeText').value||'').replace(/\n/g,'<br>');
+  const mediaEl = document.getElementById('composePreviewMedia');
+  mediaEl.innerHTML='';
+  _attachedFiles.forEach(entry => {
+    const url = URL.createObjectURL(entry.file);
+    if(entry.file.type.startsWith('video/')){
+      const v=document.createElement('video'); v.src=url; v.controls=true; v.className='compose-preview-media'; mediaEl.appendChild(v);
+    } else {
+      const img=document.createElement('img'); img.src=url; img.className='compose-preview-media'; mediaEl.appendChild(img);
+    }
+  });
+}
+window.togglePreview = togglePreview;
+
+async function sendCompose(){
+  const text = (document.getElementById('composeText').value||'').trim();
+  if(!text){ toast('Введи текст сообщения','error'); return; }
+
+  // Загружаем все файлы последовательно с прогрессом
+  const media_items = [];
+  for(const entry of _attachedFiles){
+    const result = await uploadFileWithProgress(entry);
+    if(result) media_items.push({path: result.path, type: result.type});
+  }
+
+  try{
+    const r = await fetch('/api/admin/notification',{
+      method:'POST', headers:{'Content-Type':'application/json','X-Api-Key':API_KEY},
+      body: JSON.stringify({visitor_id:VISITOR_ID, text, media_items: media_items.length?media_items:null}),
+    });
+    const d = await r.json();
+    if(d.ok){ closeModal('composeModal'); showActionDone('Сообщение отправлено!','Партнёр увидит его при следующем входе на сайт'); }
+    else toast('Ошибка: '+(d.error||'?'),'error');
+  } catch(e){ toast('Ошибка запроса','error'); }
+}
+window.sendCompose = sendCompose;
+
+// ── Экспорт ───────────────────────────────────
+function doExport(){ openModal('exportModal'); }
+window.doExport = doExport;
+
+async function collectExportData(){
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone||'';
+  const url = tz?'/api/all?tz='+encodeURIComponent(tz):'/api/all';
+  const ed = {meta:{exported_at:new Date().toISOString()},server:{}};
+  try{
+    const r = await fetch(url,{headers:{'X-Api-Key':API_KEY}});
+    if(r.ok){ const j=await r.json(); ed.server.memories=j.memories||[]; ed.server.events=j.events||[]; ed.server.wishes=j.wishes||{}; ed.server.stats=j.stats||{}; ed.server.favorites=j.favorites||{}; }
+  }catch(e){}
+  // История ИИ — отдельно для Ксюши и Создателя
+  try{
+    const r2 = await fetch('/api/ai_companion_history?visitor_id=partner',{headers:{'X-Api-Key':API_KEY}});
+    if(r2.ok){ const j2=await r2.json(); ed.server.ai_history_ksyusha=j2.history||[]; }
+  }catch(e){}
+  try{
+    const r3 = await fetch('/api/ai_companion_history?visitor_id=creator',{headers:{'X-Api-Key':API_KEY}});
+    if(r3.ok){ const j3=await r3.json(); ed.server.ai_history_creator=j3.history||[]; }
+  }catch(e){}
+  return ed;
+}
+
+async function doExportFormat(format){
+  toast('⏳ Собираю данные…');
+  try{
+    const data = await collectExportData();
+    if(format==='json'){
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download='export_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.json';
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+      showActionDone('Экспорт готов!','JSON-файл скачивается на устройство');
+    } else {
+      doExportPdf(data);
+    }
+  }catch(e){ toast('Ошибка экспорта','error'); }
+}
+window.doExportFormat = doExportFormat;
+
+function doExportPdf(data){
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Правильные имена полей из API
+  const memories = data.server.memories||[];
+  const events   = data.server.events||[];
+  const _wishesAll = (data.server.wishes||{});
+  const wishes   = _wishesAll.partner || _wishesAll.ksyusha || _wishesAll.ksusha || [];
+  const aiK      = data.server.ai_history_ksyusha||[];
+  const aiC      = data.server.ai_history_creator||[];
+  const at       = new Date(data.meta.exported_at).toLocaleString('ru-RU');
+
+  const sec = (t,g) => `<div class="sec-header" style="background:${g}">${t}</div>`;
+
+  const renderMsgs = (msgs, nameUser) => {
+    if(!msgs.length) return '<p class="empty">Нет сообщений</p>';
+    return msgs.map(m => {
+      const isAI = m.role==='assistant';
+      const who  = isAI ? 'ИИ 🤖' : nameUser;
+      const text = esc(m.content||'');
+      const time = m.time ? `<span class="msg-time">${esc(m.time.slice(11,16))}</span>` : '';
+      return `<div class="msg ${isAI?'ai':'user'}-msg"><div class="msg-who">${who}${time}</div><div class="msg-body">${text}</div></div>`;
+    }).join('');
+  };
+
+  let body = `<h1>📦 Полный экспорт данных</h1>
+  <p class="subtitle">Сформировано: ${esc(at)}</p>`;
+
+  // ── Воспоминания ──────────────────────────────────
+  body += sec('📸 Воспоминания (' + memories.length + ')','linear-gradient(135deg,#7c3aed,#4158d0)');
+  if(memories.length){
+    body += '<table><tr><th>Дата</th><th>Категория</th><th>Название</th><th>Содержание</th></tr>';
+    memories.forEach(m => {
+      const date  = esc(m.date_human || m.date || '');
+      const cat   = esc(m.category || '');
+      const title = esc(m.title || '');
+      // content_html может содержать HTML-теги — стрипаем их
+      const content = esc((m.content_html||'').replace(/<[^>]*>/g,'').trim());
+      body += `<tr><td>${date}</td><td>${cat}</td><td>${title}</td><td>${content}</td></tr>`;
+    });
+    body += '</table>';
+  } else body += '<p class="empty">Нет данных</p>';
+
+  // ── События ────────────────────────────────────────
+  body += sec('📅 События (' + events.length + ')','linear-gradient(135deg,#d43f8d,#7c3aed)');
+  if(events.length){
+    body += '<table><tr><th>Дата</th><th>Название</th><th>Описание</th></tr>';
+    events.forEach(e => {
+      const date  = esc(e.event_datetime_human || e.event_datetime || '');
+      const title = esc(e.title || '');
+      const desc  = esc((e.description_html||'').replace(/<[^>]*>/g,'').trim());
+      body += `<tr><td>${date}</td><td>${title}</td><td>${desc}</td></tr>`;
+    });
+    body += '</table>';
+  } else body += '<p class="empty">Нет данных</p>';
+
+  // ── Желания ────────────────────────────────────────
+  body += sec('🎁 Желания (' + wishes.length + ')','linear-gradient(135deg,#f59e0b,#d43f8d)');
+  if(wishes.length){
+    body += '<table><tr><th>#</th><th>Содержание</th><th>Медиа</th></tr>';
+    wishes.forEach((w,i) => {
+      const content = esc((w.content_html||'').replace(/<[^>]*>/g,'').trim());
+      const media   = w.media_url ? '📎 есть' : '—';
+      body += `<tr><td>${i+1}</td><td>${content}</td><td>${media}</td></tr>`;
+    });
+    body += '</table>';
+  } else body += '<p class="empty">Нет данных</p>';
+
+  // ── История ИИ — Партнёр ────────────────────────────
+  body += sec('💜 Чат с ИИ — Партнёр (' + aiK.length + ' сообщений)','linear-gradient(135deg,#c850c0,#7c3aed)');
+  body += '<div class="chat-wrap">' + renderMsgs(aiK, 'Партнёр 💜') + '</div>';
+
+  // ── История ИИ — Создатель ────────────────────────
+  body += sec('🔧 Чат с ИИ — Создатель (' + aiC.length + ' сообщений)','linear-gradient(135deg,#4158d0,#10b981)');
+  body += '<div class="chat-wrap">' + renderMsgs(aiC, 'Создатель 🔧') + '</div>';
+
+  const css = `
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a2e;padding:28px 32px;line-height:1.5}
+    h1{font-size:1.5rem;font-weight:800;margin-bottom:4px;background:linear-gradient(135deg,#d43f8d,#4158d0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .subtitle{color:#888;font-size:0.78rem;margin-bottom:20px;border-bottom:1px solid #ede9fe;padding-bottom:10px}
+    .sec-header{color:#fff;border-radius:10px;padding:9px 16px;margin:22px 0 10px;font-weight:700;font-size:0.9rem;page-break-after:avoid}
+    .empty{color:#aaa;font-size:0.82rem;margin:0 0 10px}
+    table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:0.8rem}
+    th{background:#f0ebff;color:#6d28d9;padding:6px 10px;text-align:left;font-weight:600;border-bottom:2px solid #ddd6fe}
+    td{padding:5px 10px;border-bottom:1px solid #f0ebff;vertical-align:top;word-break:break-word}
+    .chat-wrap{margin-bottom:10px}
+    .msg{border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem;page-break-inside:avoid}
+    .ai-msg{background:#f0fdf4;border-left:3px solid #16a34a}
+    .user-msg{background:#fdf4ff;border-left:3px solid #c850c0}
+    .msg-who{font-size:0.68rem;color:#888;margin-bottom:4px;display:flex;gap:8px}
+    .msg-time{opacity:0.6}
+    .msg-body{white-space:pre-wrap;word-break:break-word}
+    @media print{body{padding:16px 20px}.sec-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  `;
+
+  const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Экспорт данных</title><style>' + css + '</style></head><body>' + body + '</body></html>';
+  const win = window.open('','_blank');
+  if(win){ win.document.write(fullHtml); win.document.close(); setTimeout(()=>win.print(), 800); }
+  showActionDone('PDF открыт!','Сохрани через диалог печати браузера');
+}
+
+// ── Бэкап ─────────────────────────────────────
+async function doBackup(){
+  toast('⏳ Создаю бэкап…');
+  try{
+    const r = await fetch('/api/admin/backup',{
+      method:'POST',headers:{'Content-Type':'application/json','X-Api-Key':API_KEY},
+      body:JSON.stringify({visitor_id:VISITOR_ID}),
+    });
+    const d = await r.json();
+    if(d.ok) showActionDone('Бэкап создан!','Резервная копия базы данных обновлена');
+    else toast('Ошибка: '+(d.error||'?'),'error');
+  } catch(e){ toast('Ошибка запроса','error'); }
+}
+window.doBackup = doBackup;
+
+// ── Скоро ─────────────────────────────────────
+function ctrlSoon(name){
+  document.getElementById('soonModalText').textContent = '«'+name+'» пока не реализовано, но появится в следующем обновлении.';
+  openModal('soonModal');
+}
+window.ctrlSoon = ctrlSoon;
+
+// ── Галочка ───────────────────────────────────
+function showActionDone(title, sub){
+  // Пересоздаём элемент чтобы SVG-анимация всегда начиналась с нуля
+  const old = document.getElementById('actionDone');
+  if(old) old.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'actionDone';
+  wrap.className = 'action-done-wrap show';
+  wrap.innerHTML =
+    '<div class="action-done-card">' +
+      '<svg class="action-done-svg" viewBox="0 0 100 100">' +
+        '<circle class="action-done-circle" cx="50" cy="50" r="45"/>' +
+        '<polyline class="action-done-check" points="28,52 43,67 72,34"/>' +
+      '</svg>' +
+      '<div class="action-done-title">' + title + '</div>' +
+      '<div class="action-done-sub">' + sub + '</div>' +
+    '</div>';
+  document.body.appendChild(wrap);
+  setTimeout(()=>{
+    wrap.style.opacity='0'; wrap.style.transition='opacity 0.4s';
+    setTimeout(()=>wrap.remove(), 400);
+  }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ИДЕИ ДЛЯ БУДУЩИХ ФУНКЦИЙ АДМИН-ПАНЕЛИ:
+//
+// 🗑  Удалить конкретное воспоминание / событие / желание по ID
+//     → DELETE /api/memory/:id  +  модалка подтверждения
+//
+// ✏️  Редактировать текст воспоминания прямо из панели
+//     → PATCH /api/memory/:id  +  inline-форма редактирования
+//
+// 📣  История отправленных уведомлений партнёру
+//     → GET /api/admin/notifications  +  таблица с датой и статусом
+//
+// 🔐  Сменить пароль сайта (SITE_PASSWORD в settings БД)
+//     → POST /api/admin/action { action: 'set_password', value: '...' }
+//
+// 🆔  Сменить Telegram ID партнёра (если он/она переведёт аккаунт)
+//     → POST /api/admin/action { action: 'set_ksusha_id', value: 123 }
+//
+// 🌙  Переключить тему по умолчанию для партнёра
+//     → POST /api/admin/action { action: 'set_default_theme', value: 'dark' }
+//
+// 📊  Граф активности — тепловая карта дней когда партнёр заходил(а)
+//     → GET /api/admin/activity  +  SVG heatmap
+//
+// 🤖  Просмотр и удаление конкретных сообщений в чате ИИ
+//     → GET /api/ai_companion_history  +  список с кнопкой удалить
+//
+// 💌  Очередь уведомлений — посмотреть что ещё не прочитано
+//     → GET /api/admin/notification (уже есть)  +  список pending
+//
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Инициализация ─────────────────────────────
+async function init(){
+  const ok = await checkAccess();
+  const loader = document.getElementById('loadingScreen');
+  if(!ok){
+    loader.classList.add('hide');
+    setTimeout(()=>{ loader.style.display='none'; document.getElementById('accessDenied').classList.add('show'); },400);
+    return;
+  }
+  await loadData();
+  loader.classList.add('hide');
+  setTimeout(()=>{ loader.style.display='none'; document.getElementById('adminApp').classList.add('show'); },400);
+  setInterval(loadData,30000);
+}
+init();
+})();
+</script>
+</body>
+</html>

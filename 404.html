@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Страница не найдена</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <style>
+    :root {
+      --bg: #fafafa;
+      --accent: #d43f8d;
+      --accent-soft: #fff0f5;
+      --text: #333;
+      --muted: #888;
+      --card-bg: #ffffff;
+      --border: #ffd6e7;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a2e;
+        --accent: #e85da0;
+        --accent-soft: #2d1a26;
+        --text: #f0e6ec;
+        --muted: #a888a0;
+        --card-bg: #241830;
+        --border: #4a2a3a;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+      position: relative;
+    }
+
+    /* ── Floating hearts ─────────────────────────────── */
+    .hearts-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .heart-particle {
+      position: absolute;
+      bottom: -60px;
+      font-size: 1.4rem;
+      opacity: 0;
+      animation: floatUp linear infinite;
+      user-select: none;
+    }
+
+    @keyframes floatUp {
+      0%   { transform: translateY(0) rotate(0deg) scale(0.8); opacity: 0; }
+      10%  { opacity: 0.35; }
+      80%  { opacity: 0.2; }
+      100% { transform: translateY(-110vh) rotate(25deg) scale(1.1); opacity: 0; }
+    }
+
+    /* ── Glow orbs ───────────────────────────────────── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+      animation: orbPulse ease-in-out infinite alternate;
+    }
+    .orb-1 { width: 340px; height: 340px; background: #d43f8d; top: -80px; right: -80px; animation-duration: 7s; }
+    .orb-2 { width: 260px; height: 260px; background: #ff85b4; bottom: -60px; left: -60px; animation-duration: 9s; }
+    @keyframes orbPulse {
+      from { transform: scale(1); opacity: 0.14; }
+      to   { transform: scale(1.15); opacity: 0.22; }
+    }
+
+    /* ── Card ────────────────────────────────────────── */
+    .card {
+      position: relative;
+      z-index: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: 0 12px 48px rgba(212, 63, 141, 0.12), 0 2px 8px rgba(0,0,0,0.06);
+      padding: 48px 40px 44px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      animation: cardIn 0.55s cubic-bezier(.22,.9,.36,1) both;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(28px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ── Big heart icon ──────────────────────────────── */
+    .icon-wrap {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 2.6rem;
+      animation: iconBeat 2.4s ease-in-out infinite;
+    }
+
+    @keyframes iconBeat {
+      0%, 100% { transform: scale(1); }
+      30%       { transform: scale(1.12); }
+      60%       { transform: scale(0.96); }
+    }
+
+    /* ── 404 number ──────────────────────────────────── */
+    .error-code {
+      font-size: 5.5rem;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--accent) 0%, #ff85b4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+      letter-spacing: -2px;
+      animation: codeIn 0.7s 0.15s cubic-bezier(.22,.9,.36,1) both;
+    }
+
+    @keyframes codeIn {
+      from { opacity: 0; transform: scale(0.7); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+
+    .description {
+      font-size: 0.97rem;
+      line-height: 1.65;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .description strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* ── Steps ───────────────────────────────────────── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 32px;
+      text-align: left;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--accent-soft);
+      border-radius: 14px;
+      animation: stepIn 0.45s both;
+    }
+
+    .step:nth-child(1) { animation-delay: 0.25s; }
+    .step:nth-child(2) { animation-delay: 0.35s; }
+    .step:nth-child(3) { animation-delay: 0.45s; }
+
+    @keyframes stepIn {
+      from { opacity: 0; transform: translateX(-14px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-text {
+      font-size: 0.92rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+
+    .step-text b {
+      font-weight: 600;
+    }
+
+    /* ── CTA button ──────────────────────────────────── */
+    .btn-bot {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--accent) 0%, #e85eb8 100%);
+      color: #fff;
+      text-decoration: none;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 14px 32px;
+      border-radius: 50px;
+      box-shadow: 0 6px 24px rgba(212, 63, 141, 0.35);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      animation: btnIn 0.5s 0.55s cubic-bezier(.22,.9,.36,1) both;
+    }
+
+    @keyframes btnIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .btn-bot:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 10px 32px rgba(212, 63, 141, 0.45);
+    }
+
+    .btn-bot:active {
+      transform: scale(0.97);
+    }
+
+    .btn-icon {
+      font-size: 1.15rem;
+    }
+
+    /* ── Footer note ─────────────────────────────────── */
+    .footer-note {
+      margin-top: 24px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      opacity: 0.7;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 36px 24px 32px; }
+      .error-code { font-size: 4.2rem; }
+      .title { font-size: 1.15rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background decorations -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="hearts-bg" id="heartsBg"></div>
+
+  <!-- Main card -->
+  <div class="card">
+    <div class="icon-wrap">💌</div>
+    <div class="error-code">404</div>
+    <h1 class="title">Страница не найдена</h1>
+    <p class="description">
+      Этот сайт создан <strong>для пар</strong>.<br>
+      Чтобы попасть сюда, нужно сначала зарегистрироваться в боте — он сам выдаст персональную ссылку.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Открой бота в Telegram и нажми <b>«Старт»</b></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Создай или прими приглашение в пару</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Перейди на сайт по <b>персональной ссылке</b> из бота</div>
+      </div>
+    </div>
+
+    <a class="btn-bot" href="https://t.me/{{BOT_USERNAME}}" target="_blank" rel="noopener">
+      <span class="btn-icon">✈️</span>
+      Открыть бота
+    </a>
+
+    <p class="footer-note">@{{BOT_USERNAME}}</p>
+  </div>
+
+  <script>
+    // Generate floating heart particles
+    const bg = document.getElementById('heartsBg');
+    const symbols = ['💕', '❤️', '🌸', '💗', '✨', '💖', '🫶', '💝'];
+    const count = 18;
+
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('span');
+      el.className = 'heart-particle';
+      el.textContent = symbols[i % symbols.length];
+      el.style.left = Math.random() * 100 + '%';
+      el.style.fontSize = (0.9 + Math.random() * 1.2) + 'rem';
+      el.style.animationDuration = (10 + Math.random() * 18) + 's';
+      el.style.animationDelay = (Math.random() * 15) + 's';
+      bg.appendChild(el);
+    }
+  </script>
+</body>
+</html>

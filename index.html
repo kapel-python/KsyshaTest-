@@ -6869,7 +6869,7 @@
         titleDiv.className = 'title';
         const wishWord = _ui('wishWord') || '';
         const capitalizedWishWord = wishWord ? (wishWord.charAt(0).toUpperCase() + wishWord.slice(1)) : '';
-        titleDiv.textContent = displayName + ' — ' + capitalizedWishWord;
+        titleDiv.textContent = capitalizedWishWord + ' ' + displayName;
         div.appendChild(titleDiv);
 
         const contentDiv = document.createElement('div');

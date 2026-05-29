@@ -1725,7 +1725,7 @@ def format_wish_text(wish: Wish, user_id: Optional[int] = None) -> str:
     """Форматирует текст желания для отображения. user_id — для учёта часового пояса в дате добавления."""
     from database import db
     author_name = db.get_display_name(wish.user_id) if wish.user_id else "Партнёр"
-    text = f"💫 <b>{author_name} — Желание #{wish.id}</b>\n\n"
+    text = f"💫 <b>Желание {author_name} #{wish.id}</b>\n\n"
     text += "💬 " + sanitize_html_for_telegram((wish.content or "").strip()) + "\n\n"
 
     status = getattr(wish, "status", "created") or "created"

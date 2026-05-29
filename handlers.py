@@ -6158,10 +6158,21 @@ async def admin_version_detail(callback: CallbackQuery):
     show_rollback_btn = False
     show_undo_btn = False
     
+    def _parse_version(v_str):
+        try:
+            return tuple(map(int, v_str.split(".")))
+        except Exception:
+            return (0, 0, 0)
+            
+    is_supported = _parse_version(ver) >= (1, 0, 14)
+    
     if is_rollback_active and prev_commit and commit and commit[:8] == prev_commit[:8]:
         show_undo_btn = True
-    elif commit and running_commit and commit[:8] != running_commit[:8] and status != "broken":
+    elif commit and running_commit and commit[:8] != running_commit[:8] and status != "broken" and is_supported:
         show_rollback_btn = True
+        
+    if commit and running_commit and commit[:8] != running_commit[:8] and status != "broken" and not is_supported:
+        text += "\n\n⚠️ <i>Откат недоступен: Версия не поддерживает фреймворк отката (слишком старая).</i>"
         
     keyboard = []
     if show_undo_btn:
@@ -6370,8 +6381,41 @@ async def admin_confirm_rollback(callback: CallbackQuery):
         from app_version import _get_repo_root, version as current_ver, get_git_commit
         repo_root = _get_repo_root()
         current_commit = get_git_commit() or "—"
-        
-        # 0. Pre-flight Syntax Validation
+        # -1. Verify rollback compatibility
+        def _parse_version(v_str):
+            try:
+                return tuple(map(int, v_str.split(".")))
+            except Exception:
+                return (0, 0, 0)
+        if _parse_version(ver) < (1, 0, 14):
+            await callback_edit_or_answer(callback, "❌ <b>Откат прерван!</b>\n\nВерсия слишком старая и не поддерживает фреймворк отката.", parse_mode=ParseMode.HTML)
+            return
+            
+        with db._get_connection() as conn:
+            status_row = conn.execute("SELECT status FROM version_history WHERE version = ?", (ver,)).fetchone()
+            if status_row:
+                try:
+                    ver_status = status_row["status"]
+                    if ver_status == "broken":
+                        await callback_edit_or_answer(callback, "❌ <b>Откат прерван!</b>\n\nЭта версия помечена как СЛОМАНАЯ.", parse_mode=ParseMode.HTML)
+                        return
+                except IndexError:
+                    pass
+
+        import subprocess
+        # 0.a Verify target commit exists
+        check_commit = subprocess.run(["git", "rev-parse", "--verify", commit], cwd=repo_root, capture_output=True, text=True)
+        if check_commit.returncode != 0:
+            await callback_edit_or_answer(callback, "❌ <b>Откат прерван!</b>\n\nЦелевой коммит не найден в репозитории.", parse_mode=ParseMode.HTML)
+            return
+            
+        # 0.b Verify clean repository state
+        check_clean = subprocess.run(["git", "status", "--porcelain"], cwd=repo_root, capture_output=True, text=True)
+        if check_clean.stdout.strip() != "":
+            await callback_edit_or_answer(callback, "❌ <b>Откат прерван!</b>\n\nВ репозитории есть незакоммиченные изменения. Откат небезопасен.", parse_mode=ParseMode.HTML)
+            return
+
+        # 0.c Pre-flight Syntax Validation
         import subprocess
         files_res = subprocess.run(["git", "ls-tree", "-r", "--name-only", commit], cwd=repo_root, capture_output=True, text=True)
         if files_res.returncode == 0:

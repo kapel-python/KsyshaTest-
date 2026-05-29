@@ -89,10 +89,16 @@
 
             color-scheme: light;
 
-            transition:
-                background-color 0.28s cubic-bezier(.22, 1, .36, 1),
-                color 0.28s cubic-bezier(.22, 1, .36, 1);
+        }
 
+        html.theme-transitioning,
+        html.theme-transitioning *,
+        html.theme-transitioning ::before,
+        html.theme-transitioning ::after {
+            transition: background-color 0.28s cubic-bezier(.22, 1, .36, 1),
+                        color 0.28s cubic-bezier(.22, 1, .36, 1),
+                        border-color 0.28s cubic-bezier(.22, 1, .36, 1),
+                        box-shadow 0.28s cubic-bezier(.22, 1, .36, 1) !important;
         }
 
         html.theme-dark {
@@ -6957,7 +6963,15 @@
           return;
         }
 
-        commit();
+        if (typeof document.startViewTransition === 'function') {
+          document.startViewTransition(commit);
+        } else {
+          root.classList.add('theme-transitioning');
+          commit();
+          setTimeout(() => {
+            root.classList.remove('theme-transitioning');
+          }, 300);
+        }
       }
 
       function initThemeToggle(initialTheme) {

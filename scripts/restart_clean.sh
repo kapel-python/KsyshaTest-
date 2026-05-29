@@ -93,6 +93,17 @@ main() {
     exit 1
   }
 
+  # Capture the current git HEAD so it is baked into the Docker image via the
+  # GIT_COMMIT build-arg declared in docker-compose.yml.  Without this export,
+  # compose receives an empty string and the Dockerfile falls back to "unknown".
+  GIT_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || true)"
+  if [[ -z "$GIT_COMMIT" ]]; then
+    log "WARN: could not read git HEAD; GIT_COMMIT will be 'unknown' in image"
+  else
+    log "INFO: baking GIT_COMMIT=${GIT_COMMIT} into image"
+  fi
+  export GIT_COMMIT
+
   write_status "running" "restart_started" 0
   local attempt=1
   while (( attempt <= MAX_ATTEMPTS )); do

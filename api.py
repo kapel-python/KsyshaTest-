@@ -28,7 +28,7 @@ MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "deepseek-v4-flash"
 _MEMORY_AI_FIELDS  = {"id", "category", "title", "date", "content", "media_type", "created_at"}
 _EVENT_AI_FIELDS   = {"id", "title", "description_html", "event_datetime", "event_datetime_human",
                       "is_passed", "media_type"}
-_WISH_AI_FIELDS    = {"id", "wish_number", "content_html", "media_type", "created_at"}
+_WISH_AI_FIELDS    = {"id", "content_html", "media_type", "created_at"}
 
 def _slim(obj: dict, fields: set) -> dict:
     """Оставляет только нужные поля и убирает None/пустые строки."""
@@ -844,7 +844,7 @@ def build_companion_system_prompt(
     raw_events = all_data.get("events") or []
 
     wishes_block = (all_data.get("wishes") or {})
-    raw_wishes = wishes_block.get("partner") or wishes_block.get("ksusha") or []
+    raw_wishes = wishes_block.get("partner") or wishes_block.get("user") or []
 
     raw_favorites = (all_data.get("favorites") or {})
 

@@ -42,10 +42,9 @@ class TestWishUX(unittest.TestCase):
     def test_wish_api_structure_and_isolation(self):
         print("\n🧪 Testing Backend API wishes payload structure and isolation...")
         
-        # 1. User 99901 adds a wish in slot 1
-        db.add_wish(self.user_id, wish_number=1, content="Alice wish 1")
-        # 2. Partner 99902 adds a wish in slot 2
-        db.add_wish(self.partner_id, wish_number=2, content="Bob wish 2")
+        db.add_wish(self.user_id, content="Alice wish 1")
+        # 2. Partner 99902 adds a wish
+        db.add_wish(self.partner_id, content="Bob wish 2")
         
         # Let's collect data for self.user_id (99901)
         # Mock visitor ID validation to pass and return self.user_id
@@ -60,22 +59,17 @@ class TestWishUX(unittest.TestCase):
         # Check correct response structure (Proposed API structure)
         self.assertIn("user", wishes_payload, "CRITICAL: wishes.user is missing from response payload!")
         self.assertIn("partner", wishes_payload, "wishes.partner is missing from response payload!")
-        self.assertIn("ksusha", wishes_payload, "wishes.ksusha is missing from response payload!")
         
         # Check isolation: wishes.user must contain only user's wishes
         user_wishes = wishes_payload["user"]
         self.assertEqual(len(user_wishes), 1)
-        self.assertEqual(user_wishes[0]["wish_number"], 1)
         self.assertEqual(user_wishes[0]["content_html"], "Alice wish 1")
         
         # Check isolation: wishes.partner must contain only partner's wishes
         partner_wishes = wishes_payload["partner"]
         self.assertEqual(len(partner_wishes), 1)
-        self.assertEqual(partner_wishes[0]["wish_number"], 2)
         self.assertEqual(partner_wishes[0]["content_html"], "Bob wish 2")
         
-        # Check backward compatibility: wishes.ksusha must be equal to wishes.partner
-        self.assertEqual(wishes_payload["ksusha"], partner_wishes)
         print("✅ Backend API Structure & Isolation Verified Successfully!")
 
 if __name__ == "__main__":

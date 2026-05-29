@@ -378,14 +378,13 @@ def _test_database():
     # ── Желания ───────────────────────────────────────────────
 
     def t_add_wish():
-        wid = test_db.add_wish(111, 1, "Хочу на море")
+        wid = test_db.add_wish(111, "Хочу на море")
         assert wid > 0
 
     def t_get_wish():
-        wid = test_db.add_wish(111, 2, "Хочу торт")
+        wid = test_db.add_wish(111, "Хочу торт")
         w = test_db.get_wish(wid)
         assert w is not None
-        assert w.wish_number == 2
         assert "торт" in w.content
 
     def t_get_missing_wish():
@@ -393,7 +392,7 @@ def _test_database():
         assert w is None
 
     def t_update_wish():
-        wid = test_db.add_wish(111, 3, "Старое желание")
+        wid = test_db.add_wish(111, "Старое желание")
         ok = test_db.update_wish(wid, "Новое желание")
         assert ok
         w = test_db.get_wish(wid)
@@ -861,8 +860,7 @@ def _test_utils():
         parse_ai_date_to_db, format_scheduled_event_datetime,
         is_scheduled_event_moment_passed, is_scheduled_event_expired,
         format_time_remaining, sanitize_html_for_telegram,
-        text_and_entities_to_html, truncate_text, validate_title,
-        validate_date, validate_content, wish_number_to_text,
+        validate_date, validate_content,
         preserve_formatting, _parse_user_agent, is_wishes_available,
         format_scheduled_event_datetime_for_timezone,
     )
@@ -1155,19 +1153,6 @@ def _test_utils():
         ok, err = validate_content("")
         assert ok  # пустое описание допустимо
 
-    # ── wish_number_to_text ───────────────────────────────────
-
-    def t_wish_num_1():
-        assert wish_number_to_text(1) == "первое"
-
-    def t_wish_num_2():
-        assert wish_number_to_text(2) == "второе"
-
-    def t_wish_num_3():
-        assert wish_number_to_text(3) == "третье"
-
-    def t_wish_num_other():
-        assert "-е" in wish_number_to_text(10)
 
     # ── preserve_formatting ───────────────────────────────────
 
@@ -1584,7 +1569,7 @@ def _test_business_logic():
         wishes = data["wishes"]
         assert "ksusha" in wishes
         for w in wishes["ksusha"]:
-            assert "wish_number" in w
+
             assert "content_html" in w
 
     def t_admin_keyboard_structure():

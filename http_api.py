@@ -6541,11 +6541,9 @@ async def site_create_wish(request: web.Request) -> web.Response:
 
     # Уведомление партнёра уводим в фон, чтобы save не ждал Telegram.
     try:
-        from utils import wish_number_to_text
-        order = wish_number_to_text(wish_number)
         actor = "Партнёр"
         other_id = _visitor_partner_id(visitor_id)
-        notify_text = f"💫 <b>{actor} написал(а) {order} желание</b>\n\n{content_txt[:200]}"
+        notify_text = f"💫 <b>{actor} написал(а) желание #{wish_id}</b>\n\n{content_txt[:200]}"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👀 Открыть желание", callback_data=f"wish_view_{wish_id}")]
         ])

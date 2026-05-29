@@ -533,14 +533,13 @@ class Database:
                 CREATE TABLE IF NOT EXISTS wishes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
-                    wish_number INTEGER NOT NULL,
+                    wish_number INTEGER DEFAULT 0,
                     content TEXT NOT NULL,
                     media_type TEXT,
                     media_file_id TEXT,
                     media_path TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(user_id, wish_number),
                     FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
             ''')
@@ -1830,31 +1829,7 @@ class Database:
             logger.exception(f"Ошибка при получении желаний пользователя: {e}")
             return []
 
-    def get_wish_by_user_and_number(self, user_id: int, wish_number: int) -> Optional[Wish]:
-        """DEPRECATED: использовался для слотовой системы 1-3. Оставлен для совместимости."""
-        try:
-            with self._get_connection() as conn:
-                cursor = conn.execute(
-                    'SELECT * FROM wishes WHERE user_id = ? AND wish_number = ?',
-                    (user_id, wish_number)
-                )
-                row = cursor.fetchone()
-                if not row:
-                    return None
-                return Wish(
-                    id=row['id'],
-                    user_id=row['user_id'],
-                    wish_number=row['wish_number'],
-                    content=row['content'],
-                    media_type=row['media_type'] if 'media_type' in row.keys() else None,
-                    media_file_id=row['media_file_id'] if 'media_file_id' in row.keys() else None,
-                    media_path=row['media_path'] if 'media_path' in row.keys() else None,
-                    created_at=row['created_at'],
-                    updated_at=row['updated_at'],
-                )
-        except Exception as e:
-            logger.exception(f"Ошибка при получении желания по номеру: {e}")
-            return None
+
     
     def is_admin(self, user_id: int) -> bool:
         """Проверяет, является ли пользователь администратором"""

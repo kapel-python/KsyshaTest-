@@ -45,7 +45,7 @@ from utils import (
     is_wishes_available, format_wish_text, create_wishes_menu_keyboard,
     create_wishes_menu_keyboard_creator, create_wishes_menu_keyboard_partner,
     create_wish_user_keyboard, create_wish_admin_keyboard,
-    create_wish_keyboard, wish_number_to_text,
+    create_wish_keyboard,
     WISH_STATUS_LABELS,
     send_wish_with_media,
     create_settings_menu_keyboard, create_settings_time_keyboard,
@@ -8269,10 +8269,9 @@ async def process_wish_delete_reason(message: Message, state: FSMContext):
     # Уведомляем Ксюшу
     try:
         if db.are_notifications_enabled(wish.user_id) and db.is_category_notif_enabled(wish.user_id, "wishes"):
-            order_text = wish_number_to_text(wish.wish_number)
             deleter_name = db.get_display_name(user_id, fallback="Партнёр")
             notify_text = (
-                f"❌ <b>Твоё {order_text} желание было удалено ({deleter_name})</b>\n\n"
+                f"❌ <b>Твоё желание #{wish.id} было удалено ({deleter_name})</b>\n\n"
             )
             if reason_raw:
                 notify_text += f"💬 Причина: {reason_html}"

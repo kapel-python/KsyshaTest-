@@ -1715,15 +1715,6 @@ def format_admin_details(admin: Dict, user_stats: Optional[Dict[str, int]] = Non
         text += "\n⚠️ <i>Этого администратора нельзя удалить</i>"
     return text
 
-def wish_number_to_text(number: int) -> str:
-    """DEPRECATED: использовался для слотов 1-3. Оставлен для совместимости."""
-    mapping = {
-        1: "первое",
-        2: "второе",
-        3: "третье"
-    }
-    return mapping.get(number, f"{number}-е")
-
 WISH_STATUS_LABELS = {
     "created":     "⬜ Создано",
     "in_progress": "🔵 В процессе",

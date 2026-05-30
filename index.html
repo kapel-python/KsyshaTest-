@@ -6311,7 +6311,8 @@
         const cachedEtag = cached && cached.etag ? String(cached.etag) : '';
         const headers = {};
         if (cachedEtag) headers['If-None-Match'] = cachedEtag;
-        const url = `/api/${section}?page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}`;
+        const tz = getUserTimezone();
+        const url = `/api/${section}?page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}` + (tz ? `&tz=${encodeURIComponent(tz)}` : '');
         const resp = await fetch(url, { headers });
         if (resp.status === 304 && cachedData && (Date.now() - cachedTs) <= ttlMs) return cachedData;
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -7074,53 +7075,26 @@
             const count = header.dataset.count;
 
             if (open) {
-              _onSectionOpenedDeferred(targetId).then(() => {
-                if (target.classList.contains('open')) {
-                  target.style.maxHeight = 'none';
-                }
-              });
+              _onSectionOpenedDeferred(targetId);
 
               target.classList.add('open');
 
               if (sectionId) {
-
                 fetch('/api/category_open', {
-
                   method: 'POST',
-
                   headers: withOptionalApiKey({ 'Content-Type': 'application/json' }),
-
                   body: JSON.stringify({ section_id: sectionId, visitor_id: ensureVisitorIdForRole() }),
-
                 }).catch(function() {});
-
               }
 
-              const hasItems = target.querySelectorAll('.memory, .event, .wish').length > 0;
-              if (!hasItems) {
-                target.style.maxHeight = 'none';
-              } else {
-                target.style.maxHeight = target.scrollHeight + 'px';
-                target.addEventListener('transitionend', function handler(e) {
-                  if (e.propertyName === 'max-height') {
-                    target.removeEventListener('transitionend', handler);
-                    if (target.classList.contains('open')) {
-                      target.style.maxHeight = 'none';
-                    }
-                  }
-                });
-              }
+              target.style.maxHeight = 'none';
 
               btn.setAttribute('aria-expanded', 'true');
 
               if (count !== undefined) {
-
                 label.textContent = _ui('toggleHide') + ' (' + count + ')';
-
               } else {
-
                 label.textContent = _ui('toggleHide');
-
               }
 
             } else {
@@ -7198,13 +7172,7 @@
           const count = header.dataset.count;
           if (open) {
             target.classList.add('open');
-            target.style.maxHeight = target.scrollHeight + 'px';
-            target.addEventListener('transitionend', function handler(e) {
-              if (e.propertyName === 'max-height') {
-                target.removeEventListener('transitionend', handler);
-                target.style.maxHeight = 'none';
-              }
-            });
+            target.style.maxHeight = 'none';
             btn.setAttribute('aria-expanded', 'true');
             if (label) label.textContent = count !== undefined ? _ui('toggleHide') + ' (' + count + ')' : _ui('toggleHide');
           } else {

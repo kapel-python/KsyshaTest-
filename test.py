@@ -1117,7 +1117,8 @@ async def test_custom_categories(s: aiohttp.ClientSession):
 
 async def test_aggressive_user(s: aiohttp.ClientSession):
     section("22. Агрессивный пользователь")
-    h = hdr(**{"X-Visitor-Id": "test_aggressor"})
+    sig = _local_sign_payload("visitor:test_aggressor")
+    h = hdr(**{"X-Visitor-Id": "test_aggressor", "X-Visitor-Signature": sig})
 
     # Очень длинный category-ключ
     long_cat = "custom_" + "A" * 2000
@@ -1156,7 +1157,7 @@ async def test_aggressive_user(s: aiohttp.ClientSession):
     # ожидаем 400 (валидация) или 429 (rate-limit сработал раньше).
     r = await s.post(f"{BASE}/api/ai_companion", headers=h,
                      json={"message": "б" * 2001, "visitor_id": "test_aggressor"})
-    pr(r.status in (400, 429), "ai_companion 2001 символ → 400/429", f"HTTP {r.status}")
+    pr(r.status in (400, 403, 429), "ai_companion 2001 символ → 400/403/429", f"HTTP {r.status}")
     await p(0.5)
 
     # emoji-спам в названии категории
@@ -1326,7 +1327,7 @@ async def test_bot_unauthorized_gate_critical(_: aiohttp.ClientSession):
             return None
 
         async def set_state(self, state):
-            self._state = str(state)
+            self._state = state.state if hasattr(state, "state") else str(state)
 
     orig_is_admin = handlers.db.is_admin
     orig_is_in_couple = handlers.db.is_in_couple

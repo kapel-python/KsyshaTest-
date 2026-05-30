@@ -1,0 +1,499 @@
+
+████████████████████████████████████████████████████████████
+  ЕДИНЫЙ ТЕСТ-СЬЮТ — ПОЛНОЕ ПОКРЫТИЕ
+  Режим: БЕЗОПАСНЫЙ (без нагрузочных секций)
+  Добавь --full для полного прогона с DDoS-тестами
+████████████████████████████████████████████████████████████
+
+════════════════════════════════════════════════════════════
+  1. Доступность и базовые страницы
+════════════════════════════════════════════════════════════
+  ✅  GET / → 200
+       → HTTP 200
+  ✅  GET /404 → 200
+       → HTTP 200
+  ✅  GET /404.html → 200
+       → HTTP 200
+  ✅  GET /stats → 200
+       → HTTP 200
+  ✅  GET /admin без ключа → 401
+       → HTTP 401
+  ✅  GET несуществующий путь → 404
+       → HTTP 404
+  ✅  Очень длинный URL → 4xx
+       → HTTP 404
+  ✅  /404 содержит ссылку на бота
+       → HTTP 200
+
+════════════════════════════════════════════════════════════
+  3. Аутентификация и авторизация
+════════════════════════════════════════════════════════════
+  ✅  Пустой токен → ok:false
+       → {"ok": false, "error": "empty"}
+  ✅  Неверный токен → ok:false
+       → {"ok": false, "error": "invalid"}
+  ✅  SQL в токене → не 500
+       → HTTP 200
+  ✅  Пустое тело → не 500
+       → HTTP 200
+  ✅  Очень длинный токен → не 500
+       → HTTP 200
+  ✅  check_site_password → disabled
+       → {"ok": false, "error": "disabled"}
+  ✅  GET /api/info без ключа → отказ
+       → HTTP 403
+  ✅  GET /api/all без ключа → отказ
+       → HTTP 403
+  ✅  GET /api/memories без ключа → отказ
+       → HTTP 403
+  ✅  GET /api/events без ключа → отказ
+       → HTTP 403
+  ✅  GET /api/wishes без ключа → отказ
+       → HTTP 403
+  ✅  POST /api/visit без ключа → отказ
+       → HTTP 403
+  ✅  POST /api/visit_heartbeat без ключа → отказ
+       → HTTP 403
+  ✅  POST /api/create_memory без ключа → отказ
+       → HTTP 403
+  ✅  POST /api/create_event без ключа → отказ
+       → HTTP 403
+  ✅  POST /api/create_wish без ключа → отказ
+       → HTTP 403
+  ✅  POST /api/ai_companion без ключа → отказ
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  10. WebSocket
+════════════════════════════════════════════════════════════
+  ✅  WS /ws/site без trusted visitor → 403
+       → 403, message='Invalid response status', url=URL('ws://127.0.0.1:25086/ws/site')
+  ✅  WS /ws/maintenance подключение успешно
+  ✅  WS: огромное сообщение корректно отклонено
+  ✅  WS: бинарный мусор корректно отклонён
+  ✅  WS-Upgrade заголовки не ломают rate-limit
+       → 500-ошибок: 0
+
+════════════════════════════════════════════════════════════
+  11. Изоляция данных между парами
+════════════════════════════════════════════════════════════
+  ✅  Неизвестный visitor_id → нет 500
+       → HTTP 403
+  ✅  Перебор visitor_id — нет 500 из 11 попыток
+       → 500-ошибок: 0
+  ✅  Несуществующий wish → 404/403/429
+       → HTTP 403
+  ✅  Чужой visitor_id на wish → 403/404/429
+       → HTTP 403
+  ✅  visitor_id=unknown_pair_1 → нет 500
+       → HTTP 403
+  ✅  visitor_id=unknown_pair_2 → нет 500
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  12. AI-компаньон
+════════════════════════════════════════════════════════════
+  ✅  ai_companion без ключа → отказ
+       → HTTP 403
+  ✅  Пустое сообщение → не 500
+       → HTTP 403
+  ✅  Null сообщение → не 500
+       → HTTP 403
+  ✅  20k сообщение → не 500
+       → HTTP 403
+  ✅  AI upstream → не 500 (должен быть 502 или другой)
+       → HTTP 403
+  ✅  ai_companion_history → не 500
+       → HTTP 403
+  ✅  ai_companion_history_clear → не 500
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  15. Invite-коды — безопасность
+════════════════════════════════════════════════════════════
+  ✅  Несуществующий invite → ok:false
+       → {"ok": false, "error": "invalid"}
+  ✅  Короткий код '000000' → отклонён
+  ✅  Короткий код '111111' → отклонён
+  ✅  Короткий код 'aaaaaa' → отклонён
+  ✅  Короткий код '123456' → отклонён
+  ✅  SQL в invite code → отклонён без 500
+       → HTTP 200
+  ✅  Несуществующий invite с prefix → ok:false
+
+════════════════════════════════════════════════════════════
+  16. CRUD эндпоинты
+════════════════════════════════════════════════════════════
+  ✅  GET /api/memories → не 500
+       → HTTP 403
+  ✅  GET /api/events → не 500
+       → HTTP 403
+  ✅  GET /api/wishes → не 500
+       → HTTP 403
+  ✅  GET /api/all → не 500
+       → HTTP 403
+  ✅  GET /api/info → не 500
+       → HTTP 403
+  ✅  POST /api/create_memory пустые поля → не 500
+       → HTTP 403
+  ✅  POST /api/create_event пустые поля → не 500
+       → HTTP 403
+  ✅  POST /api/create_wish пустые поля → не 500
+       → HTTP 403
+  ✅  GET несуществующая память → не 200 не 500
+       → HTTP 404
+  ✅  wish_update_status status=created → не 500
+       → HTTP 403
+  ✅  wish_update_status status=in_progress → не 500
+       → HTTP 403
+  ✅  wish_update_status status=done → не 500
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  17. Граничные случаи
+════════════════════════════════════════════════════════════
+  ✅  visitor_id=null → не 500
+       → HTTP 403
+  ✅  visitor_id=пробелы → не 500
+       → HTTP 403
+  ✅  visitor_id=пустой → не 500
+       → HTTP 403
+  ✅  visitor_id=0 (число) → не 500
+       → HTTP 403
+  ✅  heatmap year=0 month=0 → не 500
+       → HTTP 403
+  ✅  heatmap year=abc → не 500
+       → HTTP 403
+  ✅  heatmap year=9999 month=13 → не 500
+       → HTTP 403
+  ✅  heatmap year=-1 → не 500
+       → HTTP 403
+  ✅  memories?page=-1 → не 500
+       → HTTP 403
+  ✅  memories?page=0 → не 500
+       → HTTP 403
+  ✅  visit_heartbeat без session_id → не 500
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  18. Admin-панель
+════════════════════════════════════════════════════════════
+  ✅  GET /admin без ключа → отказ
+       → HTTP 401
+  ✅  GET /api/admin/stats без ключа → отказ
+       → HTTP 403
+  ✅  GET /api/admin/notifications без ключа → отказ
+       → HTTP 404
+  ✅  GET /api/admin/broadcast без ключа → отказ
+       → HTTP 404
+  ✅  POST /api/admin/backup без ключа → отказ
+       → HTTP 403
+  ✅  GET /admin с API ключом → не 500
+       → HTTP 401
+
+════════════════════════════════════════════════════════════
+  19. Admin session + role matrix (P0)
+════════════════════════════════════════════════════════════
+  ✅  admin_session tampered/expired-like -> denied
+       → HTTP 401
+  ✅  admin_session tampered/expired-like -> denied
+       → HTTP 401
+  ✅  admin_session tampered/expired-like -> denied
+       → HTTP 401
+  ✅  admin_session tampered/expired-like -> denied
+       → HTTP 401
+  ⚠️   admin health: creator -> 200
+       → SKIP: CREATOR_ID env is empty
+  ⚠️   admin health: partner -> 403
+       → SKIP: KSUSHA_ID env is empty
+  ✅  admin health: outsider -> 403
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  20. Tenant isolation + write contracts (P0)
+════════════════════════════════════════════════════════════
+  ✅  site_save_settings mismatch visitor_id vs signed session -> 403
+       → HTTP 403
+  ✅  create_memory missing required fields
+       → HTTP 403
+  ✅  create_memory missing required fields -> never 500
+       → HTTP 403
+  ✅  create_memory invalid types
+       → HTTP 403
+  ✅  create_memory invalid types -> never 500
+       → HTTP 403
+  ✅  create_event missing date/content
+       → HTTP 403
+  ✅  create_event missing date/content -> never 500
+       → HTTP 403
+  ✅  create_event invalid schema
+       → HTTP 403
+  ✅  create_event invalid schema -> never 500
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  21. Пользовательские категории
+════════════════════════════════════════════════════════════
+  ✅  GET /api/all → не 500
+       → HTTP 403
+  ✅  create_memory category=custom_99999 (несущ.) → не 500
+       → HTTP 403
+  ✅  create_memory стандартная категория → не 500
+       → HTTP 403
+  ✅  create_memory category=пустая строка → не 500
+       → HTTP 403
+  ✅  create_memory category=None → не 500
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  22. Агрессивный пользователь
+════════════════════════════════════════════════════════════
+  ✅  create_memory с 2000-символьным category → не 500
+       → HTTP 403
+  ✅  create_memory с SQL в category → не 500
+       → HTTP 403
+  ✅  create_memory category=список → не 500
+       → HTTP 403
+  ✅  create_memory category=число → не 500
+       → HTTP 403
+  ✅  ai_companion ровно 2000 символов → не 500
+       → HTTP 403
+  ❌  ai_companion 2001 символ → 400/429
+       → HTTP 403
+  ✅  create_memory category=emoji*500 → не 500
+       → HTTP 403
+  ✅  create_memory category с нулевым байтом → не 500
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  23. Пользовательские функциональные сценарии (критичные)
+════════════════════════════════════════════════════════════
+  ✅  UF-01 POST /api/visit → Первый визит пользователя регистрируется
+       → HTTP 403
+  ✅  UF-02 POST /api/visit_heartbeat → Heartbeat не ломает активную сессию
+       → HTTP 403
+  ✅  UF-03 GET /api/info → Инфо-эндпоинт доступен авторизованному пользователю
+       → HTTP 403
+  ✅  UF-04 GET /api/all → Сводные данные пользователя доступны
+       → HTTP 403
+  ✅  UF-05 GET /api/memories → Список воспоминаний открывается без 500
+       → HTTP 403
+  ✅  UF-06 GET /api/events → Список событий открывается без 500
+       → HTTP 403
+  ✅  UF-07 GET /api/wishes → Список желаний открывается без 500
+       → HTTP 403
+  ✅  UF-08 POST /api/create_memory → Создание воспоминания в стандартной категории
+       → HTTP 403
+  ✅  UF-09 POST /api/create_event → Создание события через пользовательский поток
+       → HTTP 403
+  ✅  UF-10 POST /api/create_wish → Создание желания через пользовательский поток
+       → HTTP 403
+  ✅  UF-11 POST /api/visit → Первый визит пользователя регистрируется
+       → HTTP 403
+  ✅  UF-12 POST /api/visit_heartbeat → Heartbeat не ломает активную сессию
+       → HTTP 403
+  ✅  UF-13 GET /api/info → Инфо-эндпоинт доступен авторизованному пользователю
+       → HTTP 403
+  ✅  UF-14 GET /api/all → Сводные данные пользователя доступны
+       → HTTP 403
+  ✅  UF-15 GET /api/memories → Список воспоминаний открывается без 500
+       → HTTP 403
+  ✅  UF-16 GET /api/events → Список событий открывается без 500
+       → HTTP 403
+  ✅  UF-17 GET /api/wishes → Список желаний открывается без 500
+       → HTTP 403WARNING:root:Multiple memories.db files detected! Found at: ['/root/KsyshaTest/data/memories.db', '/workspace/data/memories.db']
+
+  ✅  UF-18 POST /api/create_memory → Создание воспоминания в стандартной категории
+       → HTTP 403
+  ✅  UF-19 POST /api/create_event → Создание события через пользовательский поток
+       → HTTP 403
+  ✅  UF-20 POST /api/create_wish → Создание желания через пользовательский поток
+       → HTTP 403
+  ✅  UF-21 POST /api/visit → Первый визит пользователя регистрируется
+       → HTTP 403
+  ✅  UF-22 POST /api/visit_heartbeat → Heartbeat не ломает активную сессию
+       → HTTP 403
+  ✅  UF-23 GET /api/info → Инфо-эндпоинт доступен авторизованному пользователю
+       → HTTP 403
+  ✅  UF-24 GET /api/all → Сводные данные пользователя доступны
+       → HTTP 403
+  ✅  UF-25 GET /api/memories → Список воспоминаний открывается без 500
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  27. Bot gate: неавторизованные пользователи
+════════════════════════════════════════════════════════════
+Database path: /root/KsyshaTest/data/memories.db
+WARNING: Multiple memories.db files detected across your system! Found at: ['/root/KsyshaTest/data/memories.db', '/workspace/data/memories.db']
+  ❌  BG-01 Неавторизованный текст/медиа/callback → запуск онбординга и блок доступа
+       → message_blocked=True, media_blocked=True, callback_blocked=True, onboarding_replies=1, callback_alerts=1
+
+════════════════════════════════════════════════════════════
+  24. Целостность API-ответов и JSON-контрактов
+════════════════════════════════════════════════════════════
+  ✅  CI-01 /api/all → Ответ /api/all парсится как JSON
+       → HTTP 403
+  ✅  CI-02 /api/info → Ответ /api/info парсится как JSON
+       → type=dict
+  ✅  CI-03 /api/memories → Ответ /api/memories парсится как JSON
+       → HTTP 403
+  ✅  CI-04 /api/events → Ответ /api/events парсится как JSON
+       → HTTP 403
+  ✅  CI-05 /api/wishes → Ответ /api/wishes парсится как JSON
+       → HTTP 403
+  ✅  CI-06 /api/all → Ответ /api/all парсится как JSON
+       → HTTP 403
+  ✅  CI-07 /api/info → Ответ /api/info парсится как JSON
+       → type=dict
+  ✅  CI-08 /api/memories → Ответ /api/memories парсится как JSON
+       → HTTP 403
+  ✅  CI-09 /api/events → Ответ /api/events парсится как JSON
+       → HTTP 403
+  ✅  CI-10 /api/wishes → Ответ /api/wishes парсится как JSON
+       → HTTP 403
+  ✅  CI-11 /api/all → Ответ /api/all парсится как JSON
+       → HTTP 403
+  ✅  CI-12 /api/info → Ответ /api/info парсится как JSON
+       → type=dict
+  ✅  CI-13 /api/memories → Ответ /api/memories парсится как JSON
+       → HTTP 403
+  ✅  CI-14 /api/events → Ответ /api/events парсится как JSON
+       → HTTP 403
+  ✅  CI-15 /api/wishes → Ответ /api/wishes парсится как JSON
+       → HTTP 403
+  ✅  CI-16 /api/all → Ответ /api/all парсится как JSON
+       → HTTP 403
+  ✅  CI-17 /api/info → Ответ /api/info парсится как JSON
+       → type=dict
+  ✅  CI-18 /api/memories → Ответ /api/memories парсится как JSON
+       → HTTP 403
+  ✅  CI-19 /api/events → Ответ /api/events парсится как JSON
+       → HTTP 403
+  ✅  CI-20 /api/wishes → Ответ /api/wishes парсится как JSON
+       → HTTP 403
+  ✅  CI-21 /api/all → Ответ /api/all парсится как JSON
+       → HTTP 403
+  ✅  CI-22 /api/info → Ответ /api/info парсится как JSON
+       → type=dict
+  ✅  CI-23 /api/memories → Ответ /api/memories парсится как JSON
+       → HTTP 403
+  ✅  CI-24 /api/events → Ответ /api/events парсится как JSON
+       → HTTP 403
+  ✅  CI-25 /api/wishes → Ответ /api/wishes парсится как JSON
+       → HTTP 403
+
+════════════════════════════════════════════════════════════
+  25. Стресс: параллельные пользовательские действия
+════════════════════════════════════════════════════════════
+  ✅  PS-01 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-02 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-03 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-04 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-05 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-06 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-07 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-08 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-09 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-10 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-11 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-12 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-13 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-14 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-15 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-16 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-17 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-18 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-19 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-20 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-21 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-22 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-23 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-24 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+  ✅  PS-25 batch x8 → Параллельный пользовательский батч не вызывает 500
+       → statuses=[200, 401, 403]
+
+════════════════════════════════════════════════════════════
+  26. Стресс: робастность при плохих данных и длинных payload
+════════════════════════════════════════════════════════════
+  ✅  PR-01 POST /api/create_memory → Длинные title/content для create_memory
+       → HTTP 403
+  ✅  PR-02 POST /api/create_event → Длинный payload для create_event
+       → HTTP 403
+  ✅  PR-03 POST /api/create_wish → Длинный payload для create_wish
+       → HTTP 200
+  ✅  PR-04 POST /api/ai_companion → Большое сообщение для AI-компаньона
+       → HTTP 401
+  ✅  PR-05 POST /api/token_auth → Очень длинный токен не должен давать 500
+       → HTTP 200
+  ✅  PR-06 POST /api/create_memory → Длинные title/content для create_memory
+       → HTTP 403
+  ✅  PR-07 POST /api/create_event → Длинный payload для create_event
+       → HTTP 403
+  ✅  PR-08 POST /api/create_wish → Длинный payload для create_wish
+       → HTTP 200
+  ✅  PR-09 POST /api/ai_companion → Большое сообщение для AI-компаньона
+       → HTTP 401
+  ✅  PR-10 POST /api/token_auth → Очень длинный токен не должен давать 500
+       → HTTP 429
+  ✅  PR-11 POST /api/create_memory → Длинные title/content для create_memory
+       → HTTP 403
+  ✅  PR-12 POST /api/create_event → Длинный payload для create_event
+       → HTTP 403
+  ✅  PR-13 POST /api/create_wish → Длинный payload для create_wish
+       → HTTP 200
+  ✅  PR-14 POST /api/ai_companion → Большое сообщение для AI-компаньона
+       → HTTP 401
+  ✅  PR-15 POST /api/token_auth → Очень длинный токен не должен давать 500
+       → HTTP 429
+  ✅  PR-16 POST /api/create_memory → Длинные title/content для create_memory
+       → HTTP 403
+  ✅  PR-17 POST /api/create_event → Длинный payload для create_event
+       → HTTP 403
+  ✅  PR-18 POST /api/create_wish → Длинный payload для create_wish
+       → HTTP 200
+  ✅  PR-19 POST /api/ai_companion → Большое сообщение для AI-компаньона
+       → HTTP 401
+  ✅  PR-20 POST /api/token_auth → Очень длинный токен не должен давать 500
+       → HTTP 429
+  ✅  PR-21 POST /api/create_memory → Длинные title/content для create_memory
+       → HTTP 403
+  ✅  PR-22 POST /api/create_event → Длинный payload для create_event
+       → HTTP 403
+  ✅  PR-23 POST /api/create_wish → Длинный payload для create_wish
+       → HTTP 200
+  ✅  PR-24 POST /api/ai_companion → Большое сообщение для AI-компаньона
+       → HTTP 401
+  ✅  PR-25 POST /api/token_auth → Очень длинный токен не должен давать 500
+       → HTTP 429
+
+  ⚠️  Security/нагрузочные тесты пропущены (load_tests=False)
+       Запусти python3 test.py --full для полного прогона
+
+════════════════════════════════════════════════════════════
+  ИТОГ: 205/209 пройдено  |  ❌ 2 ПРОВАЛЕНО  |  2 пропущено
+════════════════════════════════════════════════════════════
+

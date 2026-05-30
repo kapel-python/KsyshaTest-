@@ -12401,6 +12401,19 @@
           const existingVidBeforeToken = getCookie('visitor_id');
           let shouldConsumeToken = false;
           const authDebugId = Math.random().toString(36).substring(2, 8);
+          let debugState = {
+            id: authDebugId,
+            role_cookie_present: !!existingRoleBeforeToken,
+            vid_cookie_present: !!existingVidBeforeToken,
+            token_check_called: false,
+            token_check_result: null,
+            token_check_match: null,
+            should_consume_token: false,
+            modal_action: null,
+            token_auth_called: false,
+            token_auth_result: null,
+            treated_as: (existingRoleBeforeToken && existingVidBeforeToken) ? "logged-in" : "logged-out"
+          };
           console.log(`[auth-debug:${authDebugId}] Token detected:`, _urlToken.substring(0, 4) + '...');
           console.log(`[auth-debug:${authDebugId}] existingRoleBeforeToken:`, existingRoleBeforeToken);
           console.log(`[auth-debug:${authDebugId}] existingVidBeforeToken:`, existingVidBeforeToken);

@@ -12407,6 +12407,7 @@
 
           if (existingRoleBeforeToken && existingVidBeforeToken) {
             console.log(`[auth-debug:${authDebugId}] Both cookies present, calling /api/token_check`);
+            debugState.token_check_called = true;
             try {
               const checkResp = await fetch('/api/token_check', {
                 method: 'POST',
@@ -12418,6 +12419,8 @@
               
               if (checkResp.ok) {
                 const checkData = await checkResp.json();
+                debugState.token_check_result = checkData.ok;
+                debugState.token_check_match = checkData.match;
                 console.log(`[auth-debug:${authDebugId}] token_check response:`, checkData);
                 
                 if (checkData.ok) {
@@ -12469,11 +12472,13 @@
                     
                     document.getElementById('cancelTokenSwitch').onclick = () => {
                       console.log(`[auth-debug:${authDebugId}] User clicked Cancel in modal`);
+                      debugState.modal_action = 'cancel';
                       document.body.removeChild(overlay);
                       resolve(false);
                     };
                     document.getElementById('confirmTokenSwitch').onclick = () => {
                       console.log(`[auth-debug:${authDebugId}] User clicked Switch in modal`);
+                      debugState.modal_action = 'switch';
                       document.body.removeChild(overlay);
                       resolve(true);
                     };
@@ -12500,6 +12505,7 @@
 
           if (shouldConsumeToken) {
             console.log(`[auth-debug:${authDebugId}] Executing /api/token_auth`);
+            debugState.token_auth_called = true;
             try {
               const _authResp = await fetch('/api/token_auth', {
                 method: 'POST',
@@ -12515,6 +12521,7 @@
               const _authData = await _authResp.json();
               if (_authData && _authData.ok) {
                 console.log(`[auth-debug:${authDebugId}] token_auth success, setting cookies for user_id:`, _authData.user_id);
+                debugState.token_auth_result = 'success';
                 const _vid = String(_authData.user_id);
                 const _role = String(_authData.role || '');
                 setCookie(ROLE_COOKIE_NAME, _role, 365);
@@ -12524,12 +12531,24 @@
                 _setAIAuth(_authData.ai_session || '', _authData.visitor_sig || '');
               } else {
                 console.log(`[auth-debug:${authDebugId}] token_auth returned ok=false`);
+                debugState.token_auth_result = 'failed';
               }
             } catch (e) {
               console.warn('[auth] Не удалось войти по токену:', e);
               console.log(`[auth-debug:${authDebugId}] Exception during token_auth`);
+              debugState.token_auth_result = 'exception';
             }
           }
+
+          debugState.should_consume_token = shouldConsumeToken;
+          try {
+            await fetch('/api/auth_debug_log', {
+              method: 'POST',
+              headers: withOptionalApiKey({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify(debugState),
+              keepalive: true
+            });
+          } catch(e) {}
 
           // Убираем токен из URL без перезагрузки страницы
           _urlParams.delete('token');

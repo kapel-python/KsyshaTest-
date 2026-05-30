@@ -4407,6 +4407,28 @@ async def token_check(request: web.Request) -> web.Response:
         }
     }))
 
+async def auth_debug_log(request: web.Request) -> web.Response:
+    try:
+        payload = await request.json()
+    except Exception:
+        return _add_cors_headers(web.json_response({"ok": False}))
+    
+    debug_id = payload.get("id", "none")
+    logger.info(f"========== AUTH-DEBUG-TRACE [{debug_id}] ==========")
+    logger.info(f"[{debug_id}] Token opening attempt:")
+    logger.info(f"[{debug_id}] - visitor_id cookie present: {payload.get('vid_cookie_present')}")
+    logger.info(f"[{debug_id}] - role cookie present: {payload.get('role_cookie_present')}")
+    logger.info(f"[{debug_id}] - treated as: {payload.get('treated_as')}")
+    logger.info(f"[{debug_id}] - token_check executed: {payload.get('token_check_called')}")
+    logger.info(f"[{debug_id}] - token_check ok: {payload.get('token_check_result')}")
+    logger.info(f"[{debug_id}] - token_check match: {payload.get('token_check_match')}")
+    logger.info(f"[{debug_id}] - modal action: {payload.get('modal_action')}")
+    logger.info(f"[{debug_id}] - final shouldConsumeToken: {payload.get('should_consume_token')}")
+    logger.info(f"[{debug_id}] - token_auth called: {payload.get('token_auth_called')}")
+    logger.info(f"[{debug_id}] - token_auth result: {payload.get('token_auth_result')}")
+    logger.info(f"=====================================================")
+    return _add_cors_headers(web.json_response({"ok": True}))
+
 async def token_auth(request: web.Request) -> web.Response:
     """Проверяет персональный токен пользователя и возвращает его роль.
     Используется для автологина по персональной ссылке из бота.
@@ -7390,6 +7412,8 @@ def create_app() -> web.Application:
     app.router.add_post("/api/token_auth", token_auth)
     app.router.add_route("OPTIONS", "/api/token_check", handle_options)
     app.router.add_post("/api/token_check", token_check)
+    app.router.add_route("OPTIONS", "/api/auth_debug_log", handle_options)
+    app.router.add_post("/api/auth_debug_log", auth_debug_log)
     app.router.add_route("OPTIONS", "/api/site_save_settings", handle_options)
     app.router.add_post("/api/site_save_settings", site_save_settings)
     app.router.add_get("/api/admin/check", admin_check)

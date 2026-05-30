@@ -8034,7 +8034,8 @@
 
       function openSkyPage() {
         const v = ensureVisitorIdForRole() || '';
-        window.location.href = '/sky?v=' + encodeURIComponent(v);
+        const tz = typeof getUserTimezone === 'function' ? getUserTimezone() : '';
+        window.location.href = '/sky?v=' + encodeURIComponent(v) + '&tz=' + encodeURIComponent(tz);
       }
 
       function openStatsPage() {
@@ -8101,7 +8102,13 @@
           const sub = document.getElementById('skyCardSubtitle');
           if (lbl) lbl.textContent = L.cityLabel || 'Город 1';
           if (rbr) rbr.textContent = R.cityLabel || 'Город 2';
-          if (sub) sub.textContent = (L.cityLabel || '?') + ' · ' + (R.cityLabel || '?');
+          if (sub) {
+            if (cfg.sameCity) {
+              sub.textContent = L.cityLabel || '· · ·';
+            } else {
+              sub.textContent = (L.cityLabel || '?') + ' · ' + (R.cityLabel || '?');
+            }
+          }
           // Перерисовываем preview с новыми данными
           _wd.moscow = null; _wd.bishkek = null;
           _fetchWd().then(_drawPreview);
@@ -12388,17 +12395,11 @@
         } catch(e) { alert(_ui('addErrorConnection') + ': ' + e); }
       }
 
-      async function startApp(isNew, storedTheme) {
-
-        // Не блокируем рендер страницы телеметрией визита.
-        logVisit(isNew, storedTheme).catch(() => {});
-
-        await loadAllData();
-
-        // Загружаем SKY_CFG: обновляем карточку «Наше небо» динамически
+      async function updateSkyConfigCard() {
         try {
           const _vid = ensureVisitorIdForRole() || '';
-          const _skyCfgResp = await fetch('/api/sky_cfg?v=' + encodeURIComponent(_vid), {
+          const _tzParam = typeof getUserTimezone === 'function' ? getUserTimezone() : '';
+          const _skyCfgResp = await fetch('/api/sky_cfg?v=' + encodeURIComponent(_vid) + '&tz=' + encodeURIComponent(_tzParam) + '&_ts=' + Date.now(), {
             headers: {},
             credentials: 'include',
           });
@@ -12490,6 +12491,17 @@
             }
           }
         } catch (e) { /* не критично — блок останется видимым */ }
+      }
+
+      async function startApp(isNew, storedTheme) {
+
+        // Не блокируем рендер страницы телеметрией визита.
+        logVisit(isNew, storedTheme).catch(() => {});
+
+        await loadAllData();
+
+        // Загружаем SKY_CFG: обновляем карточку «Наше небо» динамически
+        await updateSkyConfigCard();
 
         initCollapsibles();
 
@@ -15677,6 +15689,9 @@
       }
       if (tzChanged) {
         loadAllData();
+        if (typeof updateSkyConfigCard === 'function') {
+          updateSkyConfigCard();
+        }
       }
     } else {
       applyI18n(_stgState.lang);

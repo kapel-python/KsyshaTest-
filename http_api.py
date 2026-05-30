@@ -4050,7 +4050,12 @@ def _build_sky_cfg(request: web.Request) -> dict:
         return _default(has_couple=False)
 
     partner_id = u2 if u1 == uid else u1
-    my_tz      = _db.get_user_setting(uid, "timezone") or "UTC"
+    tz_mode = _db.get_user_setting(uid, "website_timezone_mode") or "auto"
+    req_tz  = (request.rel_url.query.get("tz") or "").strip()
+    if tz_mode == "auto" and req_tz and req_tz != "__bot__":
+        my_tz = req_tz
+    else:
+        my_tz = _db.get_user_setting(uid, "timezone") or "UTC"
     partner_tz = _db.get_user_setting(partner_id, "timezone") or "UTC"
 
     lang = (request.rel_url.query.get("lang") or "").strip()[:2] or "ru"
@@ -4119,11 +4124,16 @@ def _sky_cfg_from_cities(left: dict, right: dict,
 async def api_sky_cfg(request: web.Request) -> web.Response:
     """GET /api/sky_cfg — возвращает SKY_CFG для текущего пользователя в JSON."""
     cfg = _build_sky_cfg(request)
-    return web.Response(
+    resp = web.Response(
         text=json.dumps(cfg, ensure_ascii=False),
         content_type="application/json",
         charset="utf-8",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            "Pragma": "no-cache",
+        },
     )
+    return _add_cors_headers(resp)
 
 
 async def sky_page(request: web.Request) -> web.Response:

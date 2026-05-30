@@ -20,7 +20,7 @@ API_CHAT_URL = "https://gptunnel.ru/v1/chat/completions"
 
 API_BALANCE_URL = "https://gptunnel.ru/v1/balance"
 
-MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "deepseek-v4-flash"
+MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "qwen3-8b"
 
 # ── Компактная сериализация данных для промпта ─────────────────────────────
 
@@ -194,7 +194,7 @@ def _auth_header_value() -> str:
     key = (API_KEY or "").strip()
     if key.lower().startswith("bearer "):
         return key
-    return key
+    return f"Bearer {key}"
 
 def _send_messages(
     messages: List[Dict[str, str]],

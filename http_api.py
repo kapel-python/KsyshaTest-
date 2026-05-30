@@ -3829,13 +3829,7 @@ async def admin_page(request: web.Request) -> web.Response:
             content_type="text/html", charset="utf-8", status=401
         )
 
-
-    try:
-        with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"SERVER: GET / requested from {request.headers.get('User-Agent', '')}\n")
-    except:
-        pass
-\n    project_root = Path(__file__).resolve().parent
+    project_root = Path(__file__).resolve().parent
     admin_path = project_root / "admin.html"
     if not admin_path.exists():
         return web.Response(text="admin.html not found", status=404)
@@ -4119,13 +4113,7 @@ async def sky_page(request: web.Request) -> web.Response:
     """Отдаёт страницу /sky (sky.html). Требует зарегистрированную пару."""
     if not _get_registered_couple(request):
         raise web.HTTPFound("/404")
-
-    try:
-        with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"SERVER: GET / requested from {request.headers.get('User-Agent', '')}\n")
-    except:
-        pass
-\n    project_root = Path(__file__).resolve().parent
+    project_root = Path(__file__).resolve().parent
     sky_path = project_root / "sky.html"
     if not sky_path.exists():
         return web.Response(text="sky.html not found", status=404)
@@ -4728,13 +4716,7 @@ def _render_maintenance_page() -> str:
 
     """Рендер страницы технического перерыва с реальными данными из БД."""
 
-
-    try:
-        with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"SERVER: GET / requested from {request.headers.get('User-Agent', '')}\n")
-    except:
-        pass
-\n    project_root = Path(__file__).resolve().parent
+    project_root = Path(__file__).resolve().parent
 
     maintenance_path = project_root / "maintenance.html"
 
@@ -4801,14 +4783,13 @@ def _render_maintenance_page() -> str:
 async def index(request: web.Request) -> web.StreamResponse:
 
     """Отдаёт главную страницу или страницу технического перерыва (если включена тест версия)."""
-
-
     try:
-        with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"SERVER: GET / requested from {request.headers.get('User-Agent', '')}\n")
+        with open("/app/frontend_debug.log", "a", encoding="utf-8") as f:
+            f.write("SERVER: GET / requested\n")
     except:
         pass
-\n    project_root = Path(__file__).resolve().parent
+
+    project_root = Path(__file__).resolve().parent
 
     if db.get_setting("test_version") == "1":
 
@@ -4840,13 +4821,7 @@ async def index(request: web.Request) -> web.StreamResponse:
 
 async def not_found_page(request: web.Request) -> web.Response:
     """Отдаёт 404.html с подставленным именем бота."""
-
-    try:
-        with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"SERVER: GET / requested from {request.headers.get('User-Agent', '')}\n")
-    except:
-        pass
-\n    project_root = Path(__file__).resolve().parent
+    project_root = Path(__file__).resolve().parent
     page_path = project_root / "404.html"
     if not page_path.exists():
         return web.Response(text="404 — page not found", status=404)
@@ -4984,13 +4959,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     if not _stats_uid or not db.get_couple_by_user(_stats_uid):
         raise web.HTTPFound("/404")
 
-
-    try:
-        with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"SERVER: GET / requested from {request.headers.get('User-Agent', '')}\n")
-    except:
-        pass
-\n    project_root = Path(__file__).resolve().parent
+    project_root = Path(__file__).resolve().parent
 
     stats_path = project_root / "stats.html"
 
@@ -6913,13 +6882,7 @@ async def upload_avatar(request: web.Request) -> web.Response:
                 declared_visitor_id = (await field.read(decode=True)).decode("utf-8", errors="ignore").strip() or None
             elif field.name == "file":
                 filename = (field.filename or "avatar.jpg").strip()
-            
-    try:
-        with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"SERVER: GET / requested from {request.headers.get('User-Agent', '')}\n")
-    except:
-        pass
-\n    project_root = Path(__file__).resolve().parent
+                project_root = Path(__file__).resolve().parent
                 save_dir = project_root / "media" / "avatars"
                 save_dir.mkdir(parents=True, exist_ok=True)
                 saved_temp_path = save_dir / f".avatar_upload_tmp_{secrets.token_hex(8)}"
@@ -6954,13 +6917,7 @@ async def upload_avatar(request: web.Request) -> web.Response:
             return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
         # Determine save directory
-    
-    try:
-        with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
-            f.write(f"SERVER: GET / requested from {request.headers.get('User-Agent', '')}\n")
-    except:
-        pass
-\n    project_root = Path(__file__).resolve().parent
+        project_root = Path(__file__).resolve().parent
         save_dir = project_root / "media" / "avatars"
         save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -7436,17 +7393,17 @@ def create_app() -> web.Application:
     app.router.add_get("/media/avatars/{filename}", serve_avatar)
     # Client logger
     app.router.add_route("OPTIONS", "/api/log", handle_options)
-    
     async def nav_debug(request):
         try:
             data = await request.json()
-            with open("/root/KsyshaTest/frontend_debug.log", "a", encoding="utf-8") as f:
+            with open("/app/frontend_debug.log", "a", encoding="utf-8") as f:
                 f.write(f"NAV_DEBUG: {data}\n")
         except:
             pass
         return web.Response(text="ok")
     app.router.add_post("/api/nav_debug", nav_debug)
-\n    app.router.add_post("/api/log", client_log)
+
+    app.router.add_post("/api/log", client_log)
     app.router.add_get("/logger.js", serve_logger_js)
 
     # Stars endpoints

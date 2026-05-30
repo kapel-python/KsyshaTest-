@@ -12415,47 +12415,7 @@
         // Проверяем праздничные анимации (для всех авторизованных)
         setTimeout(checkPendingCelebration, 2200);
 
-        if (_curRole === 'admin' || _curRole === 'creator') {
-          // --- START DIAGNOSTIC ---
-          const diag = document.createElement('div');
-          diag.style.position = 'fixed';
-          diag.style.bottom = '10px';
-          diag.style.left = '10px';
-          diag.style.backgroundColor = 'rgba(0,0,0,0.85)';
-          diag.style.color = '#00ff00';
-          diag.style.padding = '12px';
-          diag.style.fontFamily = 'monospace';
-          diag.style.fontSize = '14px';
-          diag.style.zIndex = '9999999';
-          diag.style.borderRadius = '8px';
-          diag.style.pointerEvents = 'none';
-          diag.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
-          
-          diag.innerHTML = `
-            <div style="font-weight:bold; margin-bottom:4px; color:#fff;">Auth Diagnostic</div>
-            <div>visitor_id (cookie): ${getCookie('visitor_id') || 'none'}</div>
-            <div>role (cookie): ${_curRole || 'none'}</div>
-            <div id="diagBackendInfo" style="margin-top: 4px; border-top: 1px solid #333; padding-top: 4px; color:#aaa;">Loading backend identity...</div>
-          `;
-          document.body.appendChild(diag);
-          
-          fetch('/api/diag_auth_status', { headers: withOptionalApiKey({}) })
-            .then(r => r.json())
-            .then(data => {
-              const el = document.getElementById('diagBackendInfo');
-              if (el) {
-                el.style.color = '#00ffff';
-                el.innerHTML = `
-                  <div>backend user_id: ${data.backend_user_id || 'none'}</div>
-                  <div>backend name: ${data.backend_name || 'Unknown'}</div>
-                `;
-              }
-            }).catch(e => {
-              const el = document.getElementById('diagBackendInfo');
-              if (el) el.innerHTML = '<span style="color:red">Failed to load</span>';
-            });
-          // --- END DIAGNOSTIC ---
-        }
+
 
       }
 
@@ -12815,15 +12775,15 @@
             wrap.appendChild(paramsTitle);
 
             const PARAMS = [
-              ['{days_together}',        ''],
-              ['{time_together}',        ''],
-              ['{days_until_anniversary}',''],
-              ['{anniversary_date}',     ''],
-              ['{day_of_week}',          ''],
-              ['{season}',               ''],
-              ['{time_greeting}',        ''],
-              ['{month_name}',           ''],
-              ['{day_of_month}',         ''],
+              ['{days_together}',        _ui('descDaysTogether')],
+              ['{time_together}',        _ui('descTimeTogether')],
+              ['{days_until_anniversary}',_ui('descDaysUntilAnniversary')],
+              ['{anniversary_date}',     _ui('descAnniversaryDate')],
+              ['{day_of_week}',          _ui('descDayOfWeek')],
+              ['{season}',               _ui('descSeason')],
+              ['{time_greeting}',        _ui('descTimeGreeting')],
+              ['{month_name}',           _ui('descMonthName')],
+              ['{day_of_month}',         _ui('descDayOfMonth')],
             ];
             const paramsList = _mkEl('div');
             paramsList.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:12px;';
@@ -13323,8 +13283,19 @@
               resolvedGrp.appendChild(resolvedBox);
               fields.appendChild(resolvedGrp);
 
+              const hasTemplateVariable = (text) => {
+                if (!text) return false;
+                const vars = ['{days_together}', '{time_together}', '{days_until_anniversary}', '{anniversary_date}', '{day_of_week}', '{season}', '{time_greeting}', '{month_name}', '{day_of_month}'];
+                return vars.some(v => text.includes(v));
+              };
+
               let resolveTimer = null;
               window._addUpdateResolvedPreview = async () => {
+                const text = state.data.content || '';
+                const show = hasTemplateVariable(text);
+                resolvedGrp.style.display = show ? 'block' : 'none';
+                if (!show) return;
+
                 if (resolveTimer) clearTimeout(resolveTimer);
                 resolveTimer = setTimeout(async () => {
                   const vid = ensureVisitorIdForRole() || '';
@@ -14118,6 +14089,15 @@
       monthOct:      'октября',
       monthNov:      'ноября',
       monthDec:      'декабря',
+      descDaysTogether: 'число дней вместе',
+      descTimeTogether: 'сколько мы вместе',
+      descDaysUntilAnniversary: 'дней до годовщины',
+      descAnniversaryDate: 'дата годовщины',
+      descDayOfWeek: 'день недели',
+      descSeason: 'время года',
+      descTimeGreeting: 'приветствие по времени суток',
+      descMonthName: 'название текущего месяца',
+      descDayOfMonth: 'число месяца',
       catImportantMoments: '💫 Важные моменты',
       catMemories:         '📖 Воспоминания',
       catDates:            '📅 Важные даты',
@@ -14210,6 +14190,15 @@
       monthOct:      'Oktober',
       monthNov:      'November',
       monthDec:      'Dezember',
+      descDaysTogether: 'Anzahl der gemeinsamen Tage',
+      descTimeTogether: 'gesamte Zeit zusammen',
+      descDaysUntilAnniversary: 'Tage bis zum nächsten Jahrestag',
+      descAnniversaryDate: 'Datum des nächsten Jahrestags',
+      descDayOfWeek: 'aktueller Wochentag',
+      descSeason: 'aktuelle Jahreszeit',
+      descTimeGreeting: 'Begrüßung je nach Tageszeit',
+      descMonthName: 'aktueller Monatsname',
+      descDayOfMonth: 'aktueller Tag des Monats',
       catImportantMoments: '💫 Wichtige Momente',
       catMemories:         '📖 Erinnerungen',
       catDates:            '📅 Wichtige Daten',
@@ -14302,6 +14291,15 @@
       monthOct:      'October',
       monthNov:      'November',
       monthDec:      'December',
+      descDaysTogether: 'number of days together',
+      descTimeTogether: 'total time together',
+      descDaysUntilAnniversary: 'days until next anniversary',
+      descAnniversaryDate: 'next anniversary date',
+      descDayOfWeek: 'current day of week',
+      descSeason: 'current season',
+      descTimeGreeting: 'greeting based on time of day',
+      descMonthName: 'current month name',
+      descDayOfMonth: 'current day of month',
       catImportantMoments: '💫 Important moments',
       catMemories:         '📖 Memories',
       catDates:            '📅 Important dates',

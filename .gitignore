@@ -19,7 +19,7 @@ media/
 *.db
 *.db-shm
 *.db-wal
-backups/*.log
+backups/
 
 # IDE and AI tool directories
 .claude/

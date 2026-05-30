@@ -6032,8 +6032,18 @@ async def admin_create_release(callback: CallbackQuery, state: FSMContext):
     from app_version import get_git_status_info
     status_info = get_git_status_info()
     
-    # Safety: If repository is clean, show "Нет изменений для создания релиза."
-    if status_info.get("is_clean", True):
+    is_clean = status_info.get("is_clean", True)
+    history = db.get_version_history()
+    last_release_commit = history[0].get("git_commit") if history else None
+    current_commit = status_info.get("commit")
+    has_new_commits = False
+    if current_commit and last_release_commit:
+        current_commit_short = current_commit[:7]
+        last_release_short = last_release_commit[:7]
+        has_new_commits = current_commit_short != last_release_short
+
+    # Safety: Block release creation only when repository is clean AND HEAD commit equals last released commit
+    if is_clean and not has_new_commits:
         await callback_edit_or_answer(
             callback,
             "ℹ️ Нет изменений для создания релиза.",
@@ -6174,7 +6184,17 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
             raise Exception("Ветка репозитория не определена.")
             
         # 3. Verify there are changes to commit
-        if status_info.get("is_clean", True):
+        is_clean = status_info.get("is_clean", True)
+        history = db.get_version_history()
+        last_release_commit = history[0].get("git_commit") if history else None
+        current_commit = status_info.get("commit")
+        has_new_commits = False
+        if current_commit and last_release_commit:
+            current_commit_short = current_commit[:7]
+            last_release_short = last_release_commit[:7]
+            has_new_commits = current_commit_short != last_release_short
+
+        if is_clean and not has_new_commits:
             await callback_edit_or_answer(callback,
                 "ℹ️ Нет изменений для создания релиза.",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[

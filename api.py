@@ -707,7 +707,7 @@ def parse_date_with_ai(user_input: str, datetime_context: str) -> str:
     try:
 
         # Для распознавания дат важнее быстрый ответ, чем долгий подвисший запрос.
-        result = send_prompt(prompt, timeout_seconds=25)
+        result = send_prompt(prompt, timeout_seconds=25, model=DATE_PARSER_MODEL)
 
         result = (result or "").strip()
 
@@ -752,7 +752,7 @@ def parse_timezone_with_ai_details(user_input: str) -> Dict[str, str]:
         "Только JSON, без пояснений и markdown."
     )
     try:
-        result = send_prompt(prompt)
+        result = send_prompt(prompt, model=DATE_PARSER_MODEL)
         result = (result or "").strip()
         if result.startswith("```"):
             lines = result.splitlines()

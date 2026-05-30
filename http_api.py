@@ -4358,6 +4358,51 @@ async def check_site_password(request: web.Request) -> web.Response:
     return _add_cors_headers(web.json_response({"ok": False, "error": "disabled"}, status=410))
 
 
+async def token_check(request: web.Request) -> web.Response:
+    """Проверяет чей токен (не расходуя его).
+    POST /api/token_check  { "token": "...", "current_visitor_id": "123" }
+    """
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict): payload = {}
+    except Exception:
+        payload = {}
+
+    token = _pstr(payload.get("token")).strip()
+    if not token:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "empty"}))
+
+    token_data = db.peek_user_login_token(token)
+    if not token_data:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid"}))
+
+    token_user_id = token_data["user_id"]
+    token_user_info = db.get_user(token_user_id) or {}
+    
+    current_vid = _pstr(payload.get("current_visitor_id")).strip()
+    current_user_info = {}
+    if current_vid and current_vid.isdigit():
+        current_user_info = db.get_user(int(current_vid)) or {}
+
+    def _format_name(u: dict, default: str) -> str:
+        fn = u.get("first_name") or ""
+        ln = u.get("last_name") or ""
+        un = u.get("username") or ""
+        return (fn + " " + ln).strip() or fn or ("@" + un if un else "") or default
+
+    return _add_cors_headers(web.json_response({
+        "ok": True,
+        "match": current_vid == str(token_user_id),
+        "token_user": {
+            "id": token_user_id,
+            "name": _format_name(token_user_info, f"User {token_user_id}")
+        },
+        "current_user": {
+            "id": current_vid,
+            "name": _format_name(current_user_info, f"User {current_vid}") if current_vid else ""
+        }
+    }))
+
 async def token_auth(request: web.Request) -> web.Response:
     """Проверяет персональный токен пользователя и возвращает его роль.
     Используется для автологина по персональной ссылке из бота.
@@ -7335,6 +7380,8 @@ def create_app() -> web.Application:
     app.router.add_post("/api/check_site_password", check_site_password)
     app.router.add_route("OPTIONS", "/api/token_auth", handle_options)
     app.router.add_post("/api/token_auth", token_auth)
+    app.router.add_route("OPTIONS", "/api/token_check", handle_options)
+    app.router.add_post("/api/token_check", token_check)
     app.router.add_route("OPTIONS", "/api/site_save_settings", handle_options)
     app.router.add_post("/api/site_save_settings", site_save_settings)
     app.router.add_get("/api/admin/check", admin_check)

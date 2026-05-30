@@ -1305,6 +1305,42 @@ class Database:
             logger.exception(f"Ошибка consume login-token: {e}")
             return None
 
+    def peek_user_login_token(self, token: str) -> Optional[dict]:
+        """
+        Только проверяет чей это токен, не расходуя его.
+        Возвращает {user_id, role} при успехе, иначе None.
+        """
+        if not token:
+            return None
+        token_hash = self._hash_login_token(token)
+        now_utc = datetime.now(timezone.utc)
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    """
+                    SELECT user_id, role, expires_at_utc, used_at_utc, is_revoked
+                    FROM user_login_tokens
+                    WHERE token_hash = ?
+                    LIMIT 1
+                    """,
+                    (token_hash,),
+                ).fetchone()
+                if not row:
+                    return None
+                if row["is_revoked"] or row["used_at_utc"]:
+                    return None
+                try:
+                    exp_dt = datetime.strptime((row["expires_at_utc"] or "")[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                    if exp_dt < now_utc:
+                        return None
+                except Exception:
+                    return None
+                
+                return {"user_id": row["user_id"], "role": row["role"] or "user"}
+        except Exception as e:
+            logger.exception(f"Ошибка peek login-token: {e}")
+            return None
+
     def get_or_create_user_token(self, user_id: int, role: str = "user") -> str:
         """Совместимость: выдаёт новый login-token с комфортным TTL для ссылки из бота."""
         return self.issue_user_login_token(user_id, role=role, ttl_seconds=43200)

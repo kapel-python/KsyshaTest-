@@ -1775,6 +1775,7 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
             "user": wishes_user,
             "partner": wishes_partner,
         },
+        "user_settings": data.get("user_settings"),
         "deferred": {
             "memories": {"page": page, "limit": limit, "total": len(all_memories), "has_more": (mem_start + limit) < len(all_memories)},
             "events": {"page": 1, "limit": evt_limit, "total": len(all_events), "has_more": evt_limit < len(all_events)},

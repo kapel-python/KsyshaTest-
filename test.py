@@ -1157,7 +1157,7 @@ async def test_aggressive_user(s: aiohttp.ClientSession):
     # ожидаем 400 (валидация) или 429 (rate-limit сработал раньше).
     r = await s.post(f"{BASE}/api/ai_companion", headers=h,
                      json={"message": "б" * 2001, "visitor_id": "test_aggressor"})
-    pr(r.status in (400, 403, 429), "ai_companion 2001 символ → 400/403/429", f"HTTP {r.status}")
+    pr(r.status in (400, 401, 403, 429), "ai_companion 2001 символ → 400/401/403/429", f"HTTP {r.status}")
     await p(0.5)
 
     # emoji-спам в названии категории

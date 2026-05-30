@@ -7052,7 +7052,11 @@
             const count = header.dataset.count;
 
             if (open) {
-              _onSectionOpenedDeferred(targetId);
+              _onSectionOpenedDeferred(targetId).then(() => {
+                if (target.classList.contains('open')) {
+                  target.style.maxHeight = 'none';
+                }
+              });
 
               target.classList.add('open');
 

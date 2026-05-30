@@ -21,6 +21,8 @@ API_CHAT_URL = "https://gptunnel.ru/v1/chat/completions"
 API_BALANCE_URL = "https://gptunnel.ru/v1/balance"
 
 MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "qwen3-14b"
+DATE_PARSER_MODEL = "qwen3-14b"
+COMPANION_MODEL = "gpt-5.4-nano"
 
 # ── Компактная сериализация данных для промпта ─────────────────────────────
 
@@ -200,6 +202,7 @@ def _send_messages(
     messages: List[Dict[str, str]],
     timeout_seconds: int = 40,
     retries_on_timeout: int = 0,
+    model: str | None = None,
 ) -> str:
 
     """
@@ -216,9 +219,11 @@ def _send_messages(
 
     }
 
+    model_to_use = model or MODEL
+
     data = {
 
-        "model": MODEL,
+        "model": model_to_use,
 
         "messages": messages,
 
@@ -234,7 +239,7 @@ def _send_messages(
 
     logger.info(
 
-        "AI request: model=%s, messages=%d", MODEL, len(messages)
+        "AI request: model=%s, messages=%d", model_to_use, len(messages)
 
     )
     if not API_KEY:
@@ -290,7 +295,7 @@ def _send_messages(
         raise last_timeout_exc
     raise RuntimeError("AI request failed without explicit exception")
 
-def _send_messages_stream(messages: List[Dict[str, str]]):
+def _send_messages_stream(messages: List[Dict[str, str]], model: str | None = None):
 
     """
 
@@ -310,9 +315,11 @@ def _send_messages_stream(messages: List[Dict[str, str]]):
 
     }
 
+    model_to_use = model or MODEL
+
     data = {
 
-        "model": MODEL,
+        "model": model_to_use,
 
         "messages": messages,
 
@@ -330,7 +337,7 @@ def _send_messages_stream(messages: List[Dict[str, str]]):
 
     started_at = time.monotonic()
 
-    logger.info("AI stream request: model=%s, messages=%d", MODEL, len(messages))
+    logger.info("AI stream request: model=%s, messages=%d", model_to_use, len(messages))
 
     response = requests.post(
 
@@ -456,7 +463,7 @@ def _send_messages_stream(messages: List[Dict[str, str]]):
 
     logger.info("AI stream completed in %.3fs", elapsed)
 
-def send_prompt(prompt: str, timeout_seconds: int = 40) -> str:
+def send_prompt(prompt: str, timeout_seconds: int = 40, model: str | None = None) -> str:
 
     """Старый интерфейс: один prompt без истории (используется для распознавания дат)."""
 
@@ -468,7 +475,9 @@ def send_prompt(prompt: str, timeout_seconds: int = 40) -> str:
 
     ]
 
-    return _send_messages(messages, timeout_seconds=timeout_seconds)
+    model_to_use = model or DATE_PARSER_MODEL
+
+    return _send_messages(messages, timeout_seconds=timeout_seconds, model=model_to_use)
 
 _RU_MONTH_VARIANTS = {
     "января": 1, "январь": 1,
@@ -1324,7 +1333,7 @@ def ask_companion(
 
         )
 
-        raw_reply = _send_messages(messages, timeout_seconds=40, retries_on_timeout=1)
+        raw_reply = _send_messages(messages, timeout_seconds=40, retries_on_timeout=1, model=COMPANION_MODEL)
 
         reply = (raw_reply or "").strip() or "Не смог ответить, попробуй ещё раз"
 
@@ -1399,6 +1408,7 @@ def route_companion_request(
             router_messages,
             timeout_seconds=router_timeout_seconds,
             retries_on_timeout=1,
+            model=COMPANION_MODEL,
         )
         or ""
     ).strip()
@@ -1538,7 +1548,7 @@ def ask_companion_stream(
                 router_msgs.append({"role": "user", "content": user_text})
 
             raw_router = (
-                _send_messages(router_msgs, timeout_seconds=40, retries_on_timeout=1) or ""
+                _send_messages(router_msgs, timeout_seconds=40, retries_on_timeout=1, model=COMPANION_MODEL) or ""
             ).strip()
             router_obj = None
             if raw_router.startswith("{") and raw_router.endswith("}"):
@@ -1617,7 +1627,7 @@ def ask_companion_stream(
 
     TAIL_SIZE = 120
 
-    for chunk in _send_messages_stream(messages):
+    for chunk in _send_messages_stream(messages, model=COMPANION_MODEL):
 
         full_reply += chunk
 

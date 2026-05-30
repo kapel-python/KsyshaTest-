@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.56'
-description = 'V3 (возможно пофикшен баг с тем что сайт считает устройство одобренным и показывает модалку только 1 раз)'
+version = '1.0.57'
+description = 'V4 (попытка фикса)'
 
 
 def get_version_metadata() -> tuple[str, str]:

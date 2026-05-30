@@ -5303,6 +5303,98 @@
         return tr[key] || I18N.ru[key] || key;
       }
 
+      function parseUtcDate(str) {
+        if (!str) return null;
+        let iso = str.trim();
+        if (iso.length === 10) {
+          iso += 'T00:00:00Z';
+        } else {
+          if (iso.indexOf('T') === -1) {
+            iso = iso.replace(' ', 'T');
+          }
+          if (!iso.endsWith('Z') && iso.indexOf('+') === -1 && iso.indexOf('-') === -1) {
+            iso += 'Z';
+          }
+        }
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? null : d;
+      }
+
+      function formatDateTimeLocal(utcStr) {
+        if (!utcStr) return '';
+        const d = parseUtcDate(utcStr);
+        if (!d) return utcStr;
+        const lang = (_stgState && _stgState.lang) || 'ru';
+        const day = d.getDate();
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const timeStr = hours + ':' + minutes;
+        const monthKey = 'month' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+        const monthName = _i(monthKey);
+        const atWord = _i('atWord');
+        if (lang === 'en') {
+          return monthName + ' ' + day + ', ' + year + ' ' + atWord + ' ' + timeStr;
+        } else if (lang === 'de') {
+          return day + '. ' + monthName + ' ' + year + ' ' + atWord + ' ' + timeStr;
+        } else {
+          return day + ' ' + monthName + ' ' + year + ' ' + atWord + ' ' + timeStr;
+        }
+      }
+
+      function formatRelativeTimeLocal(utcStr) {
+        if (!utcStr) return '';
+        const d = parseUtcDate(utcStr);
+        if (!d) return utcStr;
+        const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+        if (diff < 60) {
+          return _i('justNow');
+        }
+        if (diff < 3600) {
+          const m = Math.floor(diff / 60);
+          return _i('minAgo').replace('{n}', m);
+        }
+        if (diff < 86400) {
+          const h = Math.floor(diff / 3600);
+          return _i('hourAgo').replace('{n}', h);
+        }
+        if (diff < 172800) {
+          return _i('yesterday');
+        }
+        if (diff < 86400 * 7) {
+          const days = Math.floor(diff / 86400);
+          return _i('dayAgo').replace('{n}', days);
+        }
+        if (diff < 86400 * 30) {
+          const weeks = Math.floor(diff / (86400 * 7));
+          return _i('weekAgo').replace('{n}', weeks);
+        }
+        if (diff < 86400 * 365) {
+          const months = Math.floor(diff / (86400 * 30));
+          return _i('monthAgo').replace('{n}', months);
+        }
+        const years = Math.floor(diff / (86400 * 365));
+        return _i('yearAgo').replace('{n}', years);
+      }
+
+      function renderMetaElement(metaDiv) {
+        const who = metaDiv.dataset.who || '';
+        const createdAt = metaDiv.dataset.createdAt || '';
+        const updatedAt = metaDiv.dataset.updatedAt || '';
+        let metaHtml = '';
+        if (who) {
+          metaHtml += _i('metaAddedBy') + ' ' + escapeHtml(who);
+        }
+        if (createdAt) {
+          if (metaHtml) metaHtml += '<br>';
+          metaHtml += _i('metaAdded') + ' ' + escapeHtml(formatDateTimeLocal(createdAt));
+          if (updatedAt && updatedAt !== createdAt) {
+            metaHtml += ' ' + _i('metaEdited') + ' ' + escapeHtml(formatDateTimeLocal(updatedAt));
+          }
+        }
+        metaDiv.innerHTML = metaHtml;
+      }
+
       const _photoPreloadPromiseByUrl = new Map();
       const _recentPhotoCacheKey = 'recent_photo_cache_v1';
       const _recentPhotoCachedSet = (() => {
@@ -6482,31 +6574,11 @@
         }
 
         const metaDiv = document.createElement('div');
-
         metaDiv.className = 'meta';
-
-        const who = m.display_name || (m.first_name ? (m.last_name ? m.first_name + ' ' + m.last_name : m.first_name) : null) || (m.username ? '@' + m.username : null) || '';
-
-        const createdHuman = m.created_human || m.created_at;
-
-        const updatedHuman = m.updated_human || m.updated_at;
-
-        let metaHtml = _i('metaAddedBy') + ' ' + escapeHtml(who);
-
-        if (createdHuman) {
-
-          metaHtml += '<br>' + _i('metaAdded') + ' ' + escapeHtml(createdHuman);
-
-          if (updatedHuman && updatedHuman !== createdHuman) {
-
-            metaHtml += ' ' + _i('metaEdited') + ' ' + escapeHtml(updatedHuman);
-
-          }
-
-        }
-
-        metaDiv.innerHTML = metaHtml;
-
+        metaDiv.dataset.who = m.display_name || (m.first_name ? (m.last_name ? m.first_name + ' ' + m.last_name : m.first_name) : null) || (m.username ? '@' + m.username : null) || '';
+        metaDiv.dataset.createdAt = m.created_at || '';
+        metaDiv.dataset.updatedAt = m.updated_at || '';
+        renderMetaElement(metaDiv);
         div.appendChild(metaDiv);
 
         return div;
@@ -6602,36 +6674,12 @@
         }
 
         const metaDiv = document.createElement('div');
-
         metaDiv.className = 'meta';
-
-        const createdHuman = e.created_human || e.created_at;
-
-        const who = e.display_name || (e.first_name ? (e.last_name ? e.first_name + ' ' + e.last_name : e.first_name) : null) || (e.username ? '@' + e.username : null) || '';
-
-        let metaHtml = '';
-
-        if (who) {
-
-          metaHtml += _i('metaAddedBy') + ' ' + escapeHtml(who);
-
-        }
-
-        if (createdHuman) {
-
-          if (metaHtml) metaHtml += '<br>';
-
-          metaHtml += _i('metaAdded') + ' ' + escapeHtml(createdHuman);
-
-        }
-
-        if (metaHtml) {
-
-          metaDiv.innerHTML = metaHtml;
-
-          div.appendChild(metaDiv);
-
-        }
+        metaDiv.dataset.who = e.display_name || (e.first_name ? (e.last_name ? e.first_name + ' ' + e.last_name : e.first_name) : null) || (e.username ? '@' + e.username : null) || '';
+        metaDiv.dataset.createdAt = e.created_at || '';
+        metaDiv.dataset.updatedAt = e.updated_at || '';
+        renderMetaElement(metaDiv);
+        div.appendChild(metaDiv);
 
         return div;
 
@@ -6919,13 +6967,11 @@
         // Дата — ВНИЗУ, после медиа
         const metaDiv = document.createElement('div');
         metaDiv.className = 'meta';
-        const createdHuman = w.created_human || w.created_at;
-        const updatedHuman = w.updated_human || w.updated_at;
-        let metaHtml = '';
-        if (createdHuman) metaHtml += _i('metaAdded') + ' ' + escapeHtml(createdHuman);
-        if (updatedHuman && createdHuman && updatedHuman !== createdHuman)
-          metaHtml += ' ' + _i('metaEdited') + ' ' + escapeHtml(updatedHuman);
-        if (metaHtml) { metaDiv.innerHTML = metaHtml; div.appendChild(metaDiv); }
+        metaDiv.dataset.who = '';
+        metaDiv.dataset.createdAt = w.created_at || '';
+        metaDiv.dataset.updatedAt = w.updated_at || '';
+        renderMetaElement(metaDiv);
+        div.appendChild(metaDiv);
 
         return div;
       }
@@ -10517,11 +10563,9 @@
                 topRow.appendChild(firstChild);
 
                 const agoSpan = document.createElement('span');
-
                 agoSpan.className = 'memory-ago';
-
-                agoSpan.textContent = agoStr;
-
+                agoSpan.dataset.createdAt = (la.item && la.item.created_at) || '';
+                agoSpan.textContent = formatRelativeTimeLocal((la.item && la.item.created_at) || '');
                 topRow.appendChild(agoSpan);
 
                 cardEl.insertBefore(topRow, cardEl.firstChild);
@@ -14053,6 +14097,27 @@
       metaAddedBy:   '👤 Добавил(а):',
       metaAdded:     '📌 Добавлено:',
       metaEdited:    '• отредактировано:',
+      justNow:       'только что',
+      minAgo:        '{n} мин назад',
+      hourAgo:       '{n} ч назад',
+      yesterday:     'вчера',
+      dayAgo:        '{n} дн. назад',
+      weekAgo:       '{n} нед. назад',
+      monthAgo:      '{n} мес. назад',
+      yearAgo:       '{n} г. назад',
+      atWord:        'в',
+      monthJan:      'января',
+      monthFeb:      'февраля',
+      monthMar:      'марта',
+      monthApr:      'апреля',
+      monthMay:      'мая',
+      monthJun:      'июня',
+      monthJul:      'июля',
+      monthAug:      'августа',
+      monthSep:      'сентября',
+      monthOct:      'октября',
+      monthNov:      'ноября',
+      monthDec:      'декабря',
       catImportantMoments: '💫 Важные моменты',
       catMemories:         '📖 Воспоминания',
       catDates:            '📅 Важные даты',
@@ -14124,6 +14189,27 @@
       metaAddedBy:   '👤 Hinzugefügt von:',
       metaAdded:     '📌 Hinzugefügt:',
       metaEdited:    '• bearbeitet:',
+      justNow:       'gerade eben',
+      minAgo:        'vor {n} Min.',
+      hourAgo:       'vor {n} Std.',
+      yesterday:     'gestern',
+      dayAgo:        'vor {n} Tagen',
+      weekAgo:       'vor {n} Wochen',
+      monthAgo:      'vor {n} Monaten',
+      yearAgo:       'vor {n} Jahren',
+      atWord:        'um',
+      monthJan:      'Januar',
+      monthFeb:      'Februar',
+      monthMar:      'März',
+      monthApr:      'April',
+      monthMay:      'Mai',
+      monthJun:      'Juni',
+      monthJul:      'Juli',
+      monthAug:      'August',
+      monthSep:      'September',
+      monthOct:      'Oktober',
+      monthNov:      'November',
+      monthDec:      'Dezember',
       catImportantMoments: '💫 Wichtige Momente',
       catMemories:         '📖 Erinnerungen',
       catDates:            '📅 Wichtige Daten',
@@ -14195,6 +14281,27 @@
       metaAddedBy:   '👤 Added by:',
       metaAdded:     '📌 Added:',
       metaEdited:    '• edited:',
+      justNow:       'just now',
+      minAgo:        '{n} min ago',
+      hourAgo:       '{n} hr ago',
+      yesterday:     'yesterday',
+      dayAgo:        '{n} days ago',
+      weekAgo:       '{n} weeks ago',
+      monthAgo:      '{n} months ago',
+      yearAgo:       '{n} years ago',
+      atWord:        'at',
+      monthJan:      'January',
+      monthFeb:      'February',
+      monthMar:      'March',
+      monthApr:      'April',
+      monthMay:      'May',
+      monthJun:      'June',
+      monthJul:      'July',
+      monthAug:      'August',
+      monthSep:      'September',
+      monthOct:      'October',
+      monthNov:      'November',
+      monthDec:      'December',
       catImportantMoments: '💫 Important moments',
       catMemories:         '📖 Memories',
       catDates:            '📅 Important dates',
@@ -15281,15 +15388,13 @@
 
     // Meta strings in all cards
     document.querySelectorAll('.meta').forEach(el => {
-      let h = el.innerHTML;
-      // Replace ru→lang for all known meta prefixes
-      h = h.replace(/👤 Добавил\(а\):|👤 Кошкон:|👤 Hinzugefügt von:/g,
-                    tr.metaAddedBy || '👤 Добавил(а):');
-      h = h.replace(/📌 Добавлено:|📌 Кошулду:|📌 Hinzugefügt:/g,
-                    tr.metaAdded || '📌 Добавлено:');
-      h = h.replace(/• отредактировано:|• өзгөртүлдү:|• bearbeitet:/g,
-                    tr.metaEdited || '• отредактировано:');
-      el.innerHTML = h;
+      renderMetaElement(el);
+    });
+
+    // Relative times in "recently added" spans
+    document.querySelectorAll('.memory-ago').forEach(el => {
+      const createdAt = el.dataset.createdAt;
+      if (createdAt) el.textContent = formatRelativeTimeLocal(createdAt);
     });
 
     // Static labels in the AI area and sky card footer

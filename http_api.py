@@ -1879,6 +1879,11 @@ def _build_profile_stats_for_visitor(visitor_id: str | None, tz_id: str | None) 
     """Короткая сводка статистики профиля для AI и /api/profile_stats."""
     if not visitor_id:
         return {}
+    _vis_uid = _visitor_to_user_id(visitor_id) if visitor_id else None
+    if _vis_uid:
+        tz_mode = db.get_user_setting(_vis_uid, "website_timezone_mode")
+        if tz_mode == "profile" or tz_id == "__bot__":
+            tz_id = db.get_user_setting(_vis_uid, "timezone") or None
     try:
         visits_summary = db.get_site_visits_summary(visitor_id) or {}
         total_visits = int(visits_summary.get("total", 0) or 0)
@@ -1962,6 +1967,10 @@ def _collect_site_data(
 
     # Определяем пару по visitor_id (для мульти-тенант)
     visitor_user_id = _visitor_to_user_id(visitor_id) if visitor_id else None
+    if visitor_user_id:
+        tz_mode = db.get_user_setting(visitor_user_id, "website_timezone_mode")
+        if tz_mode == "profile" or timezone_id == "__bot__":
+            timezone_id = db.get_user_setting(visitor_user_id, "timezone") or None
     couple = db.get_couple_by_user(visitor_user_id) if visitor_user_id else None
 
     # Фильтруем данные строго по паре — защита от межпарной утечки данных
@@ -3363,7 +3372,8 @@ async def log_visit(request: web.Request) -> web.Response:
     visitor_user_id = _visitor_to_user_id(visitor_id) if visitor_id else None
     if visitor_user_id and timezone:
         try:
-            db.set_user_setting(visitor_user_id, "timezone", timezone)
+            # Website must NEVER overwrite timezone/timezone_display.
+            pass
         except Exception:
             pass
 
@@ -4478,9 +4488,8 @@ async def token_auth(request: web.Request) -> web.Response:
     tz_from_auth = (_pstr(payload.get("tz")) or _pstr(payload.get("timezone"))).strip()
     if tz_from_auth:
         try:
-            from zoneinfo import ZoneInfo
-            ZoneInfo(tz_from_auth)  # валидация
-            db.set_user_setting(user_id, "timezone", tz_from_auth)
+            # Website must NEVER overwrite timezone/timezone_display.
+            pass
         except Exception:
             pass
 
@@ -4566,15 +4575,9 @@ async def site_save_settings(request: web.Request) -> web.Response:
         db.set_user_setting(user_id, "lang", lang)
     if tz:
         if tz == "__auto__":
-            # Сбрасываем часовой пояс — бот/сайт будет использовать системный
-            db.set_user_setting(user_id, "timezone", "")
-        else:
-            try:
-                ZoneInfo(tz)  # Валидация любого корректного IANA-пояса
-                if tz.strip().upper() not in {"UTC", "ETC/UTC"}:
-                    db.set_user_setting(user_id, "timezone", tz)
-            except Exception:
-                pass
+            db.set_user_setting(user_id, "website_timezone_mode", "auto")
+        elif tz == "__bot__":
+            db.set_user_setting(user_id, "website_timezone_mode", "profile")
 
     return _add_cors_headers(web.json_response({"ok": True}))
 
@@ -5875,13 +5878,24 @@ def _add_violation(client_key: str, now: float) -> float:
 _RATE_LIMIT_WHITELIST: frozenset = frozenset({"127.0.0.1", "::1", "localhost"})
 
 
+def _is_whitelisted_ip(ip: str) -> bool:
+    if ip in _RATE_LIMIT_WHITELIST:
+        return True
+    try:
+        import ipaddress
+        ip_obj = ipaddress.ip_address(ip)
+        return ip_obj.is_private or ip_obj.is_loopback
+    except Exception:
+        return False
+
+
 def _ddos_check(client_key: str, path: str, display_ip: str) -> tuple[bool, str]:
     """
     Комплексная проверка. Возвращает (allowed: bool, reason: str).
     Вызывается синхронно из middleware.
     """
     # Localhost и внутренние IP всегда пропускаем
-    if display_ip in _RATE_LIMIT_WHITELIST:
+    if _is_whitelisted_ip(display_ip):
         return True, "ok"
 
     now = time.monotonic()

@@ -9447,6 +9447,25 @@
 
           const s = data.stats || {};
 
+          if (data.user_settings) {
+            const role = getCurrentRole() || 'creator';
+            const settings = data.user_settings[role] || data.user_settings.partner || data.user_settings.creator || {};
+            window._botTimezone = settings.timezone || '';
+            window._botTimezoneDisplay = settings.timezone_display || '';
+            
+            const dbTzMode = settings.website_timezone_mode;
+            if (dbTzMode) {
+              const mappedTz = (dbTzMode === 'auto') ? '__auto__' : '__bot__';
+              if (_stgState.tz !== mappedTz) {
+                _stgState.tz = mappedTz;
+                _stgSet(STG_LS.tz, mappedTz);
+                window._stgTzOverride = (mappedTz !== '__auto__') ? mappedTz : null;
+                setTimeout(() => { loadAllData(); }, 50);
+                return;
+              }
+            }
+          }
+
           const statsEl = document.getElementById('stats');
           if (statsEl) statsEl.classList.add('visible');
 
@@ -15057,8 +15076,8 @@
   }
 
   const STG_TZ = [
-    { v:'__auto__',      flag:'🌐', city:{ru:'Автоматически',de:'Automatisch',en:'Automatic'},  off:{ru:'по устройству',de:'vom Gerät',en:'by device'} },
-    { v:'Europe/Moscow', flag:'🇷🇺', city:{ru:'Москва',de:'Moskau',en:'Moscow'},              off:{ru:'UTC +3',de:'UTC +3',en:'UTC +3'} },
+    { v:'__auto__',      flag:'🌐', city:{ru:'Автоопределение',de:'Auto-detect',en:'Auto-detect'},  off:{ru:'по устройству',de:'vom Gerät',en:'by device'} },
+    { v:'__bot__',       flag:'🏙️', city:{ru:'Выбранный город',de:'Ausgewählte Stadt',en:'Use selected city'},       off:{ru:'загрузка...',de:'loading...',en:'loading...'} },
   ];
 
   /* ── Storage ── */
@@ -15547,6 +15566,7 @@
     _clearSettingsLanguagePreview();
     const nextTheme = save ? _stgDraft.theme : null;
     if (save) {
+      const tzChanged = (_stgState.tz !== _stgDraft.tz);
       Object.assign(_stgState, _stgDraft);
       _stgSet(THEME_STORAGE_KEY_STG, _stgState.theme);
       _stgSet(STG_LS.lang,   _stgState.lang);
@@ -15563,6 +15583,9 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ visitor_id: _vid, lang: _stgState.lang, tz: _stgState.tz }),
         }).catch(() => {});
+      }
+      if (tzChanged) {
+        loadAllData();
       }
     } else {
       applyI18n(_stgState.lang);
@@ -15600,11 +15623,21 @@
     // Patch getUserTimezone to use override
     const _origGetTz = window.getUserTimezone;
     window.getUserTimezone = function() {
-      if (window._stgTzOverride) return window._stgTzOverride;
+      if (window._stgTzOverride) {
+        if (window._stgTzOverride === '__bot__') {
+          return window._botTimezone || '__bot__';
+        }
+        return window._stgTzOverride;
+      }
       if (_origGetTz) return _origGetTz();
       try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; }
     };
-    const storedTz = _stgGet(STG_LS.tz, '__auto__');
+    let storedTz = _stgGet(STG_LS.tz, '__auto__');
+    if (storedTz !== '__auto__' && storedTz !== '__bot__') {
+      storedTz = '__bot__';
+      _stgSet(STG_LS.tz, '__bot__');
+    }
+    _stgState.tz = storedTz;
     window._stgTzOverride = (storedTz !== '__auto__') ? storedTz : null;
   });
 
@@ -15674,8 +15707,28 @@
       const c = mk('div','stg-tz-card'+(_stgDraft.tz===tz.v?' active':''));
       c.appendChild(mk('div','stg-tz-check','✓'));
       c.appendChild(mk('div','stg-tz-flag', tz.flag));
-      c.appendChild(mk('div','stg-tz-city', tz.city[l]||tz.city.ru));
-      c.appendChild(mk('div','stg-tz-offset', tz.off[l]||tz.off.ru));
+      
+      let displayCity = tz.city[l]||tz.city.ru;
+      let displayOff = tz.off[l]||tz.off.ru;
+      if (tz.v === '__auto__') {
+        try {
+          const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+          displayOff = localTz ? `(${localTz})` : (tz.off[l] || tz.off.ru);
+        } catch (e) {
+          displayOff = tz.off[l] || tz.off.ru;
+        }
+      } else if (tz.v === '__bot__') {
+        if (window._botTimezoneDisplay) {
+          displayOff = `(${window._botTimezoneDisplay})`;
+        } else if (window._botTimezone) {
+          displayOff = `(${window._botTimezone})`;
+        } else {
+          displayOff = l === 'ru' ? '(не настроен)' : (l === 'de' ? '(nicht konfiguriert)' : '(not configured)');
+        }
+      }
+      
+      c.appendChild(mk('div','stg-tz-city', displayCity));
+      c.appendChild(mk('div','stg-tz-offset', displayOff));
       c.onclick = () => {
         _stgDraft.tz = tz.v;
         window._stgTzOverride = (tz.v !== '__auto__') ? tz.v : null;

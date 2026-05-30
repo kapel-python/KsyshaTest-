@@ -26,8 +26,8 @@ services:
       start_period: 40s
     stop_grace_period: 30s
     volumes:
-      - ./data:/app/data
-      - ./media:/app/media
+      - /workspace/data:/app/data
+      - /workspace/media:/app/media
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/KsyshaTest:/workspace
       - ~/.ssh:/root/.ssh:ro

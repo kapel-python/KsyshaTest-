@@ -25,9 +25,18 @@ write_status() {
   local attempt="${3:-0}"
   local now
   now="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+  local total_duration=0
+  if [[ -n "${RESTART_START_TS:-}" ]]; then
+      local now_ts
+      now_ts="$(date +%s)"
+      total_duration=$((now_ts - RESTART_START_TS))
+  fi
+  local b_dur="${BUILD_DURATION_SEC:-0}"
+
   mkdir -p "$(dirname "$STATUS_FILE")"
   cat > "$STATUS_FILE" <<EOF
-{"status":"$status","message":"$message","attempt":$attempt,"updated_at":"$now"}
+{"status":"$status","message":"$message","attempt":$attempt,"updated_at":"$now","build_duration_sec":$b_dur,"total_duration_sec":$total_duration}
 EOF
 }
 
@@ -104,6 +113,7 @@ main() {
   fi
   export GIT_COMMIT
 
+  RESTART_START_TS="$(date +%s)"
   write_status "running" "restart_started" 0
   local attempt=1
   while (( attempt <= MAX_ATTEMPTS )); do
@@ -112,7 +122,13 @@ main() {
 
     docker compose down --remove-orphans || true
     docker rm -f ksysha-bot ksysha-cloudflared 2>/dev/null || true
+    
+    local build_start
+    build_start="$(date +%s)"
     docker compose up -d --build --force-recreate
+    local build_end
+    build_end="$(date +%s)"
+    export BUILD_DURATION_SEC=$((build_end - build_start))
 
     if wait_healthy "ksysha-bot" && wait_healthy "ksysha-cloudflared" && probe_media_block; then
       write_status "success" "restart_verified" "$attempt"

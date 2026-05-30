@@ -127,6 +127,7 @@ def _format_deploy_report(deploy_state: dict) -> str:
         status_line = "❌ Деплой завершился с ошибкой."
     else:
         status_line = "ℹ️ Статус деплоя пока недоступен."
+    status_line += "\nИсточник: Deployer сервис"
     recreate_line = "да" if recreated else "нет"
     containers_error = (containers.get("error") or "").strip()
     if containers_error:
@@ -2189,6 +2190,9 @@ def _recover_restart_status_if_needed(status: dict) -> dict:
             "attempt": int(status.get("attempt") or 0),
             "updated_at": now,
         }
+        for k in ["build_duration_sec", "total_duration_sec"]:
+            if k in status:
+                fixed[k] = status[k]
         _write_restart_status(fixed)
         return fixed
 
@@ -2199,6 +2203,9 @@ def _recover_restart_status_if_needed(status: dict) -> dict:
             "attempt": int(status.get("attempt") or 0),
             "updated_at": now,
         }
+        for k in ["build_duration_sec", "total_duration_sec"]:
+            if k in status:
+                fixed[k] = status[k]
         _write_restart_status(fixed)
         return fixed
 
@@ -2314,11 +2321,25 @@ async def _trigger_local_restart() -> tuple[bool, str]:
     return True, "accepted_local"
 
 
-def _format_restart_status_text(status: dict) -> str:
+async def _format_restart_status_text(status: dict) -> str:
     state = (status.get("status") or "unknown").strip().lower()
     attempt = int(status.get("attempt") or 0)
     updated_at = (status.get("updated_at") or "—").strip()
     message = (status.get("message") or "").strip()
+    
+    msg_map = {
+        "restart_started_local": "Локальный перезапуск начат",
+        "attempt_1": "Попытка 1: остановка и пересоздание",
+        "attempt_2": "Попытка 2: остановка и пересоздание",
+        "attempt_3": "Попытка 3: остановка и пересоздание",
+        "restart_verified": "Проверка пройдена, всё работает",
+        "all_attempts_failed": "Все попытки перезапуска провалились",
+        "compose_file_not_found": "Не найден файл docker-compose",
+        "restart_recovered_by_healthcheck": "Восстановлено (проверка здоровья пройдена)",
+        "restart_stuck_timeout": "Таймаут перезапуска (завис)",
+    }
+    human_msg = msg_map.get(message, message)
+
     if state == "success":
         head = "✅ Перезапуск завершён успешно."
     elif state == "failed":
@@ -2327,9 +2348,58 @@ def _format_restart_status_text(status: dict) -> str:
         head = "⏳ Перезапуск выполняется."
     else:
         head = "ℹ️ Статус перезапуска пока недоступен."
-    lines = [head, f"Попытка: {attempt}", f"Обновлено: {updated_at}"]
-    if message:
-        lines.append(f"Детали: {message}")
+
+    lines = [head]
+    lines.append("Источник: Локальный перезапуск (safe restart)")
+    
+    b_dur = status.get("build_duration_sec")
+    t_dur = status.get("total_duration_sec")
+    if t_dur is not None:
+        dur_str = f"Длительность: {t_dur} сек"
+        if b_dur is not None:
+            dur_str += f" (в т.ч. сборка: {b_dur} сек)"
+        lines.append(dur_str)
+
+    lines.append(f"Попытка: {attempt}")
+    lines.append(f"Обновлено: {updated_at}")
+    if human_msg:
+        lines.append(f"Детали: {human_msg}")
+
+    health_result = "успешно" if state == "success" else ("ошибка" if state == "failed" else "ожидание")
+    lines.append(f"Healthcheck: {health_result}")
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "ps", "-a", "--format", "{{.Names}} - {{.Status}}",
+            stdout=asyncio.subprocess.PIPE
+        )
+        stdout, _ = await proc.communicate()
+        out_lines = stdout.decode("utf-8", errors="ignore").strip().split('\n')
+        ksysha_containers = [ln for ln in out_lines if "ksysha-" in ln]
+        if ksysha_containers:
+            lines.append("\nАктивные сервисы:")
+            for c in ksysha_containers:
+                lines.append(f"  • {c}")
+    except Exception:
+        pass
+
+    version_val = getattr(config, "PROJECT_VERSION", "unknown")
+    commit_val = os.environ.get("GIT_COMMIT")
+    if not commit_val:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "git", "rev-parse", "--short", "HEAD",
+                stdout=asyncio.subprocess.PIPE,
+                cwd="/workspace"
+            )
+            stdout, _ = await proc.communicate()
+            commit_val = stdout.decode("utf-8", errors="ignore").strip() or "unknown"
+        except Exception:
+            commit_val = "unknown"
+
+    lines.append(f"\nВерсия: {version_val}")
+    lines.append(f"Коммит: {commit_val}")
+
     return "\n".join(lines)
 
 
@@ -6873,9 +6943,10 @@ async def admin_restart_refresh(callback: CallbackQuery):
     status = _read_restart_status()
     if status:
         status = _recover_restart_status_if_needed(status)
+        text = await _format_restart_status_text(status)
         await callback_edit_or_answer(
             callback,
-            _format_restart_status_text(status),
+            text,
             reply_markup=kb,
         )
         return

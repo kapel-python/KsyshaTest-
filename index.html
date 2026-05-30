@@ -5113,17 +5113,16 @@
       window.scrollTo(0, 0);
 
       function getUserTimezone() {
-
         try {
-
+          if (window._stgTzOverride) return window._stgTzOverride;
+          const stored = localStorage.getItem('memories_tz_override');
+          if (stored && stored !== '__auto__') return stored;
+        } catch (e) {}
+        try {
           return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-
         } catch (e) {
-
           return '';
-
         }
-
       }
 
       function getSectionHeader(targetId) {
@@ -7097,23 +7096,20 @@
 
               }
 
-              // сначала анимируем раскрытие до текущей высоты,
-
-              // затем убираем ограничение, чтобы высота подстраивалась под контент (картинки и т.п.)
-
-              target.style.maxHeight = target.scrollHeight + 'px';
-
-              target.addEventListener('transitionend', function handler(e) {
-
-                if (e.propertyName === 'max-height') {
-
-                  target.removeEventListener('transitionend', handler);
-
-                  target.style.maxHeight = 'none';
-
-                }
-
-              });
+              const hasItems = target.querySelectorAll('.memory, .event, .wish').length > 0;
+              if (!hasItems) {
+                target.style.maxHeight = 'none';
+              } else {
+                target.style.maxHeight = target.scrollHeight + 'px';
+                target.addEventListener('transitionend', function handler(e) {
+                  if (e.propertyName === 'max-height') {
+                    target.removeEventListener('transitionend', handler);
+                    if (target.classList.contains('open')) {
+                      target.style.maxHeight = 'none';
+                    }
+                  }
+                });
+              }
 
               btn.setAttribute('aria-expanded', 'true');
 

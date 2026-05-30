@@ -1,12 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>\n
-    <script>
-    function logNavDebug(msg) {
-        try { fetch('/api/nav_debug', { method: 'POST', body: JSON.stringify({msg: msg, page: '/admin'}), headers: {'Content-Type': 'application/json'}, keepalive: true }); } catch(e) {}
-    }
-    </script>
-
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Панель управления</title>
@@ -221,7 +215,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="admin-logo">⚙ PANEL</div>
       <span class="admin-badge">CREATOR</span>
     </div>
-    <a href="#" onclick="logNavDebug('Click handler executed'); setTimeout(function(){ logNavDebug('Setting location.href'); window.location.href = '/'; }, 50); return false;" class="header-back">← Сайт</a>
+    <a href="/" onclick="window.location.href='/'; return false;" class="header-back">← Сайт</a>
   </header>
 
   <div class="admin-content">
@@ -938,13 +932,7 @@ function doExportPdf(data){
     @media print{body{padding:16px 20px}.sec-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   `;
 
-  const fullHtml = '<!DOCTYPE html><html><head>\n
-    <script>
-    function logNavDebug(msg) {
-        try { fetch('/api/nav_debug', { method: 'POST', body: JSON.stringify({msg: msg, page: '/admin'}), headers: {'Content-Type': 'application/json'}, keepalive: true }); } catch(e) {}
-    }
-    </script>
-<meta charset="utf-8"><title>Экспорт данных</title><style>' + css + '</style></head><body>' + body + '</body></html>';
+  const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Экспорт данных</title><style>' + css + '</style></head><body>' + body + '</body></html>';
   const win = window.open('','_blank');
   if(win){ win.document.write(fullHtml); win.document.close(); setTimeout(()=>win.print(), 800); }
   showActionDone('PDF открыт!','Сохрани через диалог печати браузера');

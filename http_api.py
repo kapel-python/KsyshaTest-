@@ -1994,7 +1994,7 @@ def _collect_site_data(
     wants_events = wants_all or wants_bootstrap or endpoint in ("api/events", "api/events_recent") or endpoint.startswith("api/event/")
     wants_wishes = wants_all or wants_bootstrap or endpoint in ("api/wishes", "api/wishes_recent")
     wants_favorites = wants_all or endpoint == "api/favorites"
-    wants_settings = wants_all or endpoint == "api/user_settings"
+    wants_settings = wants_all or wants_bootstrap or endpoint == "api/user_settings"
     wants_stats = wants_all or wants_bootstrap or endpoint == "api/user_stats"
     wants_profile_stats = endpoint == "api/profile_stats"
 

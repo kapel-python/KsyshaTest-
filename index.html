@@ -5324,13 +5324,36 @@
         if (!utcStr) return '';
         const d = parseUtcDate(utcStr);
         if (!d) return utcStr;
+        const tz = getUserTimezone();
         const lang = (_stgState && _stgState.lang) || 'ru';
-        const day = d.getDate();
-        const year = d.getFullYear();
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
+        let day, monthIdx, year, hours, minutes;
+        try {
+          const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz || undefined,
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false
+          }).formatToParts(d);
+          const partMap = {};
+          parts.forEach(p => partMap[p.type] = p.value);
+          day = Number(partMap.day);
+          monthIdx = Number(partMap.month) - 1;
+          year = Number(partMap.year);
+          hours = String(partMap.hour).padStart(2, '0');
+          if (hours === '24') hours = '00';
+          minutes = String(partMap.minute).padStart(2, '0');
+        } catch (e) {
+          day = d.getDate();
+          monthIdx = d.getMonth();
+          year = d.getFullYear();
+          hours = String(d.getHours()).padStart(2, '0');
+          minutes = String(d.getMinutes()).padStart(2, '0');
+        }
         const timeStr = hours + ':' + minutes;
-        const monthKey = 'month' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
+        const monthKey = 'month' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][monthIdx];
         const monthName = _i(monthKey);
         const atWord = _i('atWord');
         if (lang === 'en') {

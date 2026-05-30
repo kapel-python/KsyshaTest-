@@ -12702,10 +12702,7 @@
         title: {
           label:    c => _ui('stepWord') + ' ' + _stepNum('title',c) + ' ' + _ui('stepOf') + ' ' + _totalSteps(c),
           title:    () => _ui('addStepMoment'),
-          subtitle: c => {
-            const n = _stepNum('title', c), t = _totalSteps(c);
-            return _ui('stepWord') + ' ' + n + ' ' + _ui('stepOf') + ' ' + t + '\n\n' + _ui('addStepMoment') + '\n' + _ui('addTitleField');
-          },
+          subtitle: c => _ui('addTitleField'),
           render(body, state) {
             body.innerHTML = '';
             const wrap = _mkEl('div', 'add-step-wrap');
@@ -12730,10 +12727,7 @@
         date: {
           label:    c => _ui('stepWord') + ' ' + _stepNum('date',c) + ' ' + _ui('stepOf') + ' ' + _totalSteps(c),
           title:    () => '📅 ' + _ui('addStepDateTitle'),
-          subtitle: c => {
-            const n = _stepNum('date', c), t = _totalSteps(c);
-            return _ui('stepWord') + ' ' + n + ' ' + _ui('stepOf') + ' ' + t + '\n\n' + _ui('addStepEventSubtitle');
-          },
+          subtitle: c => _ui('addStepEventSubtitle'),
           render(body, state) {
             body.innerHTML = '';
             const wrap = _mkEl('div', 'add-step-wrap');
@@ -12797,6 +12791,19 @@
               };
             };
 
+            const lang = (_stgState && _stgState.lang) || 'ru';
+            const hl = (val) => `<strong style="color:var(--accent-color);background:var(--accent-soft);padding:2px 6px;border-radius:6px;font-family:monospace;font-size:0.8rem;border:1px solid rgba(135,116,255,0.15);margin:0 2px;white-space:nowrap;display:inline-block;box-shadow:inset 0 1px 2px rgba(0,0,0,0.03);">${val}</strong>`;
+            const vals = {
+              '{relationship_age}':       { ru: '2 года и 3 месяца',   en: '2 years and 3 months',   de: '2 Jahren und 3 Monaten' }[lang],
+              '{days_until_anniversary}': { ru: '17 дней',             en: '17 days',                de: '17 Tage' }[lang],
+              '{anniversary_date}':       { ru: '14 февраля 2027',     en: 'February 14, 2027',      de: '14. Februar 2027' }[lang],
+              '{days_together}':          { ru: '824 дня',             en: '824 days',               de: '824 Tagen' }[lang],
+              '{today_date}':             { ru: '30 мая 2026',         en: 'May 30, 2026',           de: '30. Mai 2026' }[lang],
+              '{month_name}':             { ru: 'Июнь',                en: 'June',                   de: 'Juni' }[lang],
+              '{day_of_week}':            { ru: 'Пятница',             en: 'Friday',                 de: 'Freitag' }[lang],
+              '{season}':                 { ru: 'Весна',               en: 'Spring',                 de: 'Frühling' }[lang]
+            };
+
             const popularList = _mkEl('div');
             popularList.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:16px;';
             POPULAR_VARS.forEach(([param, example]) => {
@@ -12821,7 +12828,7 @@
               
               const bottom = _mkEl('div');
               bottom.style.cssText = 'font-size:0.78rem;color:var(--muted-text);padding-left:4px;';
-              bottom.innerHTML = example;
+              bottom.innerHTML = example.replace('[VAL]', hl(vals[param]));
               
               row.appendChild(top); row.appendChild(bottom);
               popularList.appendChild(row);
@@ -12882,7 +12889,7 @@
               
               const bottom = _mkEl('div');
               bottom.style.cssText = 'font-size:0.78rem;color:var(--muted-text);padding-left:4px;';
-              bottom.innerHTML = example;
+              bottom.innerHTML = example.replace('[VAL]', hl(vals[param]));
               
               row.appendChild(top); row.appendChild(bottom);
               additionalList.appendChild(row);
@@ -12909,10 +12916,7 @@
         desc: {
           label:    c => _ui('stepWord') + ' ' + _stepNum('desc',c) + ' ' + _ui('stepOf') + ' ' + _totalSteps(c),
           title:    () => '📝 ' + _ui('addDescriptionField'),
-          subtitle: c => {
-            const n = _stepNum('desc', c), t = _totalSteps(c);
-            return _ui('stepWord') + ' ' + n + ' ' + _ui('stepOf') + ' ' + t + '\n\n' + _ui('addStepDescSubtitle');
-          },
+          subtitle: c => _ui('addStepDescSubtitle'),
           render(body, state) {
             body.innerHTML = '';
             const wrap = _mkEl('div', 'add-step-wrap');
@@ -12932,10 +12936,7 @@
         datetime: {
           label:    c => _ui('stepWord') + ' ' + _stepNum('datetime',c) + ' ' + _ui('stepOf') + ' ' + _totalSteps(c),
           title:    () => _ui('addStepDateTitle'),
-          subtitle: c => {
-            const n = _stepNum('datetime', c), t = _totalSteps(c);
-            return _ui('stepWord') + ' ' + n + ' ' + _ui('stepOf') + ' ' + t + '\n\n' + _ui('addStepEventSubtitle');
-          },
+          subtitle: c => _ui('addStepEventSubtitle'),
           render(body, state) {
             body.innerHTML = '';
             const wrap = _mkEl('div', 'add-step-wrap');
@@ -13132,9 +13133,7 @@
         wish: {
           label:    () => _ui('stepWord') + ' 1 ' + _ui('stepOf') + ' 1',
           title:    () => _ui('addStepWish'),
-          subtitle: (c, state) => {
-            return _ui('stepWord') + ' 1 ' + _ui('stepOf') + ' 1\n\n' + _ui('addStepWishSubtitle');
-          },
+          subtitle: (c, state) => _ui('addStepWishSubtitle'),
           render(body, state) {
             body.innerHTML = '';
             _addAttachedFile = state.data._wishFile || null;
@@ -14185,18 +14184,18 @@
       descDaysTogether: 'Точное количество дней вместе',
       varsPopularTitle: '⭐ Популярные переменные',
       varsAdditionalTitle: '🔽 Дополнительные переменные',
-      exRelationshipAge: 'Мы вместе <b>2 года и 3 месяца</b> ❤️',
-      exDaysUntilAnniversary: 'Осталось всего <b>17 дней</b> до нашей годовщины ❤️',
-      exAnniversaryDate: 'Наша следующая годовщина — <b>14 февраля 2027</b> ❤️',
-      exDaysTogether: 'Мы вместе уже <b>824 дня</b> ❤️',
+      exRelationshipAge: 'Мы вместе [VAL] ❤️',
+      exDaysUntilAnniversary: 'Осталось всего [VAL] до нашей годовщины ❤️',
+      exAnniversaryDate: 'Наша следующая годовщина — [VAL] ❤️',
+      exDaysTogether: 'Мы вместе уже [VAL] ❤️',
       descTodayDate: 'Сегодняшняя дата',
-      exTodayDate: 'Сегодня — <b>30 мая 2026</b>',
+      exTodayDate: 'Сегодня — [VAL]',
       descDayOfWeek: 'День недели',
-      exDayOfWeek: 'Пример: <b>Пятница</b>',
+      exDayOfWeek: 'Пример: [VAL]',
       descSeason: 'Время года',
-      exSeason: 'Пример: <b>Весна</b>',
+      exSeason: 'Пример: [VAL]',
       descMonthName: 'Название текущего месяца',
-      exMonthName: 'Привет, <b>Июнь</b> ❤️',
+      exMonthName: 'Привет, [VAL] ❤️',
       usedVariablesTitle: 'Использованные переменные:',
       showAdditionalVars: 'Показать дополнительные переменные',
       hideAdditionalVars: 'Скрыть дополнительные переменные',
@@ -14296,18 +14295,18 @@
       descDaysTogether: 'Genaue Anzahl der gemeinsamen Tage',
       varsPopularTitle: '⭐ Beliebte Variablen',
       varsAdditionalTitle: '🔽 Weitere Variablen',
-      exRelationshipAge: 'Wir sind seit <b>2 Jahren und 3 Monaten</b> zusammen ❤️',
-      exDaysUntilAnniversary: 'Nur noch <b>17 Tage</b> bis zu unserem Jahrestag ❤️',
-      exAnniversaryDate: 'Unser nächster Jahrestag ist der <b>14. Februar 2027</b> ❤️',
-      exDaysTogether: 'Wir sind seit <b>824 Tagen</b> zusammen ❤️',
+      exRelationshipAge: 'Wir sind seit [VAL] zusammen ❤️',
+      exDaysUntilAnniversary: 'Nur noch [VAL] bis zu unserem Jahrestag ❤️',
+      exAnniversaryDate: 'Unser nächster Jahrestag ist der [VAL] ❤️',
+      exDaysTogether: 'Wir sind seit [VAL] zusammen ❤️',
       descTodayDate: 'Heutiges Datum',
-      exTodayDate: 'Heute ist der <b>30. Mai 2026</b>',
+      exTodayDate: 'Heute ist der [VAL]',
       descDayOfWeek: 'Wochentag',
-      exDayOfWeek: 'Beispiel: <b>Freitag</b>',
+      exDayOfWeek: 'Beispiel: [VAL]',
       descSeason: 'Aktuelle Jahreszeit',
-      exSeason: 'Beispiel: <b>Frühling</b>',
+      exSeason: 'Beispiel: [VAL]',
       descMonthName: 'Aktueller Monatsname',
-      exMonthName: 'Hallo, <b>Juni</b> ❤️',
+      exMonthName: 'Hallo, [VAL] ❤️',
       usedVariablesTitle: 'Verwendete Variablen:',
       showAdditionalVars: 'Zusätzliche Variablen anzeigen',
       hideAdditionalVars: 'Zusätzliche Variablen ausblenden',
@@ -14407,18 +14406,18 @@
       descDaysTogether: 'Exact number of days together',
       varsPopularTitle: '⭐ Popular variables',
       varsAdditionalTitle: '🔽 Additional variables',
-      exRelationshipAge: 'We have been together for <b>2 years and 3 months</b> ❤️',
-      exDaysUntilAnniversary: 'Only <b>17 days</b> until our anniversary ❤️',
-      exAnniversaryDate: 'Our next anniversary is <b>February 14, 2027</b> ❤️',
-      exDaysTogether: 'We have been together for <b>824 days</b> ❤️',
+      exRelationshipAge: 'We have been together for [VAL] ❤️',
+      exDaysUntilAnniversary: 'Only [VAL] until our anniversary ❤️',
+      exAnniversaryDate: 'Our next anniversary is [VAL] ❤️',
+      exDaysTogether: 'We have been together for [VAL] ❤️',
       descTodayDate: 'Today\'s date',
-      exTodayDate: 'Today is <b>May 30, 2026</b>',
+      exTodayDate: 'Today is [VAL]',
       descDayOfWeek: 'Day of week',
-      exDayOfWeek: 'Example: <b>Friday</b>',
+      exDayOfWeek: 'Example: [VAL]',
       descSeason: 'Current season',
-      exSeason: 'Example: <b>Spring</b>',
+      exSeason: 'Example: [VAL]',
       descMonthName: 'Current month name',
-      exMonthName: 'Hello, <b>June</b> ❤️',
+      exMonthName: 'Hello, [VAL] ❤️',
       usedVariablesTitle: 'Used variables:',
       showAdditionalVars: 'Show additional variables',
       hideAdditionalVars: 'Hide additional variables',

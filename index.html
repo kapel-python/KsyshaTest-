@@ -12399,7 +12399,7 @@
         if (_urlToken) {
           const existingRoleBeforeToken = getCurrentRole();
           const existingVidBeforeToken = getCookie('visitor_id');
-          let shouldConsumeToken = true;
+          let shouldConsumeToken = false;
 
           if (existingRoleBeforeToken && existingVidBeforeToken) {
             try {
@@ -12410,8 +12410,11 @@
               });
               if (checkResp.ok) {
                 const checkData = await checkResp.json();
-                if (checkData.ok && !checkData.match) {
-                  shouldConsumeToken = await new Promise((resolve) => {
+                if (checkData.ok) {
+                  if (checkData.match) {
+                    shouldConsumeToken = true;
+                  } else {
+                    shouldConsumeToken = await new Promise((resolve) => {
                     const overlay = document.createElement('div');
                     overlay.style.position = 'fixed';
                     overlay.style.top = '0'; overlay.style.left = '0';
@@ -12460,11 +12463,18 @@
                       resolve(true);
                     };
                   });
+                  }
+                } else {
+                  console.warn('[auth] Token check returned invalid');
                 }
+              } else {
+                console.error('[auth] Token check HTTP error', checkResp.status);
               }
             } catch(e) {
               console.error('[auth] Failed to check token', e);
             }
+          } else {
+            shouldConsumeToken = true;
           }
 
           if (shouldConsumeToken) {

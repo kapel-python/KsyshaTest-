@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.54'
-description = 'Первая версия защиты от повторного использования токенов'
+version = '1.0.55'
+description = 'Вторая версия (улучшение стабильности модалки)'
 
 
 def get_version_metadata() -> tuple[str, str]:

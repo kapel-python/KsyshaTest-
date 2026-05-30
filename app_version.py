@@ -3,7 +3,7 @@
 import subprocess
 import os
 
-version = '1.0.69'
+version = '1.0.70'
 description = 'Тест'
 
 

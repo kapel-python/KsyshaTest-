@@ -2383,7 +2383,11 @@ async def _format_restart_status_text(status: dict) -> str:
     except Exception:
         pass
 
-    version_val = getattr(config, "PROJECT_VERSION", "unknown")
+    try:
+        from app_version import version as app_version
+        version_val = app_version or "unknown"
+    except ImportError:
+        version_val = "unknown"
     commit_val = os.environ.get("GIT_COMMIT")
     if not commit_val:
         try:

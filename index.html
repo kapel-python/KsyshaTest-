@@ -12804,32 +12804,58 @@
               row.style.cssText = 'display:flex;flex-direction:column;gap:2px;';
               
               const top = _mkEl('div');
-              top.style.cssText = 'display:flex;align-items:center;';
+              top.style.cssText = 'display:flex;align-items:center;gap:6px;';
               const chip = _mkEl('code');
               chip.textContent = param;
               chip.style.cssText = 'background:var(--accent-soft);color:var(--accent-color);padding:2px 6px;border-radius:5px;font-size:0.78rem;cursor:pointer;transition:opacity 0.15s;font-weight:600;';
               chip.title = _ui('aiCopy');
               _attachCopyHandler(chip, param);
               top.appendChild(chip);
+
+              if (param === '{relationship_age}') {
+                const recBadge = _mkEl('span');
+                recBadge.style.cssText = 'font-size:0.72rem;background:#ff9800;color:#fff;padding:1px 6px;border-radius:10px;font-weight:700;display:inline-flex;align-items:center;gap:2px;box-shadow:0 1px 3px rgba(0,0,0,0.1);';
+                recBadge.textContent = '⭐ ' + _ui('varRecommended');
+                top.appendChild(recBadge);
+              }
               
               const bottom = _mkEl('div');
               bottom.style.cssText = 'font-size:0.78rem;color:var(--muted-text);padding-left:4px;';
-              bottom.textContent = example;
+              bottom.innerHTML = example;
               
               row.appendChild(top); row.appendChild(bottom);
               popularList.appendChild(row);
             });
             wrap.appendChild(popularList);
 
-            // Additional block
-            const additionalHeader = _mkEl('div');
-            additionalHeader.style.cssText = 'font-weight:700;font-size:0.86rem;color:var(--text-color);margin-bottom:8px;';
-            additionalHeader.textContent = _ui('varsAdditionalTitle');
-            wrap.appendChild(additionalHeader);
+            // Collapsible Additional Block
+            const trigger = _mkEl('button');
+            trigger.type = 'button';
+            trigger.style.cssText = 'background:none;border:none;color:var(--accent-color);font-size:0.86rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px 0;margin-top:12px;margin-bottom:8px;transition:opacity 0.15s;outline:none;';
+            
+            const updateTriggerText = (collapsed) => {
+              trigger.textContent = (collapsed ? '▼ ' : '▲ ') + _ui(collapsed ? 'showAdditionalVars' : 'hideAdditionalVars');
+            };
+            
+            let isCollapsed = true;
+            updateTriggerText(isCollapsed);
+            wrap.appendChild(trigger);
+
+            const additionalWrapper = _mkEl('div');
+            additionalWrapper.style.display = 'none';
+            wrap.appendChild(additionalWrapper);
+
+            trigger.onclick = (e) => {
+              e.preventDefault();
+              isCollapsed = !isCollapsed;
+              updateTriggerText(isCollapsed);
+              additionalWrapper.style.display = isCollapsed ? 'none' : 'block';
+            };
 
             const ADDITIONAL_VARS = [
               ['{days_together}',          _ui('descDaysTogether'),        _ui('exDaysTogether')],
               ['{today_date}',             _ui('descTodayDate'),           _ui('exTodayDate')],
+              ['{month_name}',             _ui('descMonthName'),           _ui('exMonthName')],
               ['{day_of_week}',            _ui('descDayOfWeek'),           _ui('exDayOfWeek')],
               ['{season}',                 _ui('descSeason'),              _ui('exSeason')],
             ];
@@ -12856,12 +12882,12 @@
               
               const bottom = _mkEl('div');
               bottom.style.cssText = 'font-size:0.78rem;color:var(--muted-text);padding-left:4px;';
-              bottom.textContent = example;
+              bottom.innerHTML = example;
               
               row.appendChild(top); row.appendChild(bottom);
               additionalList.appendChild(row);
             });
-            wrap.appendChild(additionalList);
+            additionalWrapper.appendChild(additionalList);
 
             wrap.appendChild(_mkEl('div','add-field-label',_ui('addDescriptionField')));
             const ta = _mkEl('textarea','add-field-textarea');
@@ -14159,17 +14185,22 @@
       descDaysTogether: 'Точное количество дней вместе',
       varsPopularTitle: '⭐ Популярные переменные',
       varsAdditionalTitle: '🔽 Дополнительные переменные',
-      exRelationshipAge: 'Пример: Мы вместе 2 года и 3 месяца ❤️',
-      exDaysUntilAnniversary: 'Пример: 17 дней до нашей годовщины ❤️',
-      exAnniversaryDate: 'Пример: Наша следующая годовщина — 14 февраля 2027 ❤️',
-      exDaysTogether: 'Пример: 824 дня',
+      exRelationshipAge: 'Мы вместе <b>2 года и 3 месяца</b> ❤️',
+      exDaysUntilAnniversary: 'Осталось всего <b>17 дней</b> до нашей годовщины ❤️',
+      exAnniversaryDate: 'Наша следующая годовщина — <b>14 февраля 2027</b> ❤️',
+      exDaysTogether: 'Мы вместе уже <b>824 дня</b> ❤️',
       descTodayDate: 'Сегодняшняя дата',
-      exTodayDate: 'Пример: 30 мая 2026',
+      exTodayDate: 'Сегодня — <b>30 мая 2026</b>',
       descDayOfWeek: 'День недели',
-      exDayOfWeek: 'Пример: Пятница',
+      exDayOfWeek: 'Пример: <b>Пятница</b>',
       descSeason: 'Время года',
-      exSeason: 'Пример: Весна',
+      exSeason: 'Пример: <b>Весна</b>',
+      descMonthName: 'Название текущего месяца',
+      exMonthName: 'Привет, <b>Июнь</b> ❤️',
       usedVariablesTitle: 'Использованные переменные:',
+      showAdditionalVars: 'Показать дополнительные переменные',
+      hideAdditionalVars: 'Скрыть дополнительные переменные',
+      varRecommended: 'Рекомендуется',
       catImportantMoments: '💫 Важные моменты',
       catMemories:         '📖 Воспоминания',
       catDates:            '📅 Важные даты',
@@ -14265,17 +14296,22 @@
       descDaysTogether: 'Genaue Anzahl der gemeinsamen Tage',
       varsPopularTitle: '⭐ Beliebte Variablen',
       varsAdditionalTitle: '🔽 Weitere Variablen',
-      exRelationshipAge: 'Beispiel: Wir sind seit 2 Jahren und 3 Monaten zusammen ❤️',
-      exDaysUntilAnniversary: 'Beispiel: 17 Tage bis zu unserem Jahrestag ❤️',
-      exAnniversaryDate: 'Beispiel: Unser nächster Jahrestag ist der 14. Februar 2027 ❤️',
-      exDaysTogether: 'Beispiel: 824 Tage',
+      exRelationshipAge: 'Wir sind seit <b>2 Jahren und 3 Monaten</b> zusammen ❤️',
+      exDaysUntilAnniversary: 'Nur noch <b>17 Tage</b> bis zu unserem Jahrestag ❤️',
+      exAnniversaryDate: 'Unser nächster Jahrestag ist der <b>14. Februar 2027</b> ❤️',
+      exDaysTogether: 'Wir sind seit <b>824 Tagen</b> zusammen ❤️',
       descTodayDate: 'Heutiges Datum',
-      exTodayDate: 'Beispiel: 30. Mai 2026',
+      exTodayDate: 'Heute ist der <b>30. Mai 2026</b>',
       descDayOfWeek: 'Wochentag',
-      exDayOfWeek: 'Beispiel: Freitag',
+      exDayOfWeek: 'Beispiel: <b>Freitag</b>',
       descSeason: 'Aktuelle Jahreszeit',
-      exSeason: 'Beispiel: Frühling',
+      exSeason: 'Beispiel: <b>Frühling</b>',
+      descMonthName: 'Aktueller Monatsname',
+      exMonthName: 'Hallo, <b>Juni</b> ❤️',
       usedVariablesTitle: 'Verwendete Variablen:',
+      showAdditionalVars: 'Zusätzliche Variablen anzeigen',
+      hideAdditionalVars: 'Zusätzliche Variablen ausblenden',
+      varRecommended: 'Empfohlen',
       catImportantMoments: '💫 Wichtige Momente',
       catMemories:         '📖 Erinnerungen',
       catDates:            '📅 Wichtige Daten',
@@ -14371,17 +14407,22 @@
       descDaysTogether: 'Exact number of days together',
       varsPopularTitle: '⭐ Popular variables',
       varsAdditionalTitle: '🔽 Additional variables',
-      exRelationshipAge: 'Example: We have been together for 2 years and 3 months ❤️',
-      exDaysUntilAnniversary: 'Example: 17 days until our anniversary ❤️',
-      exAnniversaryDate: 'Example: Our next anniversary is February 14, 2027 ❤️',
-      exDaysTogether: 'Example: 824 days',
+      exRelationshipAge: 'We have been together for <b>2 years and 3 months</b> ❤️',
+      exDaysUntilAnniversary: 'Only <b>17 days</b> until our anniversary ❤️',
+      exAnniversaryDate: 'Our next anniversary is <b>February 14, 2027</b> ❤️',
+      exDaysTogether: 'We have been together for <b>824 days</b> ❤️',
       descTodayDate: 'Today\'s date',
-      exTodayDate: 'Example: May 30, 2026',
+      exTodayDate: 'Today is <b>May 30, 2026</b>',
       descDayOfWeek: 'Day of week',
-      exDayOfWeek: 'Example: Friday',
+      exDayOfWeek: 'Example: <b>Friday</b>',
       descSeason: 'Current season',
-      exSeason: 'Example: Spring',
+      exSeason: 'Example: <b>Spring</b>',
+      descMonthName: 'Current month name',
+      exMonthName: 'Hello, <b>June</b> ❤️',
       usedVariablesTitle: 'Used variables:',
+      showAdditionalVars: 'Show additional variables',
+      hideAdditionalVars: 'Hide additional variables',
+      varRecommended: 'Recommended',
       catImportantMoments: '💫 Important moments',
       catMemories:         '📖 Memories',
       catDates:            '📅 Important dates',

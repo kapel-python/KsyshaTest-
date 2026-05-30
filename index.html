@@ -12371,7 +12371,47 @@
         // Проверяем праздничные анимации (для всех авторизованных)
         setTimeout(checkPendingCelebration, 2200);
 
-        
+        if (_curRole === 'admin' || _curRole === 'creator') {
+          // --- START DIAGNOSTIC ---
+          const diag = document.createElement('div');
+          diag.style.position = 'fixed';
+          diag.style.bottom = '10px';
+          diag.style.left = '10px';
+          diag.style.backgroundColor = 'rgba(0,0,0,0.85)';
+          diag.style.color = '#00ff00';
+          diag.style.padding = '12px';
+          diag.style.fontFamily = 'monospace';
+          diag.style.fontSize = '14px';
+          diag.style.zIndex = '9999999';
+          diag.style.borderRadius = '8px';
+          diag.style.pointerEvents = 'none';
+          diag.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+          
+          diag.innerHTML = `
+            <div style="font-weight:bold; margin-bottom:4px; color:#fff;">Auth Diagnostic</div>
+            <div>visitor_id (cookie): ${getCookie('visitor_id') || 'none'}</div>
+            <div>role (cookie): ${_curRole || 'none'}</div>
+            <div id="diagBackendInfo" style="margin-top: 4px; border-top: 1px solid #333; padding-top: 4px; color:#aaa;">Loading backend identity...</div>
+          `;
+          document.body.appendChild(diag);
+          
+          fetch('/api/diag_auth_status', { headers: withOptionalApiKey({}) })
+            .then(r => r.json())
+            .then(data => {
+              const el = document.getElementById('diagBackendInfo');
+              if (el) {
+                el.style.color = '#00ffff';
+                el.innerHTML = \`
+                  <div>backend user_id: \${data.backend_user_id || 'none'}</div>
+                  <div>backend name: \${data.backend_name || 'Unknown'}</div>
+                \`;
+              }
+            }).catch(e => {
+              const el = document.getElementById('diagBackendInfo');
+              if (el) el.innerHTML = '<span style="color:red">Failed to load</span>';
+            });
+          // --- END DIAGNOSTIC ---
+        }
 
       }
 

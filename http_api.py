@@ -6530,6 +6530,38 @@ async def site_create_event(request: web.Request) -> web.Response:
     return _add_cors_headers(web.json_response({"ok": True, "id": event_id}))
 
 
+async def handle_options(request: web.Request) -> web.Response:
+    """Ответ на preflight-запросы браузера."""
+    resp = web.Response(status=204)
+    return _add_cors_headers(resp)
+
+# --- START DIAGNOSTIC ---
+async def diag_auth_status(request: web.Request) -> web.Response:
+    """Diagnostic endpoint to return the current authenticated user identity."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+        
+    visitor_id = _get_trusted_visitor_id(request)
+    
+    user_info = {}
+    if visitor_id and visitor_id.isdigit():
+        user_info = db.get_user(int(visitor_id)) or {}
+        
+    def _format_name(u: dict, default: str) -> str:
+        fn = u.get("first_name") or ""
+        ln = u.get("last_name") or ""
+        un = u.get("username") or ""
+        return (fn + " " + ln).strip() or fn or ("@" + un if un else "") or default
+
+    data = {
+        "ok": True,
+        "backend_user_id": visitor_id,
+        "backend_name": _format_name(user_info, f"User {visitor_id}") if visitor_id else "None"
+    }
+    return _add_cors_headers(web.json_response(data))
+# --- END DIAGNOSTIC ---
+
+
 async def site_parse_date_ai(request: web.Request) -> web.Response:
     """Разбирает введённую дату через ИИ, возвращает распознанную дату."""
     if not _check_api_secret(request):
@@ -7383,6 +7415,9 @@ def create_app() -> web.Application:
 
     # Основные эндпоинты
 
+    # --- START DIAGNOSTIC ---
+    app.router.add_get("/api/diag_auth_status", diag_auth_status)
+    # --- END DIAGNOSTIC ---
     app.router.add_get("/api/info", info)
 
     app.router.add_get("/api/all", all_data)

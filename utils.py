@@ -561,6 +561,7 @@ def format_datetime_for_user(dt_str: str, timezone_id: Optional[str]) -> str:
     if not dt_str or not dt_str.strip():
         return ""
     try:
+        dt_str = dt_str.strip()
         dt_utc = None
         use_tz_offset = True
         if len(dt_str) >= 19 and dt_str[10] == ' ':
@@ -571,7 +572,11 @@ def format_datetime_for_user(dt_str: str, timezone_id: Optional[str]) -> str:
             dt_utc = datetime.strptime(s, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
             use_tz_offset = False
         else:
-            dt_utc = datetime.strptime(dt_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            # Если передана только дата (YYYY-MM-DD) или неполный формат — не применяем смещение часовых поясов,
+            # чтобы не сдвинуть день (например, 2026-05-30 не должно стать 2026-05-29 20:00)
+            d = datetime.strptime(dt_str[:10], "%Y-%m-%d").date()
+            return _format_date_russian(d)
+        
         offset_hours = _tz_offset(timezone_id, 0) if use_tz_offset else 0
         dt_local = dt_utc + timedelta(hours=offset_hours)
         return _format_datetime_parts(dt_local)

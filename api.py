@@ -20,7 +20,7 @@ API_CHAT_URL = "https://gptunnel.ru/v1/chat/completions"
 
 API_BALANCE_URL = "https://gptunnel.ru/v1/balance"
 
-MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "deepseek-v4-flash"
+MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "qwen3-14b"
 
 # ── Компактная сериализация данных для промпта ─────────────────────────────
 
@@ -224,6 +224,12 @@ def _send_messages(
 
         "useWalletBalance": True,
 
+        "thinking": {"type": "disabled"},
+
+        "reasoning_effort": "low",
+
+        "max_reasoning_tokens": 0,
+
     }
 
     logger.info(
@@ -313,6 +319,12 @@ def _send_messages_stream(messages: List[Dict[str, str]]):
         "useWalletBalance": True,
 
         "stream": True,
+
+        "thinking": {"type": "disabled"},
+
+        "reasoning_effort": "low",
+
+        "max_reasoning_tokens": 0,
 
     }
 

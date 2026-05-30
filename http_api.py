@@ -2721,7 +2721,7 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
         loop = _asyncio.get_running_loop()
         routing = await loop.run_in_executor(
             None,
-            lambda: route_companion_request(message, history_for_ai, extra, router_timeout_seconds=12),
+            lambda: route_companion_request(message, history_for_ai, extra, router_timeout_seconds=40),
         )
         endpoint = (routing.get("endpoint") or "api/all").strip().lower()
         try:

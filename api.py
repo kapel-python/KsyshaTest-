@@ -198,7 +198,7 @@ def _auth_header_value() -> str:
 
 def _send_messages(
     messages: List[Dict[str, str]],
-    timeout_seconds: int = 30,
+    timeout_seconds: int = 40,
     retries_on_timeout: int = 0,
 ) -> str:
 
@@ -444,7 +444,7 @@ def _send_messages_stream(messages: List[Dict[str, str]]):
 
     logger.info("AI stream completed in %.3fs", elapsed)
 
-def send_prompt(prompt: str, timeout_seconds: int = 30) -> str:
+def send_prompt(prompt: str, timeout_seconds: int = 40) -> str:
 
     """Старый интерфейс: один prompt без истории (используется для распознавания дат)."""
 
@@ -686,7 +686,7 @@ def parse_date_with_ai(user_input: str, datetime_context: str) -> str:
     try:
 
         # Для распознавания дат важнее быстрый ответ, чем долгий подвисший запрос.
-        result = send_prompt(prompt, timeout_seconds=8)
+        result = send_prompt(prompt, timeout_seconds=25)
 
         result = (result or "").strip()
 
@@ -1312,7 +1312,7 @@ def ask_companion(
 
         )
 
-        raw_reply = _send_messages(messages, timeout_seconds=14, retries_on_timeout=1)
+        raw_reply = _send_messages(messages, timeout_seconds=40, retries_on_timeout=1)
 
         reply = (raw_reply or "").strip() or "Не смог ответить, попробуй ещё раз"
 
@@ -1348,7 +1348,7 @@ def route_companion_request(
     user_message: str,
     history: List[Dict[str, str]],
     extra: Dict[str, Any] | None = None,
-    router_timeout_seconds: int = 12,
+    router_timeout_seconds: int = 40,
 ) -> Dict[str, Any]:
     import re
     extra = extra or {}
@@ -1526,7 +1526,7 @@ def ask_companion_stream(
                 router_msgs.append({"role": "user", "content": user_text})
 
             raw_router = (
-                _send_messages(router_msgs, timeout_seconds=12, retries_on_timeout=1) or ""
+                _send_messages(router_msgs, timeout_seconds=40, retries_on_timeout=1) or ""
             ).strip()
             router_obj = None
             if raw_router.startswith("{") and raw_router.endswith("}"):

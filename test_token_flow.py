@@ -5,7 +5,7 @@ import database
 import http_api
 
 # Setup a mock DB connection
-database.db.init_database(":memory:")
+database.db.db_path = ":memory:"; database.db._init_database()
 
 # Helper to mock requests
 class MockRequest:

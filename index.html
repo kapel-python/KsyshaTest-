@@ -12458,14 +12458,17 @@
           console.log(`[auth-debug:${authDebugId}] existingRoleBeforeToken:`, existingRoleBeforeToken);
           console.log(`[auth-debug:${authDebugId}] existingVidBeforeToken:`, existingVidBeforeToken);
 
-          if (existingRoleBeforeToken && existingVidBeforeToken) {
-            console.log(`[auth-debug:${authDebugId}] Both cookies present, calling /api/token_check`);
+          // ANY existing role means the user believes they are logged in.
+          // Even if visitor_id is missing (e.g. cleared or expired), we must fail-closed 
+          // and check the token to prevent a silent cross-account switch.
+          if (existingRoleBeforeToken) {
+            console.log(`[auth-debug:${authDebugId}] Active role detected, calling /api/token_check`);
             debugState.token_check_called = true;
             try {
               const checkResp = await fetch('/api/token_check', {
                 method: 'POST',
                 headers: withOptionalApiKey({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({ token: _urlToken, current_visitor_id: existingVidBeforeToken, debug_id: authDebugId })
+                body: JSON.stringify({ token: _urlToken, current_visitor_id: existingVidBeforeToken || '', debug_id: authDebugId })
               });
               
               console.log(`[auth-debug:${authDebugId}] token_check HTTP status:`, checkResp.status);

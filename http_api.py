@@ -4369,14 +4369,15 @@ async def token_check(request: web.Request) -> web.Response:
         payload = {}
 
     token = _pstr(payload.get("token")).strip()
+    debug_id = _pstr(payload.get("debug_id")).strip() or "none"
     if not token:
         return _add_cors_headers(web.json_response({"ok": False, "error": "empty"}))
 
-    logger.info(f"[auth-debug] token_check called, current_visitor_id: {payload.get('current_visitor_id')}")
+    logger.info(f"[auth-debug:{debug_id}] token_check called, current_visitor_id: {payload.get('current_visitor_id')}")
 
     token_data = db.peek_user_login_token(token)
     if not token_data:
-        logger.info(f"[auth-debug] token_check invalid/used token")
+        logger.info(f"[auth-debug:{debug_id}] token_check invalid/used token")
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid"}))
 
     token_user_id = token_data["user_id"]
@@ -4436,16 +4437,17 @@ async def token_auth(request: web.Request) -> web.Response:
         payload = {}
 
     token = _pstr(payload.get("token")).strip()
+    debug_id = _pstr(payload.get("debug_id")).strip() or "none"
     if not token:
         return _add_cors_headers(web.json_response({"ok": False, "error": "empty"}))
 
     consumed_by = f"ip={request.remote or ''};ua={(request.headers.get('User-Agent') or '')[:120]}"
     token_data = db.consume_user_login_token(token, consumed_by=consumed_by)
     if not token_data:
-        logger.info(f"[auth-debug] token_auth invalid/used token")
+        logger.info(f"[auth-debug:{debug_id}] token_auth invalid/used token")
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid"}))
     
-    logger.info(f"[auth-debug] token_auth executed and consumed token for user_id={token_data['user_id']}")
+    logger.info(f"[auth-debug:{debug_id}] token_auth executed and consumed token for user_id={token_data['user_id']}")
 
     user_id = token_data["user_id"]
     role = token_data.get("role") or "user"

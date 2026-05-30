@@ -8063,13 +8063,17 @@
           const canvas=document.getElementById('skyPreviewCanvas'); if(!canvas)return;
           const wrap=canvas.parentElement; canvas.width=wrap.offsetWidth; canvas.height=wrap.offsetHeight;
           const ctx=canvas.getContext('2d'); const W=canvas.width,H=canvas.height,half=W/2;
-          [{off:_offL,x0:0,k:'moscow'},{off:_offR,x0:half,k:'bishkek'}].forEach(({off,x0,k})=>{
+          const isSame = window._pairSkyCfg && window._pairSkyCfg.sameCity;
+          const list = isSame 
+            ? [{off:_offL,x0:0,w:W,k:'moscow'}]
+            : [{off:_offL,x0:0,w:half,k:'moscow'},{off:_offR,x0:half,w:half,k:'bishkek'}];
+          list.forEach(({off,x0,w,k})=>{
             const h=_rHour(off); const c=_sky(k,h);
-            const g=ctx.createLinearGradient(x0,0,x0,H); g.addColorStop(0,c.top); g.addColorStop(1,c.bot); ctx.fillStyle=g; ctx.fillRect(x0,0,half,H);
-            if(c.hor){const hg=ctx.createLinearGradient(x0,H*0.5,x0,H);hg.addColorStop(0,'transparent');hg.addColorStop(1,c.hor);ctx.fillStyle=hg;ctx.fillRect(x0,0,half,H);}
-            if(c.stars>0){ctx.save();ctx.globalAlpha=c.stars*0.8;for(let i=0;i<18;i++){const sx=x0+Math.random()*half,sy=Math.random()*H*0.65,r=Math.random()*1.2+0.3;ctx.fillStyle='white';ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fill();}ctx.restore();}
-            if(c.sun>0){const px=Math.max(0.05,Math.min(0.95,(h-6)/14)),bx=x0+px*half,by=H*0.1+(1-Math.sin(px*Math.PI))*H*0.55;const gold=h<8.5||h>17,sc=gold?'#ffcc44':'#fff7e0',gc=gold?'rgba(255,160,30,':'rgba(255,240,180,';const rg=ctx.createRadialGradient(bx,by,0,bx,by,Math.max(0.001,22*c.sun));rg.addColorStop(0,gc+'0.5)');rg.addColorStop(1,gc+'0)');ctx.fillStyle=rg;ctx.beginPath();ctx.arc(bx,by,22*c.sun,0,Math.PI*2);ctx.fill();ctx.save();ctx.shadowColor=sc;ctx.shadowBlur=14*c.sun;ctx.fillStyle=sc;ctx.beginPath();ctx.arc(bx,by,8*c.sun,0,Math.PI*2);ctx.fill();ctx.restore();}
-            if(c.moon>0){const prog=h<6?(h+12)/18:(h-18)/18,px=Math.max(0.05,Math.min(0.95,prog)),bx=x0+px*half,by=H*0.1+(1-Math.sin(px*Math.PI))*H*0.55;ctx.save();ctx.shadowColor='rgba(220,210,180,0.5)';ctx.shadowBlur=10;ctx.fillStyle='#e8e0d0';ctx.beginPath();ctx.arc(bx,by,7*c.moon,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(0,0,0,0.25)';ctx.beginPath();ctx.arc(bx+3,by+1,6*c.moon,0,Math.PI*2);ctx.fill();ctx.restore();}
+            const g=ctx.createLinearGradient(x0,0,x0,H); g.addColorStop(0,c.top); g.addColorStop(1,c.bot); ctx.fillStyle=g; ctx.fillRect(x0,0,w,H);
+            if(c.hor){const hg=ctx.createLinearGradient(x0,H*0.5,x0,H);hg.addColorStop(0,'transparent');hg.addColorStop(1,c.hor);ctx.fillStyle=hg;ctx.fillRect(x0,0,w,H);}
+            if(c.stars>0){ctx.save();ctx.globalAlpha=c.stars*0.8;for(let i=0;i<(isSame?35:18);i++){const sx=x0+Math.random()*w,sy=Math.random()*H*0.65,r=Math.random()*1.2+0.3;ctx.fillStyle='white';ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);ctx.fill();}ctx.restore();}
+            if(c.sun>0){const prog=(h-6)/14,px=Math.max(0.05,Math.min(0.95,prog)),bx=x0+px*w,by=H*0.1+(1-Math.sin(px*Math.PI))*H*0.55;const gold=h<8.5||h>17,sc=gold?'#ffcc44':'#fff7e0',gc=gold?'rgba(255,160,30,':'rgba(255,240,180,';const rg=ctx.createRadialGradient(bx,by,0,bx,by,Math.max(0.001,22*c.sun));rg.addColorStop(0,gc+'0.5)');rg.addColorStop(1,gc+'0)');ctx.fillStyle=rg;ctx.beginPath();ctx.arc(bx,by,22*c.sun,0,Math.PI*2);ctx.fill();ctx.save();ctx.shadowColor=sc;ctx.shadowBlur=14*c.sun;ctx.fillStyle=sc;ctx.beginPath();ctx.arc(bx,by,8*c.sun,0,Math.PI*2);ctx.fill();ctx.restore();}
+            if(c.moon>0){const prog=h<6?(h+12)/18:(h-18)/18,px=Math.max(0.05,Math.min(0.95,prog)),bx=x0+px*w,by=H*0.1+(1-Math.sin(px*Math.PI))*H*0.55;ctx.save();ctx.shadowColor='rgba(220,210,180,0.5)';ctx.shadowBlur=10;ctx.fillStyle='#e8e0d0';ctx.beginPath();ctx.arc(bx,by,7*c.moon,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(0,0,0,0.25)';ctx.beginPath();ctx.arc(bx+3,by+1,6*c.moon,0,Math.PI*2);ctx.fill();ctx.restore();}
           });
           const m=document.getElementById('ptMoscow'),b=document.getElementById('ptBishkek');
           if(m)m.textContent=_rStr(_offL); if(b)b.textContent=_rStr(_offR);
@@ -9521,6 +9525,9 @@
               skyCardTitle: 'Наше небо',
               skyCardDesc: 'Ты можешь посмотреть на наше небо, узнать погоду, ну и конечно же помнить что даже на большом расстоянии мы можем быть чуть чуть ближе ❤️',
               skyCardBtn: 'Открыть наше небо',
+              skyCardTitleOrdinary: 'Небо',
+              skyCardDescOrdinary: 'Ты можешь посмотреть на небо, узнать погоду и увидеть текущее время ✦',
+              skyCardBtnOrdinary: 'Открыть небо',
               aiTitle: 'ИИ помощник',
               aiStatus: 'знает все о нас',
               aiChangeAvatar: 'Сменить аву',
@@ -9721,6 +9728,9 @@
               skyCardTitle: 'Unser Himmel',
               skyCardDesc: 'Du kannst unseren Himmel ansehen, das Wetter prüfen und daran denken, dass wir auch über große Distanz ein bisschen näher sein können ❤️',
               skyCardBtn: 'Unseren Himmel öffnen',
+              skyCardTitleOrdinary: 'Himmel',
+              skyCardDescOrdinary: 'Du kannst den Himmel über dir betrachten, das Wetter erfahren und die aktuelle Uhrzeit sehen ✦',
+              skyCardBtnOrdinary: 'Himmel öffnen',
               aiTitle: 'KI-Assistent',
               aiStatus: 'weiß alles über uns',
               aiChangeAvatar: 'Avatar ändern',
@@ -9921,6 +9931,9 @@
               skyCardTitle: 'Our sky',
               skyCardDesc: 'You can look at our sky, check the weather, and remember that even from far away we can be a little closer ❤️',
               skyCardBtn: 'Open our sky',
+              skyCardTitleOrdinary: 'Sky',
+              skyCardDescOrdinary: 'You can look at the sky above you, check the weather, and see the current time ✦',
+              skyCardBtnOrdinary: 'Open sky',
               aiTitle: 'AI assistant',
               aiStatus: 'knows everything about us',
               aiChangeAvatar: 'Change avatar',
@@ -12383,7 +12396,6 @@
         await loadAllData();
 
         // Загружаем SKY_CFG: обновляем карточку «Наше небо» динамически
-        // и скрываем блок если у партнёров одинаковый часовой пояс
         try {
           const _vid = ensureVisitorIdForRole() || '';
           const _skyCfgResp = await fetch('/api/sky_cfg?v=' + encodeURIComponent(_vid), {
@@ -12396,11 +12408,81 @@
               // Сохраняем глобально — WS-хендлеры используют leftName/rightName
               window._pairSkyCfg = _skyCfgData;
               const _skyCard = document.getElementById('skyCardBlock');
-              if (_skyCfgData.sameTimezone === true) {
-                // Одинаковые пояса — скрываем блок полностью
+              if (!_skyCfgData.hasCouple) {
+                // Нет пары — скрываем блок полностью
                 if (_skyCard) _skyCard.style.display = 'none';
               } else {
-                // Разные пояса — обновляем названия городов и preview
+                // Пара есть — показываем блок
+                if (_skyCard) _skyCard.style.display = '';
+
+                if (_skyCfgData.sameCity === true) {
+                  // Одинаковые города — обычное небо
+                  const titleEl = document.querySelector('#skyCardBlock .card-title');
+                  const descEl = document.getElementById('skyCardDesc');
+                  const btnSpan = document.querySelector('#skyCardBlock .card-btn span:last-child');
+                  if (titleEl) titleEl.textContent = _ui('skyCardTitleOrdinary') || 'Небо';
+                  if (descEl) descEl.textContent = _ui('skyCardDescOrdinary') || 'Ты можешь посмотреть на небо, узнать погоду и увидеть текущее время ✦';
+                  if (btnSpan) btnSpan.textContent = _ui('skyCardBtnOrdinary') || 'Открыть небо';
+
+                  const divider = document.querySelector('#skyCardBlock .preview-divider');
+                  const heart = document.querySelector('#skyCardBlock .preview-heart');
+                  if (divider) divider.style.display = 'none';
+                  if (heart) heart.style.display = 'none';
+
+                  const ptBishkek = document.getElementById('ptBishkek');
+                  const skyLabelRight = document.getElementById('skyLabelRight');
+                  if (ptBishkek) ptBishkek.style.display = 'none';
+                  if (skyLabelRight) skyLabelRight.style.display = 'none';
+
+                  const ptMoscow = document.getElementById('ptMoscow');
+                  const skyLabelLeft = document.getElementById('skyLabelLeft');
+                  if (ptMoscow) {
+                    ptMoscow.style.left = '50%';
+                    ptMoscow.style.transform = 'translateX(-50%)';
+                  }
+                  if (skyLabelLeft) {
+                    skyLabelLeft.style.left = '50%';
+                    skyLabelLeft.style.transform = 'translateX(-50%)';
+                    skyLabelLeft.style.textAlign = 'center';
+                  }
+
+                  const sub = document.getElementById('skyCardSubtitle');
+                  if (sub) {
+                    const L = _skyCfgData.moscow || {};
+                    sub.textContent = L.cityLabel || '· · ·';
+                  }
+                } else {
+                  // Разные города — восстанавливаем оригинальное состояние для «Нашего неба»
+                  const titleEl = document.querySelector('#skyCardBlock .card-title');
+                  const descEl = document.getElementById('skyCardDesc');
+                  const btnSpan = document.querySelector('#skyCardBlock .card-btn span:last-child');
+                  if (titleEl) titleEl.textContent = _ui('skyCardTitle') || 'Наше небо';
+                  if (descEl) descEl.textContent = _ui('skyCardDesc') || 'Ты можешь посмотреть на наше небо, узнать погоду, ну и конечно же помнить что даже на большом расстоянии мы можем быть чуть чуть ближе ❤️';
+                  if (btnSpan) btnSpan.textContent = _ui('skyCardBtn') || 'Открыть наше небо';
+
+                  const divider = document.querySelector('#skyCardBlock .preview-divider');
+                  const heart = document.querySelector('#skyCardBlock .preview-heart');
+                  if (divider) divider.style.display = '';
+                  if (heart) heart.style.display = '';
+
+                  const ptBishkek = document.getElementById('ptBishkek');
+                  const skyLabelRight = document.getElementById('skyLabelRight');
+                  if (ptBishkek) ptBishkek.style.display = '';
+                  if (skyLabelRight) skyLabelRight.style.display = '';
+
+                  const ptMoscow = document.getElementById('ptMoscow');
+                  const skyLabelLeft = document.getElementById('skyLabelLeft');
+                  if (ptMoscow) {
+                    ptMoscow.style.left = '';
+                    ptMoscow.style.transform = '';
+                  }
+                  if (skyLabelLeft) {
+                    skyLabelLeft.style.left = '';
+                    skyLabelLeft.style.transform = '';
+                    skyLabelLeft.style.textAlign = '';
+                  }
+                }
+
                 if (typeof window._skyPreviewUpdate === 'function') {
                   window._skyPreviewUpdate(_skyCfgData);
                 }
@@ -14473,6 +14555,9 @@
       skyCardTitle: 'Наше небо',
       skyCardDesc: 'Ты можешь посмотреть на наше небо, узнать погоду, ну и конечно же помнить что даже на большом расстоянии мы можем быть чуть чуть ближе ❤️',
       skyCardBtn: 'Открыть наше небо',
+      skyCardTitleOrdinary: 'Небо',
+      skyCardDescOrdinary: 'Ты можешь посмотреть на небо, узнать погоду и увидеть текущее время ✦',
+      skyCardBtnOrdinary: 'Открыть небо',
       aiTitle: 'ИИ помощник',
       aiStatus: 'знает все о нас',
       aiChangeAvatar: 'Сменить аву',
@@ -14673,6 +14758,9 @@
       skyCardTitle: 'Unser Himmel',
       skyCardDesc: 'Du kannst unseren Himmel ansehen, das Wetter prüfen und daran denken, dass wir auch über große Distanz ein bisschen näher sein können ❤️',
       skyCardBtn: 'Unseren Himmel öffnen',
+      skyCardTitleOrdinary: 'Himmel',
+      skyCardDescOrdinary: 'Du kannst den Himmel über dir betrachten, das Wetter erfahren und die aktuelle Uhrzeit sehen ✦',
+      skyCardBtnOrdinary: 'Himmel öffnen',
       aiTitle: 'KI-Assistent',
       aiStatus: 'weiß alles über uns',
       aiChangeAvatar: 'Avatar ändern',
@@ -14873,6 +14961,9 @@
       skyCardTitle: 'Our sky',
       skyCardDesc: 'You can look at our sky, check the weather, and remember that even from far away we can be a little closer ❤️',
       skyCardBtn: 'Open our sky',
+      skyCardTitleOrdinary: 'Sky',
+      skyCardDescOrdinary: 'You can look at the sky above you, check the weather, and see the current time ✦',
+      skyCardBtnOrdinary: 'Open sky',
       aiTitle: 'AI assistant',
       aiStatus: 'knows everything about us',
       aiChangeAvatar: 'Change avatar',

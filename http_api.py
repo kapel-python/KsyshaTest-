@@ -4023,28 +4023,31 @@ def _build_sky_cfg(request: web.Request) -> dict:
     from database import db as _db
 
     # Дефолт: без подмены на старые города, только нейтральный UTC-заглушка.
-    def _default():
+    def _default(has_couple=False):
         left  = _tz_to_city_info("UTC")
         right = _tz_to_city_info("UTC")
-        return _sky_cfg_from_cities(left, right, left_name="Создатель", right_name="Партнёр")
+        cfg = _sky_cfg_from_cities(left, right, left_name="Создатель", right_name="Партнёр")
+        cfg["hasCouple"] = has_couple
+        cfg["sameCity"] = True
+        return cfg
 
     visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
     if not visitor_id:
-        return _default()
+        return _default(has_couple=False)
 
     uid = _visitor_to_user_id(visitor_id)
     if not uid:
-        return _default()
+        return _default(has_couple=False)
 
     # Ищем пару пользователя
     couple = _db.get_couple_by_user(uid)
     if not couple:
-        return _default()
+        return _default(has_couple=False)
 
     u1 = couple.get("user1_id")
     u2 = couple.get("user2_id")
     if not u2:
-        return _default()
+        return _default(has_couple=False)
 
     partner_id = u2 if u1 == uid else u1
     my_tz      = _db.get_user_setting(uid, "timezone") or "UTC"
@@ -4066,7 +4069,10 @@ def _build_sky_cfg(request: web.Request) -> dict:
     left  = my_city      if is_creator else partner_city
     right = partner_city if is_creator else my_city
 
-    return _sky_cfg_from_cities(left, right, left_name=u1_name, right_name=u2_name)
+    cfg = _sky_cfg_from_cities(left, right, left_name=u1_name, right_name=u2_name)
+    cfg["hasCouple"] = True
+    cfg["sameCity"] = (my_tz == partner_tz or my_tz == "UTC" or partner_tz == "UTC")
+    return cfg
 
 
 def _sky_cfg_from_cities(left: dict, right: dict,

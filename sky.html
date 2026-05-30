@@ -2064,7 +2064,14 @@ function _applySingleMode(activeKey) {
 
   _activePanel = activeKey;
   const otherName = _getPartnerName(activeKey);
-  if (btnSwitch) btnSwitch.textContent = '⇄ небо ' + otherName;
+  if (btnSwitch) {
+    if (_skyCfg.sameCity === true) {
+      btnSwitch.style.display = 'none';
+    } else {
+      btnSwitch.style.display = '';
+      btnSwitch.textContent = '⇄ небо ' + otherName;
+    }
+  }
   _updateSendBtn();
 }
 
@@ -2363,6 +2370,86 @@ async function runIntroAnimation() {
   canvas.height = wrap.offsetHeight;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
+
+  const isSame = _skyCfg.sameCity === true;
+
+  if (isSame) {
+    // Обычное небо (в одном городе)
+    const C = { x: W / 2, y: H / 2 };
+
+    window._introSkipToEnd = function() {
+      clearInterval(typeof _citytimer !== 'undefined' ? _citytimer : null);
+      ctx.clearRect(0, 0, W, H);
+
+      ctx.strokeStyle = 'rgba(100,120,200,0.07)'; ctx.lineWidth = 1;
+      for (let gi = 0; gi <= 4; gi++) {
+        ctx.beginPath(); ctx.moveTo(W*gi/4, 0); ctx.lineTo(W*gi/4, H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, H*gi/4); ctx.lineTo(W, H*gi/4); ctx.stroke();
+      }
+
+      const grd = ctx.createRadialGradient(C.x, C.y, 0, C.x, C.y, 22);
+      grd.addColorStop(0, 'rgba(200,180,255,0.5)'); grd.addColorStop(1, 'transparent');
+      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(C.x, C.y, 22, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(C.x, C.y, 6, 0, Math.PI*2); ctx.fill();
+
+      const lm = document.getElementById('introLabelMoscow');
+      const lb = document.getElementById('introLabelBishkek');
+      if (lm) { lm.style.left = C.x+'px'; lm.style.top = C.y+'px'; lm.classList.add('visible'); }
+      if (lb) { lb.style.display = 'none'; }
+
+      const nm = document.getElementById('introNameMoscow');
+      if (nm) nm.textContent = (_skyCfg.moscow || {}).cityLabel || '—';
+
+      typedEl.style.transition = 'none';
+      typedEl.style.opacity = '1';
+      typedEl.innerHTML = 'Мы под одним небом ✦';
+      btn.classList.add('visible');
+      window._introSkipToEnd = null;
+    };
+
+    await _delay(400);
+    await _typeText(typedEl, 'мы под одним небом ❤️', 55);
+    await _delay(600);
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(100,120,200,0.07)'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      ctx.beginPath(); ctx.moveTo(W*i/4, 0); ctx.lineTo(W*i/4, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, H*i/4); ctx.lineTo(W, H*i/4); ctx.stroke();
+    }
+
+    await new Promise(r => {
+      const t0 = performance.now();
+      function frame(now) {
+        const p = Math.min((now-t0)/500, 1);
+        const ease = Math.max(0, 1 - Math.pow(1-p, 3));
+        ctx.clearRect(C.x-25, C.y-25, 50, 50);
+        const grd = ctx.createRadialGradient(C.x, C.y, 0, C.x, C.y, Math.max(0.001, 18*ease));
+        grd.addColorStop(0, 'rgba(200,180,255,0.35)');
+        grd.addColorStop(1, 'transparent');
+        ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(C.x, C.y, Math.max(0.001, 18*ease), 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(C.x, C.y, Math.max(0.001, 5*ease), 0, Math.PI*2); ctx.fill();
+        if (p < 1) requestAnimationFrame(frame); else r();
+      }
+      requestAnimationFrame(frame);
+    });
+
+    const lm = document.getElementById('introLabelMoscow');
+    const lb = document.getElementById('introLabelBishkek');
+    if (lm) { lm.style.left = C.x+'px'; lm.style.top = C.y+'px'; lm.classList.add('visible'); }
+    if (lb) { lb.style.display = 'none'; }
+
+    const nm = document.getElementById('introNameMoscow');
+    if (nm) nm.textContent = (_skyCfg.moscow || {}).cityLabel || '—';
+
+    await _delay(500);
+    await _eraseText(typedEl, 28);
+    await _typeText(typedEl, 'Мы ближе когда мы вместе ✦', 50);
+    await _delay(600);
+    btn.classList.add('visible');
+    return;
+  }
 
   const pts = _introGetPoints(W, H);
   const M   = pts.moscow, B = pts.bishkek;

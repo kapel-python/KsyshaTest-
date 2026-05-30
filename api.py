@@ -20,7 +20,7 @@ API_CHAT_URL = "https://gptunnel.ru/v1/chat/completions"
 
 API_BALANCE_URL = "https://gptunnel.ru/v1/balance"
 
-MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "qwen3-8b"
+MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "deepseek-v4-flash"
 
 # ── Компактная сериализация данных для промпта ─────────────────────────────
 

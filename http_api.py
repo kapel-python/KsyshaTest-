@@ -1594,7 +1594,7 @@ def _memory_to_public_dict(m: Memory, timezone_id: str | None = None) -> dict:
 
         "date": m.date,
 
-        "date_human": format_datetime_for_user(m.date or "", timezone_id),
+        "date_human": format_datetime_for_user(date_resolved or "", timezone_id),
 
         "date_resolved": date_resolved,
 

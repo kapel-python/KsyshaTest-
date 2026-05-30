@@ -12496,29 +12496,30 @@
                     overlay.style.zIndex = '999999';
                     overlay.style.fontFamily = 'sans-serif';
                     
+                    const dict = I18N[(_stgState && _stgState.lang) || 'ru'] || I18N.ru;
                     const modal = document.createElement('div');
-                    modal.style.backgroundColor = 'var(--bg-main, #ffffff)';
-                    modal.style.color = 'var(--text-primary, #000000)';
+                    modal.style.backgroundColor = 'var(--card-bg, #ffffff)';
+                    modal.style.color = 'var(--text-color, #333333)';
                     modal.style.padding = '32px';
                     modal.style.borderRadius = '16px';
                     modal.style.maxWidth = '400px';
                     modal.style.textAlign = 'center';
-                    modal.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+                    modal.style.boxShadow = 'var(--card-shadow, 0 10px 30px rgba(0,0,0,0.5))';
                     
                     modal.innerHTML = `
-                      <h2 style="margin-top:0; font-size:22px; margin-bottom: 24px;">Account Switch</h2>
-                      <div style="background:var(--bg-secondary, #f5f5f5); padding:16px; border-radius:12px; margin-bottom:16px; text-align:left;">
-                        <div style="font-size:14px; opacity:0.7; margin-bottom:4px;">Current session:</div>
+                      <h2 style="margin-top:0; font-size:22px; margin-bottom: 24px;">${dict.modalAccountSwitch || 'Account Switch'}</h2>
+                      <div style="background:var(--bg-color, #fafafa); padding:16px; border-radius:12px; margin-bottom:16px; text-align:left;">
+                        <div style="font-size:14px; color:var(--muted-text, #666); margin-bottom:4px;">${dict.modalCurrentSession || 'Current session:'}</div>
                         <div style="font-weight:bold; font-size:18px;">${checkData.current_user?.name || 'Unknown'}</div>
                       </div>
-                      <div style="background:rgba(0, 123, 255, 0.1); padding:16px; border-radius:12px; margin-bottom:24px; text-align:left;">
-                        <div style="font-size:14px; color:#007bff; margin-bottom:4px;">Link belongs to:</div>
-                        <div style="font-weight:bold; font-size:18px; color:#007bff;">${checkData.token_user?.name || 'Unknown'}</div>
+                      <div style="background:var(--accent-soft, rgba(0, 123, 255, 0.1)); padding:16px; border-radius:12px; margin-bottom:24px; text-align:left;">
+                        <div style="font-size:14px; color:var(--accent-color, #007bff); margin-bottom:4px;">${dict.modalLinkBelongsTo || 'Link belongs to:'}</div>
+                        <div style="font-weight:bold; font-size:18px; color:var(--accent-color, #007bff);">${checkData.token_user?.name || 'Unknown'}</div>
                       </div>
-                      <p style="margin-bottom:24px; opacity:0.8; font-size:15px;">Continuing will replace your current session.</p>
+                      <p style="margin-bottom:24px; color:var(--muted-text, #666); font-size:15px;">${dict.modalReplaceWarning || 'Continuing will replace your current session.'}</p>
                       <div style="display:flex; gap:12px; justify-content:center;">
-                        <button id="cancelTokenSwitch" style="flex:1; padding:12px 20px; border-radius:10px; border:1px solid var(--border-color, #ccc); background:transparent; color:inherit; font-weight:bold; cursor:pointer; font-size:15px; transition:0.2s;">Cancel</button>
-                        <button id="confirmTokenSwitch" style="flex:1; padding:12px 20px; border-radius:10px; border:none; background:#007bff; color:#fff; font-weight:bold; cursor:pointer; font-size:15px; transition:0.2s;">Switch</button>
+                        <button id="cancelTokenSwitch" style="flex:1; padding:12px 20px; border-radius:10px; border:1px solid var(--border-color, #ccc); background:transparent; color:inherit; font-weight:bold; cursor:pointer; font-size:15px; transition:0.2s;">${dict.modalCancel || 'Cancel'}</button>
+                        <button id="confirmTokenSwitch" style="flex:1; padding:12px 20px; border-radius:10px; border:none; background:var(--accent-color, #007bff); color:#fff; font-weight:bold; cursor:pointer; font-size:15px; transition:0.2s;">${dict.modalSwitch || 'Switch'}</button>
                       </div>
                     `;
                     
@@ -14058,6 +14059,12 @@
       catEvent:            '📅 Событие на дату',
       catEventPast:        '✅ Уже прошло',
       catWish:             '💫 Желание',
+      modalAccountSwitch:  'Смена аккаунта',
+      modalCurrentSession: 'Текущая сессия:',
+      modalLinkBelongsTo:  'Ссылка принадлежит:',
+      modalReplaceWarning: 'Продолжение заменит вашу текущую сессию.',
+      modalCancel:         'Отмена',
+      modalSwitch:         'Сменить',
       wishNumFirst:  'первое',
       wishNumSecond: 'второе',
       wishNumThird:  'третье',
@@ -14123,6 +14130,12 @@
       catEvent:            '📅 Geplantes Ereignis',
       catEventPast:        '✅ Bereits vorbei',
       catWish:             '💫 Wunsch',
+      modalAccountSwitch:  'Konto wechseln',
+      modalCurrentSession: 'Aktuelle Sitzung:',
+      modalLinkBelongsTo:  'Link gehört zu:',
+      modalReplaceWarning: 'Fortfahren ersetzt Ihre aktuelle Sitzung.',
+      modalCancel:         'Abbrechen',
+      modalSwitch:         'Wechseln',
       wishNumFirst:  'ersten',
       wishNumSecond: 'zweiten',
       wishNumThird:  'dritten',
@@ -14188,6 +14201,12 @@
       catEvent:            '📅 Event on date',
       catEventPast:        '✅ Already passed',
       catWish:             '💫 Wish',
+      modalAccountSwitch:  'Account Switch',
+      modalCurrentSession: 'Current session:',
+      modalLinkBelongsTo:  'Link belongs to:',
+      modalReplaceWarning: 'Continuing will replace your current session.',
+      modalCancel:         'Cancel',
+      modalSwitch:         'Switch',
       wishNumFirst:  'first',
       wishNumSecond: 'second',
       wishNumThird:  'third',

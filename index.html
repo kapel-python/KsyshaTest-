@@ -5311,7 +5311,8 @@
           if (iso.indexOf('T') === -1) {
             iso = iso.replace(' ', 'T');
           }
-          if (!iso.endsWith('Z') && iso.indexOf('+') === -1 && iso.indexOf('-') === -1) {
+          const timePart = iso.substring(10);
+          if (!iso.endsWith('Z') && timePart.indexOf('+') === -1 && timePart.indexOf('-') === -1) {
             iso += 'Z';
           }
         }

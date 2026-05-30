@@ -317,14 +317,69 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
     if next_anniv < today:
         next_anniv = date(today.year + 1, date_met.month, date_met.day)
     days_until_anniv = (next_anniv - today).days
-    anniv_str = f"{date_met.day} {MONTH_RU.get(date_met.strftime('%B'), date_met.strftime('%B').lower())}"
+
+    try:
+        from database import db
+        lang = db.get_user_setting(user_id, "lang") or "ru" if user_id else "ru"
+    except Exception:
+        lang = "ru"
+
+    if lang == "en":
+        months_en = {
+            "January": "January", "February": "February", "March": "March", "April": "April",
+            "May": "May", "June": "June", "July": "July", "August": "August",
+            "September": "September", "October": "October", "November": "November", "December": "December"
+        }
+        m_en = months_en.get(date_met.strftime('%B'), date_met.strftime('%B'))
+        anniv_str = f"{m_en} {date_met.day}, {next_anniv.year}"
+    elif lang == "de":
+        months_de = {
+            "January": "Januar", "February": "Februar", "March": "März", "April": "April",
+            "May": "Mai", "June": "Juni", "July": "Juli", "August": "August",
+            "September": "September", "October": "Oktober", "November": "November", "December": "Dezember"
+        }
+        m_de = months_de.get(date_met.strftime('%B'), date_met.strftime('%B'))
+        anniv_str = f"{date_met.day}. {m_de} {next_anniv.year}"
+    else:
+        anniv_str = f"{date_met.day} {MONTH_RU.get(date_met.strftime('%B'), date_met.strftime('%B').lower())} {next_anniv.year}"
+
     dow = today.weekday()
-    day_of_week_str = DAY_OF_WEEK_RU.get(dow, "день")
-    season_str = "зима"
-    for months, s in SEASON_RU.items():
-        if today.month in months:
-            season_str = s
-            break
+    DAY_OF_WEEK_EN = {
+        0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday",
+        4: "Friday", 5: "Saturday", 6: "Sunday"
+    }
+    DAY_OF_WEEK_DE = {
+        0: "Montag", 1: "Dienstag", 2: "Mittwoch", 3: "Donnerstag",
+        4: "Freitag", 5: "Samstag", 6: "Sonntag"
+    }
+    if lang == "en":
+        day_of_week_str = DAY_OF_WEEK_EN.get(dow, "day")
+    elif lang == "de":
+        day_of_week_str = DAY_OF_WEEK_DE.get(dow, "Tag")
+    else:
+        day_of_week_str = DAY_OF_WEEK_RU.get(dow, "день")
+
+    SEASON_EN = {(12, 1, 2): "Winter", (3, 4, 5): "Spring", (6, 7, 8): "Summer", (9, 10, 11): "Autumn"}
+    SEASON_DE = {(12, 1, 2): "Winter", (3, 4, 5): "Frühling", (6, 7, 8): "Sommer", (9, 10, 11): "Herbst"}
+    if lang == "en":
+        season_str = "Winter"
+        for months, s in SEASON_EN.items():
+            if today.month in months:
+                season_str = s
+                break
+    elif lang == "de":
+        season_str = "Winter"
+        for months, s in SEASON_DE.items():
+            if today.month in months:
+                season_str = s
+                break
+    else:
+        season_str = "зима"
+        for months, s in SEASON_RU.items():
+            if today.month in months:
+                season_str = s
+                break
+
     if user_id:
         try:
             from database import db
@@ -335,15 +390,52 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
     else:
         offset_hours = 0
     user_hour = (datetime.now(timezone.utc) + timedelta(hours=offset_hours)).hour
-    if 5 <= user_hour < 12:
-        time_greeting = "Доброе утречко ❤️"
-    elif 12 <= user_hour < 17:
-        time_greeting = "Добрый денечек)"
-    elif 17 <= user_hour < 23:
-        time_greeting = "Добрый вечер ❤️"
+
+    if lang == "en":
+        if 5 <= user_hour < 12:
+            time_greeting = "Good morning ❤️"
+        elif 12 <= user_hour < 17:
+            time_greeting = "Good afternoon ❤️"
+        elif 17 <= user_hour < 23:
+            time_greeting = "Good evening ❤️"
+        else:
+            time_greeting = "Sweet dreams ❤️"
+    elif lang == "de":
+        if 5 <= user_hour < 12:
+            time_greeting = "Guten Morgen ❤️"
+        elif 12 <= user_hour < 17:
+            time_greeting = "Guten Tag ❤️"
+        elif 17 <= user_hour < 23:
+            time_greeting = "Guten Abend ❤️"
+        else:
+            time_greeting = "Süße Träume ❤️"
     else:
-        time_greeting = "Сладких снов ❤️"
-    month_name_str = MONTH_NOMINATIVE_RU.get(today.strftime("%B"), today.strftime("%B").lower())
+        if 5 <= user_hour < 12:
+            time_greeting = "Доброе утречко ❤️"
+        elif 12 <= user_hour < 17:
+            time_greeting = "Добрый денечек)"
+        elif 17 <= user_hour < 23:
+            time_greeting = "Добрый вечер ❤️"
+        else:
+            time_greeting = "Сладких снов ❤️"
+
+    if lang == "en":
+        months_en_nom = {
+            "January": "January", "February": "February", "March": "March", "April": "April",
+            "May": "May", "June": "June", "July": "July", "August": "August",
+            "September": "September", "October": "October", "November": "November", "December": "December"
+        }
+        month_name_str = months_en_nom.get(today.strftime("%B"), today.strftime("%B"))
+    elif lang == "de":
+        months_de_nom = {
+            "January": "Januar", "February": "Februar", "March": "März", "April": "April",
+            "May": "Mai", "June": "Juni", "July": "Juli", "August": "August",
+            "September": "September", "October": "Oktober", "November": "November", "December": "Dezember"
+        }
+        month_name_str = months_de_nom.get(today.strftime("%B"), today.strftime("%B"))
+    else:
+        month_name_str = MONTH_NOMINATIVE_RU.get(today.strftime("%B"), today.strftime("%B").lower())
+
     years, months, days = _date_diff_calendar(date_met, today)
     if years > 0:
         time_together_str = f"{years}г. {months} мес {days}д"
@@ -351,6 +443,70 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
         time_together_str = f"{months} мес {days}д"
     else:
         time_together_str = f"{days}д"
+
+    def _format_relationship_age(y: int, m: int, d: int, l: str) -> str:
+        if l == "ru":
+            def plural_days(n):
+                if n % 10 == 1 and n % 100 != 11:
+                    return f"{n} день"
+                elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+                    return f"{n} дня"
+                else:
+                    return f"{n} дней"
+            def plural_months(n):
+                if n % 10 == 1 and n % 100 != 11:
+                    return f"{n} месяц"
+                elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+                    return f"{n} месяца"
+                else:
+                    return f"{n} месяцев"
+            def plural_years(n):
+                if n % 10 == 1 and n % 100 != 11:
+                    return f"{n} год"
+                elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+                    return f"{n} года"
+                else:
+                    return f"{n} лет"
+        elif l == "de":
+            def plural_days(n):
+                return f"{n} Tag" if n == 1 else f"{n} Tage"
+            def plural_months(n):
+                return f"{n} Monat" if n == 1 else f"{n} Monate"
+            def plural_years(n):
+                return f"{n} Jahr" if n == 1 else f"{n} Jahre"
+        else: # en
+            def plural_days(n):
+                return f"{n} day" if n == 1 else f"{n} days"
+            def plural_months(n):
+                return f"{n} month" if n == 1 else f"{n} months"
+            def plural_years(n):
+                return f"{n} year" if n == 1 else f"{n} years"
+
+        p_list = []
+        if y > 0:
+            p_list.append(plural_years(y))
+        if m > 0:
+            p_list.append(plural_months(m))
+        if y == 0 and m == 0:
+            p_list.append(plural_days(d if d > 0 else 0))
+        return " ".join(p_list)
+
+    relationship_age_str = _format_relationship_age(years, months, days, lang)
+
+    if lang == "en":
+        today_date_str = today.strftime("%B %d, %Y")
+    elif lang == "de":
+        months_de = {
+            "January": "Januar", "February": "Februar", "March": "März", "April": "April",
+            "May": "Mai", "June": "Juni", "July": "Juli", "August": "August",
+            "September": "September", "October": "Oktober", "November": "November", "December": "Dezember"
+        }
+        month_de = months_de.get(today.strftime("%B"), today.strftime("%B"))
+        today_date_str = f"{today.day}. {month_de} {today.year}"
+    else:
+        month_ru_gen = MONTH_RU.get(today.strftime("%B"), today.strftime("%B").lower())
+        today_date_str = f"{today.day} {month_ru_gen} {today.year}"
+
     params = {
         "days_together": str(delta_days),
         "time_together": time_together_str,
@@ -361,6 +517,8 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
         "time_greeting": time_greeting,
         "month_name": month_name_str,
         "day_of_month": str(today.day),
+        "relationship_age": relationship_age_str,
+        "today_date": today_date_str,
     }
     result = text
     for key, val in params.items():

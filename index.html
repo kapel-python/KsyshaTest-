@@ -12768,37 +12768,23 @@
             desc.textContent = _ui('addStepDescSubtitle') + '\n\n• ' + _ui('addStepDescHint');
             wrap.appendChild(desc);
 
-            // Params block
-            const paramsTitle = _mkEl('div');
-            paramsTitle.style.cssText = 'font-size:0.84rem;color:var(--muted-text);line-height:1.6;margin-bottom:8px;';
-            paramsTitle.textContent = _ui('addStepDescHint');
-            wrap.appendChild(paramsTitle);
+            // Popular block
+            const popularHeader = _mkEl('div');
+            popularHeader.style.cssText = 'font-weight:700;font-size:0.86rem;color:var(--text-color);margin-bottom:8px;margin-top:12px;';
+            popularHeader.textContent = _ui('varsPopularTitle');
+            wrap.appendChild(popularHeader);
 
-            const PARAMS = [
-              ['{days_together}',        _ui('descDaysTogether')],
-              ['{time_together}',        _ui('descTimeTogether')],
-              ['{days_until_anniversary}',_ui('descDaysUntilAnniversary')],
-              ['{anniversary_date}',     _ui('descAnniversaryDate')],
-              ['{day_of_week}',          _ui('descDayOfWeek')],
-              ['{season}',               _ui('descSeason')],
-              ['{time_greeting}',        _ui('descTimeGreeting')],
-              ['{month_name}',           _ui('descMonthName')],
-              ['{day_of_month}',         _ui('descDayOfMonth')],
+            const POPULAR_VARS = [
+              ['{relationship_age}',       _ui('exRelationshipAge')],
+              ['{days_until_anniversary}', _ui('exDaysUntilAnniversary')],
+              ['{anniversary_date}',       _ui('exAnniversaryDate')],
             ];
-            const paramsList = _mkEl('div');
-            paramsList.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:12px;';
-            PARAMS.forEach(([param, desc2]) => {
-              const row = _mkEl('div');
-              row.style.cssText = 'display:flex;align-items:baseline;gap:6px;font-size:0.82rem;';
-              const chip = _mkEl('code');
-              chip.textContent = param;
-              chip.style.cssText = 'background:var(--accent-soft);color:var(--accent-color);padding:2px 6px;border-radius:5px;font-size:0.78rem;cursor:pointer;flex-shrink:0;transition:opacity 0.15s;';
-              chip.title = _ui('aiCopy');
+
+            const _attachCopyHandler = (chip, param) => {
               chip.onclick = () => {
                 navigator.clipboard.writeText(param).then(() => {
                   chip.style.opacity = '0.4';
                   setTimeout(() => chip.style.opacity = '1', 500);
-                  // Insert into textarea at cursor
                   const ta2 = document.getElementById('add_content');
                   if (ta2) {
                     const start = ta2.selectionStart, end = ta2.selectionEnd;
@@ -12809,19 +12795,73 @@
                   }
                 }).catch(() => {});
               };
-              const descEl = _mkEl('span');
-              descEl.style.cssText = 'color:var(--muted-text);';
-              descEl.textContent = desc2 ? '— ' + desc2 : '';
-              row.appendChild(chip); row.appendChild(descEl);
-              paramsList.appendChild(row);
-            });
-            wrap.appendChild(paramsList);
+            };
 
-            // Example
-            const ex = _mkEl('div');
-            ex.style.cssText = 'font-size:0.82rem;color:var(--muted-text);margin-bottom:10px;';
-            ex.innerHTML = _ui('addResolvedExample');
-            wrap.appendChild(ex);
+            const popularList = _mkEl('div');
+            popularList.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:16px;';
+            POPULAR_VARS.forEach(([param, example]) => {
+              const row = _mkEl('div');
+              row.style.cssText = 'display:flex;flex-direction:column;gap:2px;';
+              
+              const top = _mkEl('div');
+              top.style.cssText = 'display:flex;align-items:center;';
+              const chip = _mkEl('code');
+              chip.textContent = param;
+              chip.style.cssText = 'background:var(--accent-soft);color:var(--accent-color);padding:2px 6px;border-radius:5px;font-size:0.78rem;cursor:pointer;transition:opacity 0.15s;font-weight:600;';
+              chip.title = _ui('aiCopy');
+              _attachCopyHandler(chip, param);
+              top.appendChild(chip);
+              
+              const bottom = _mkEl('div');
+              bottom.style.cssText = 'font-size:0.78rem;color:var(--muted-text);padding-left:4px;';
+              bottom.textContent = example;
+              
+              row.appendChild(top); row.appendChild(bottom);
+              popularList.appendChild(row);
+            });
+            wrap.appendChild(popularList);
+
+            // Additional block
+            const additionalHeader = _mkEl('div');
+            additionalHeader.style.cssText = 'font-weight:700;font-size:0.86rem;color:var(--text-color);margin-bottom:8px;';
+            additionalHeader.textContent = _ui('varsAdditionalTitle');
+            wrap.appendChild(additionalHeader);
+
+            const ADDITIONAL_VARS = [
+              ['{days_together}',          _ui('descDaysTogether'),        _ui('exDaysTogether')],
+              ['{today_date}',             _ui('descTodayDate'),           _ui('exTodayDate')],
+              ['{day_of_week}',            _ui('descDayOfWeek'),           _ui('exDayOfWeek')],
+              ['{season}',                 _ui('descSeason'),              _ui('exSeason')],
+            ];
+
+            const additionalList = _mkEl('div');
+            additionalList.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-bottom:16px;';
+            ADDITIONAL_VARS.forEach(([param, desc2, example]) => {
+              const row = _mkEl('div');
+              row.style.cssText = 'display:flex;flex-direction:column;gap:2px;';
+              
+              const top = _mkEl('div');
+              top.style.cssText = 'display:flex;align-items:center;gap:6px;';
+              const chip = _mkEl('code');
+              chip.textContent = param;
+              chip.style.cssText = 'background:var(--accent-soft);color:var(--accent-color);padding:2px 6px;border-radius:5px;font-size:0.78rem;cursor:pointer;transition:opacity 0.15s;font-weight:600;';
+              chip.title = _ui('aiCopy');
+              _attachCopyHandler(chip, param);
+              
+              const descSpan = _mkEl('span');
+              descSpan.style.cssText = 'font-size:0.8rem;color:var(--text-color);opacity:0.9;';
+              descSpan.textContent = desc2;
+              
+              top.appendChild(chip); top.appendChild(descSpan);
+              
+              const bottom = _mkEl('div');
+              bottom.style.cssText = 'font-size:0.78rem;color:var(--muted-text);padding-left:4px;';
+              bottom.textContent = example;
+              
+              row.appendChild(top); row.appendChild(bottom);
+              additionalList.appendChild(row);
+            });
+            wrap.appendChild(additionalList);
 
             wrap.appendChild(_mkEl('div','add-field-label',_ui('addDescriptionField')));
             const ta = _mkEl('textarea','add-field-textarea');
@@ -13274,6 +13314,17 @@
             }
 
             if (isMemory) {
+              const usedVarsGrp = _mkEl('div','add-preview-field-group');
+              usedVarsGrp.style.display = 'none';
+              usedVarsGrp.style.marginBottom = '12px';
+              const usedVarsLabel = _mkEl('div','add-preview-field-label');
+              usedVarsLabel.textContent = _ui('usedVariablesTitle');
+              usedVarsGrp.appendChild(usedVarsLabel);
+              const usedVarsList = _mkEl('div');
+              usedVarsList.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-top:6px;padding-left:4px;';
+              usedVarsGrp.appendChild(usedVarsList);
+              fields.appendChild(usedVarsGrp);
+
               const resolvedGrp = _mkEl('div','add-preview-field-group');
               resolvedGrp.appendChild(_mkEl('div','add-preview-field-label',_ui('addPreviewResolved')));
               const resolvedBox = _mkEl('div','add-field-input');
@@ -13285,13 +13336,29 @@
 
               const hasTemplateVariable = (text) => {
                 if (!text) return false;
-                const vars = ['{days_together}', '{time_together}', '{days_until_anniversary}', '{anniversary_date}', '{day_of_week}', '{season}', '{time_greeting}', '{month_name}', '{day_of_month}'];
+                const vars = ['{relationship_age}', '{days_until_anniversary}', '{anniversary_date}', '{days_together}', '{today_date}', '{day_of_week}', '{season}', '{time_together}', '{time_greeting}', '{month_name}', '{day_of_month}'];
                 return vars.some(v => text.includes(v));
               };
 
               let resolveTimer = null;
               window._addUpdateResolvedPreview = async () => {
                 const text = state.data.content || '';
+                
+                const vars = ['{relationship_age}', '{days_until_anniversary}', '{anniversary_date}', '{days_together}', '{today_date}', '{day_of_week}', '{season}', '{time_together}', '{time_greeting}', '{month_name}', '{day_of_month}'];
+                const detected = vars.filter(v => text.includes(v));
+                if (detected.length > 0) {
+                  usedVarsList.innerHTML = '';
+                  detected.forEach(v => {
+                    const row = _mkEl('div');
+                    row.style.cssText = 'font-size:0.8rem;color:var(--accent-color);font-weight:600;display:flex;align-items:center;gap:4px;';
+                    row.textContent = '✓ ' + v;
+                    usedVarsList.appendChild(row);
+                  });
+                  usedVarsGrp.style.display = 'block';
+                } else {
+                  usedVarsGrp.style.display = 'none';
+                }
+
                 const show = hasTemplateVariable(text);
                 resolvedGrp.style.display = show ? 'block' : 'none';
                 if (!show) return;
@@ -14089,15 +14156,20 @@
       monthOct:      'октября',
       monthNov:      'ноября',
       monthDec:      'декабря',
-      descDaysTogether: 'число дней вместе',
-      descTimeTogether: 'сколько мы вместе',
-      descDaysUntilAnniversary: 'дней до годовщины',
-      descAnniversaryDate: 'дата годовщины',
-      descDayOfWeek: 'день недели',
-      descSeason: 'время года',
-      descTimeGreeting: 'приветствие по времени суток',
-      descMonthName: 'название текущего месяца',
-      descDayOfMonth: 'число месяца',
+      descDaysTogether: 'Точное количество дней вместе',
+      varsPopularTitle: '⭐ Популярные переменные',
+      varsAdditionalTitle: '🔽 Дополнительные переменные',
+      exRelationshipAge: 'Пример: Мы вместе 2 года и 3 месяца ❤️',
+      exDaysUntilAnniversary: 'Пример: 17 дней до нашей годовщины ❤️',
+      exAnniversaryDate: 'Пример: Наша следующая годовщина — 14 февраля 2027 ❤️',
+      exDaysTogether: 'Пример: 824 дня',
+      descTodayDate: 'Сегодняшняя дата',
+      exTodayDate: 'Пример: 30 мая 2026',
+      descDayOfWeek: 'День недели',
+      exDayOfWeek: 'Пример: Пятница',
+      descSeason: 'Время года',
+      exSeason: 'Пример: Весна',
+      usedVariablesTitle: 'Использованные переменные:',
       catImportantMoments: '💫 Важные моменты',
       catMemories:         '📖 Воспоминания',
       catDates:            '📅 Важные даты',
@@ -14190,15 +14262,20 @@
       monthOct:      'Oktober',
       monthNov:      'November',
       monthDec:      'Dezember',
-      descDaysTogether: 'Anzahl der gemeinsamen Tage',
-      descTimeTogether: 'gesamte Zeit zusammen',
-      descDaysUntilAnniversary: 'Tage bis zum nächsten Jahrestag',
-      descAnniversaryDate: 'Datum des nächsten Jahrestags',
-      descDayOfWeek: 'aktueller Wochentag',
-      descSeason: 'aktuelle Jahreszeit',
-      descTimeGreeting: 'Begrüßung je nach Tageszeit',
-      descMonthName: 'aktueller Monatsname',
-      descDayOfMonth: 'aktueller Tag des Monats',
+      descDaysTogether: 'Genaue Anzahl der gemeinsamen Tage',
+      varsPopularTitle: '⭐ Beliebte Variablen',
+      varsAdditionalTitle: '🔽 Weitere Variablen',
+      exRelationshipAge: 'Beispiel: Wir sind seit 2 Jahren und 3 Monaten zusammen ❤️',
+      exDaysUntilAnniversary: 'Beispiel: 17 Tage bis zu unserem Jahrestag ❤️',
+      exAnniversaryDate: 'Beispiel: Unser nächster Jahrestag ist der 14. Februar 2027 ❤️',
+      exDaysTogether: 'Beispiel: 824 Tage',
+      descTodayDate: 'Heutiges Datum',
+      exTodayDate: 'Beispiel: 30. Mai 2026',
+      descDayOfWeek: 'Wochentag',
+      exDayOfWeek: 'Beispiel: Freitag',
+      descSeason: 'Aktuelle Jahreszeit',
+      exSeason: 'Beispiel: Frühling',
+      usedVariablesTitle: 'Verwendete Variablen:',
       catImportantMoments: '💫 Wichtige Momente',
       catMemories:         '📖 Erinnerungen',
       catDates:            '📅 Wichtige Daten',
@@ -14291,15 +14368,20 @@
       monthOct:      'October',
       monthNov:      'November',
       monthDec:      'December',
-      descDaysTogether: 'number of days together',
-      descTimeTogether: 'total time together',
-      descDaysUntilAnniversary: 'days until next anniversary',
-      descAnniversaryDate: 'next anniversary date',
-      descDayOfWeek: 'current day of week',
-      descSeason: 'current season',
-      descTimeGreeting: 'greeting based on time of day',
-      descMonthName: 'current month name',
-      descDayOfMonth: 'current day of month',
+      descDaysTogether: 'Exact number of days together',
+      varsPopularTitle: '⭐ Popular variables',
+      varsAdditionalTitle: '🔽 Additional variables',
+      exRelationshipAge: 'Example: We have been together for 2 years and 3 months ❤️',
+      exDaysUntilAnniversary: 'Example: 17 days until our anniversary ❤️',
+      exAnniversaryDate: 'Example: Our next anniversary is February 14, 2027 ❤️',
+      exDaysTogether: 'Example: 824 days',
+      descTodayDate: 'Today\'s date',
+      exTodayDate: 'Example: May 30, 2026',
+      descDayOfWeek: 'Day of week',
+      exDayOfWeek: 'Example: Friday',
+      descSeason: 'Current season',
+      exSeason: 'Example: Spring',
+      usedVariablesTitle: 'Used variables:',
       catImportantMoments: '💫 Important moments',
       catMemories:         '📖 Memories',
       catDates:            '📅 Important dates',

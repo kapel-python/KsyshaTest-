@@ -2411,9 +2411,8 @@ async def ai_companion(request: web.Request) -> web.Response:
 
                 history_items.append({"role": role, "content": content})
 
-        # В БД хранится вся переписка, но в модель отправляем только последние 10 сообщений
-
-        history_for_ai = _normalize_history(history_items[-10:])
+        # В БД хранится вся переписка, но в модель отправляем последние 40 сообщений (20 ходов) для сохранения контекста
+        history_for_ai = _normalize_history(history_items[-40:])
 
     from api import ask_companion, route_companion_request
 
@@ -2689,7 +2688,8 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
             ]
 
-            history_for_ai = _normalize_history(history_items[-10:])
+            # В модель отправляем последние 40 сообщений (20 ходов) для сохранения контекста
+            history_for_ai = _normalize_history(history_items[-40:])
 
         except Exception:
 

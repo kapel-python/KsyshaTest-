@@ -4018,6 +4018,34 @@ def _tz_to_city_info(tz_id: str, lang: str = "ru") -> dict:
     return {"tzId": tz_id, "cityLabel": city_raw, "offsetHours": offset, "lat": 0.0, "lon": 0.0}
 
 
+def _get_saved_browser_tz(user_id: int) -> Optional[str]:
+    from database import db as _db
+    try:
+        with _db._get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT visitor_id, timezone_id FROM devices WHERE timezone_id IS NOT NULL AND timezone_id != '' ORDER BY last_seen_utc DESC"
+            )
+            for row in cursor.fetchall():
+                v_id = row["visitor_id"]
+                if _visitor_to_user_id(v_id) == user_id:
+                    return row["timezone_id"]
+    except Exception:
+        pass
+    return None
+
+
+def _resolve_user_timezone(user_id: int, req_tz: Optional[str] = None) -> str:
+    from database import db as _db
+    tz_mode = _db.get_user_setting(user_id, "website_timezone_mode") or "auto"
+    if tz_mode == "auto":
+        if req_tz and req_tz != "__bot__":
+            return req_tz
+        saved_tz = _get_saved_browser_tz(user_id)
+        if saved_tz:
+            return saved_tz
+    return _db.get_user_setting(user_id, "timezone") or "UTC"
+
+
 def _build_sky_cfg(request: web.Request) -> dict:
     """Строит SKY_CFG для sky.html на основе пары пользователя из БД."""
     from database import db as _db
@@ -4050,13 +4078,10 @@ def _build_sky_cfg(request: web.Request) -> dict:
         return _default(has_couple=False)
 
     partner_id = u2 if u1 == uid else u1
-    tz_mode = _db.get_user_setting(uid, "website_timezone_mode") or "auto"
     req_tz  = (request.rel_url.query.get("tz") or "").strip()
-    if tz_mode == "auto" and req_tz and req_tz != "__bot__":
-        my_tz = req_tz
-    else:
-        my_tz = _db.get_user_setting(uid, "timezone") or "UTC"
-    partner_tz = _db.get_user_setting(partner_id, "timezone") or "UTC"
+
+    my_tz = _resolve_user_timezone(uid, req_tz)
+    partner_tz = _resolve_user_timezone(partner_id)
 
     lang = (request.rel_url.query.get("lang") or "").strip()[:2] or "ru"
     if lang not in ("ru", "de", "en"):

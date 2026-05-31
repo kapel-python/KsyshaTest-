@@ -2887,16 +2887,98 @@ class Database:
     # === Уведомления о событиях (новая система) ===
 
     def is_event_notified_for_user(self, event_id: int, user_id: int) -> bool:
-        """Проверяет, получил ли конкретный пользователь уведомление о событии."""
+        """Проверяет, получил ли конкретный пользователь уведомление о событии для его последней прошедшей/текущей годовщины."""
         try:
+            # 1. Получаем само событие из БД
             with self._get_connection() as conn:
                 row = conn.execute(
-                    'SELECT 1 FROM event_notifications WHERE event_id = ? AND user_id = ?',
+                    'SELECT event_datetime, user_id FROM scheduled_events WHERE id = ?',
+                    (event_id,)
+                ).fetchone()
+            if not row:
+                return True
+            
+            event_datetime_str = row[0]
+            creator_user_id = row[1]
+            
+            # 2. Парсим исходную дату события
+            is_full_dt = len(event_datetime_str) >= 19
+            if is_full_dt:
+                event_dt = datetime.strptime(event_datetime_str[:19], '%Y-%m-%d %H:%M:%S')
+            else:
+                event_dt = datetime.strptime(event_datetime_str[:10], '%Y-%m-%d')
+                
+            # 3. Вычисляем смещение часового пояса создателя
+            from utils import _tz_offset
+            creator_offset = 3
+            if creator_user_id:
+                try:
+                    tz_id = self.get_user_setting(creator_user_id, "timezone")
+                    creator_offset = _tz_offset(tz_id, 3)
+                except Exception:
+                    pass
+            
+            # 4. Получаем текущее время в поясе создателя
+            now_creator = datetime.now(timezone.utc) + timedelta(hours=creator_offset)
+            now_creator = now_creator.replace(tzinfo=None)
+            
+            # 5. Если исходное событие в будущем, уведомлять ещё рано
+            if event_dt > now_creator:
+                return True
+                
+            # 6. Находим последнюю прошедшую или текущую годовщину (latest_occurrence)
+            y = now_creator.year
+            latest_occurrence = None
+            while True:
+                try:
+                    candidate = event_dt.replace(year=y)
+                except ValueError:
+                    candidate = event_dt.replace(year=y, day=28)
+                if candidate <= now_creator:
+                    latest_occurrence = candidate
+                    break
+                y -= 1
+                
+            if latest_occurrence is None:
+                return True
+                
+            # 7. Переводим latest_occurrence в UTC для точного сравнения с notified_at в БД
+            latest_occurrence_utc = latest_occurrence - timedelta(hours=creator_offset)
+            latest_occurrence_utc = latest_occurrence_utc.replace(tzinfo=timezone.utc)
+            
+            # 8. Проверяем наличие записи об уведомлении в БД
+            with self._get_connection() as conn:
+                notif_row = conn.execute(
+                    'SELECT notified_at FROM event_notifications WHERE event_id = ? AND user_id = ?',
                     (event_id, user_id)
                 ).fetchone()
-                return row is not None
+                
+            if notif_row:
+                val = notif_row[0]
+                if isinstance(val, str):
+                    try:
+                        # SQLite CURRENT_TIMESTAMP возвращает строку в UTC
+                        notified_at_utc = datetime.strptime(val[:19], '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                    except ValueError:
+                        # На всякий случай fallback
+                        return True
+                elif isinstance(val, datetime):
+                    notified_at_utc = val.replace(tzinfo=timezone.utc) if val.tzinfo is None else val
+                else:
+                    return True
+                
+                # Если дата последнего уведомления >= дате последней годовщины в UTC
+                return notified_at_utc >= latest_occurrence_utc
+            else:
+                # 9. Если уведомления ещё не было, но последняя годовщина была в прошлых годах,
+                # помечаем её как уведомлённую без отправки, чтобы исключить false-positive при создании старых дат
+                if latest_occurrence.year < now_creator.year:
+                    self.mark_event_notified_for_user(event_id, user_id)
+                    return True
+                return False
+                
         except Exception as e:
-            logger.debug("is_event_notified_for_user failed for event_id=%s user_id=%s: %s", event_id, user_id, e)
+            logger.exception("Ошибка в is_event_notified_for_user для event_id=%s user_id=%s: %s", event_id, user_id, e)
             return False
 
     def mark_event_notified_for_user(self, event_id: int, user_id: int) -> bool:
@@ -4621,6 +4703,8 @@ class Database:
         values = list(updates.values()) + [event_id]
         try:
             with self._get_connection() as conn:
+                if 'event_datetime' in updates:
+                    conn.execute('DELETE FROM event_notifications WHERE event_id = ?', (event_id,))
                 conn.execute(f'UPDATE scheduled_events SET {set_clause} WHERE id = ?', values)
                 conn.commit()
                 return True

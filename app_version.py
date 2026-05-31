@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.85'
-description = 'Фикс ошибки Oops, something went wrong. Try again 😅 в ИИ компаньоне'
+version = '1.0.86'
+description = 'Прошлый фикс не помог, критический фикс  истечения токена сессии'
 
 
 def get_version_metadata() -> tuple[str, str]:

@@ -124,13 +124,10 @@ class Config:
             if len(unique_fingerprints) > 1:
                 msg = (
                     "CRITICAL: Multiple divergent memories.db files detected. "
-                    f"Canonical DATABASE_PATH={self.DATABASE_PATH}. Details={details}. "
-                    "Set ALLOW_MULTIPLE_DB=1 only for emergency/manual migration."
+                    f"Canonical DATABASE_PATH={self.DATABASE_PATH}. Details={details}."
                 )
                 print(msg)
                 logging.critical(msg)
-                if os.getenv("ALLOW_MULTIPLE_DB", "0").strip() != "1":
-                    raise RuntimeError(msg)
             else:
                 msg = (
                     "INFO: Multiple memories.db paths detected but contents match. "

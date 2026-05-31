@@ -1538,6 +1538,13 @@ def _test_business_logic():
         assert validate_parsed_date("31 мая 2027", "31.5.2025", today, True) is False
         assert validate_parsed_date("31 мая 2027", "31.5.2027", today, True) is True
         assert validate_parsed_date("через 7 дней", "31.5.2026", today, True) is False
+        
+        # Test strict past date/time validation
+        dt_ctx = "Сейчас у пользователя: 31 мая 2026, воскресенье, 21:24 (час 21, минута 24). Месяц: май, год: 2026."
+        assert validate_parsed_date("событие", "1.6.2025", today, True, dt_ctx) is False
+        assert validate_parsed_date("событие", "1.6.2026", today, True, dt_ctx) is True
+        assert validate_parsed_date("событие", "31.5.2026 21:00", today, True, dt_ctx) is False
+        assert validate_parsed_date("событие", "31.5.2026 22:00", today, True, dt_ctx) is True
 
     def t_format_time_remaining_days():
         from utils import format_time_remaining

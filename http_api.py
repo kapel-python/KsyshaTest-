@@ -3059,6 +3059,9 @@ async def log_visit(request: web.Request) -> web.Response:
     lang_display = language or accept_language
 
     visitor_id = _pstr(payload.get("visitor_id")).strip() or None
+    visitor_user_id = _visitor_to_user_id(visitor_id) if visitor_id else None
+    if visitor_user_id and timezone:
+        timezone = _resolve_user_timezone(visitor_user_id, timezone)
 
     # Собираем данные для единого формата сообщения (используется и для кнопки «Обновить»)
 

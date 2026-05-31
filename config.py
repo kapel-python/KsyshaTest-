@@ -1,4 +1,5 @@
 import os
+import hashlib
 from dataclasses import dataclass
 from datetime import date
 from typing import Dict, Any, Optional
@@ -52,6 +53,14 @@ class Config:
     CATEGORIES: Dict[str, Dict[str, str]] = None
     MEDIA_FOLDER: str = os.getenv("MEDIA_FOLDER", "media")
     EXTERNAL_IP: str = ""
+
+    @staticmethod
+    def _file_sha256(path: str) -> str:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+        return h.hexdigest()
     
     def __post_init__(self):
         os.makedirs(self.MEDIA_FOLDER, exist_ok=True)
@@ -93,8 +102,42 @@ class Config:
                 pass
                 
         if len(found_dbs) > 1:
-            print(f"WARNING: Multiple memories.db files detected across your system! Found at: {found_dbs}")
-            logging.warning(f"Multiple memories.db files detected! Found at: {found_dbs}")
+            details = []
+            for p in sorted(found_dbs):
+                try:
+                    st = os.stat(p)
+                    details.append({
+                        "path": p,
+                        "size": int(st.st_size),
+                        "mtime": int(st.st_mtime),
+                        "sha256": self._file_sha256(p),
+                    })
+                except Exception:
+                    details.append({"path": p, "error": "stat_failed"})
+
+            unique_fingerprints = {
+                (d.get("size"), d.get("sha256"))
+                for d in details
+                if d.get("sha256")
+            }
+
+            if len(unique_fingerprints) > 1:
+                msg = (
+                    "CRITICAL: Multiple divergent memories.db files detected. "
+                    f"Canonical DATABASE_PATH={self.DATABASE_PATH}. Details={details}. "
+                    "Set ALLOW_MULTIPLE_DB=1 only for emergency/manual migration."
+                )
+                print(msg)
+                logging.critical(msg)
+                if os.getenv("ALLOW_MULTIPLE_DB", "0").strip() != "1":
+                    raise RuntimeError(msg)
+            else:
+                msg = (
+                    "INFO: Multiple memories.db paths detected but contents match. "
+                    f"Canonical DATABASE_PATH={self.DATABASE_PATH}. Details={details}"
+                )
+                print(msg)
+                logging.warning(msg)
 
         self.CATEGORIES = {
             "important_moments": {

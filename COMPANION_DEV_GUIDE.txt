@@ -1,0 +1,18 @@
+PROJECT: KSYSHA TEST (bot + site)
+VERSION: internal guide for developers (backend, API, registration)
+LANG: ru
+
+1) Роли и доступ
+- Роли: creator (создатель пары), ksyusha (партнер), admin (частный случай в боте), user.
+- На сайте пользователь обычно определяется через visitor_id (часто равен user_id в строке).
+- Для входа на сайт используется token_auth: пользователь открывает ссылку с token, сайт обменивает token на user_id/роль.
+
+2) Обязательные поля и HTTP-методы
+- Создание воспоминания: POST /api/create_memory.
+  Поля: category, title, date, content, visitor_id.
+- Создание события: POST /api/create_event.
+  Поля: title, event_datetime, visitor_id.
+- Создание желания: POST /api/create_wish.
+  Поля: content, visitor_id.
+- Загрузка медиа: /api/upload_media.
+- База данных: SQLite в data/memories.db (для Docker: /app/data/memories.db).

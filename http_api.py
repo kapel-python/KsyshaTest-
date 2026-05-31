@@ -4063,14 +4063,25 @@ def _build_sky_cfg(request: web.Request) -> dict:
         return cfg
 
     visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
-    if not visitor_id:
+    uid = _visitor_to_user_id(visitor_id) if visitor_id else None
+
+    lang = (request.rel_url.query.get("lang") or "").strip()[:2]
+    if lang not in ("ru", "de", "en") and uid:
+        lang = (_db.get_user_setting(uid, "lang") or "").strip()
+    if lang not in ("ru", "de", "en"):
+        lang = "ru"
+
+    def _default(has_couple=False):
+        left  = _tz_to_city_info("UTC", lang)
+        right = _tz_to_city_info("UTC", lang)
+        cfg = _sky_cfg_from_cities(left, right, left_name="Создатель", right_name="Партнёр")
+        cfg["hasCouple"] = has_couple
+        cfg["sameCity"] = True
+        return cfg
+
+    if not visitor_id or not uid:
         return _default(has_couple=False)
 
-    uid = _visitor_to_user_id(visitor_id)
-    if not uid:
-        return _default(has_couple=False)
-
-    # Ищем пару пользователя
     couple = _db.get_couple_by_user(uid)
     if not couple:
         return _default(has_couple=False)
@@ -4085,10 +4096,6 @@ def _build_sky_cfg(request: web.Request) -> dict:
 
     my_tz = _resolve_user_timezone(uid, req_tz)
     partner_tz = _resolve_user_timezone(partner_id)
-
-    lang = (request.rel_url.query.get("lang") or "").strip()[:2] or "ru"
-    if lang not in ("ru", "de", "en"):
-        lang = "ru"
 
     my_city      = _tz_to_city_info(my_tz, lang)
     partner_city = _tz_to_city_info(partner_tz, lang)

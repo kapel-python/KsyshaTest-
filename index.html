@@ -8035,7 +8035,8 @@
       function openSkyPage() {
         const v = ensureVisitorIdForRole() || '';
         const tz = typeof getUserTimezone === 'function' ? getUserTimezone() : '';
-        window.location.href = '/sky?v=' + encodeURIComponent(v) + '&tz=' + encodeURIComponent(tz);
+        const lang = (_stgState && _stgState.lang) || 'ru';
+        window.location.href = '/sky?v=' + encodeURIComponent(v) + '&tz=' + encodeURIComponent(tz) + '&lang=' + encodeURIComponent(lang);
       }
 
       function openStatsPage() {
@@ -12399,7 +12400,8 @@
         try {
           const _vid = ensureVisitorIdForRole() || '';
           const _tzParam = typeof getUserTimezone === 'function' ? getUserTimezone() : '';
-          const _skyCfgResp = await fetch('/api/sky_cfg?v=' + encodeURIComponent(_vid) + '&tz=' + encodeURIComponent(_tzParam) + '&_ts=' + Date.now(), {
+          const _langParam = (_stgState && _stgState.lang) || 'ru';
+          const _skyCfgResp = await fetch('/api/sky_cfg?v=' + encodeURIComponent(_vid) + '&tz=' + encodeURIComponent(_tzParam) + '&lang=' + encodeURIComponent(_langParam) + '&_ts=' + Date.now(), {
             headers: {},
             credentials: 'include',
           });
@@ -15634,6 +15636,10 @@
     // Static labels in the AI area and sky card footer
     const aiDays = document.getElementById('aiDaysCounter');
     if (aiDays && _ui('aiStatus')) aiDays.textContent = _ui('aiStatus');
+
+    if (typeof updateSkyConfigCard === 'function' && typeof ensureVisitorIdForRole === 'function' && ensureVisitorIdForRole()) {
+      updateSkyConfigCard();
+    }
   }
 
   function applyHeartsStg(on) {

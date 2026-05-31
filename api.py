@@ -544,6 +544,23 @@ def _extract_today_from_context(datetime_context: str) -> Optional[date]:
 
 
 def _parse_date_local_ru(user_input: str, today: Optional[date] = None, allow_future: bool = False) -> str:
+    res = _parse_date_local_ru_no_time(user_input, today, allow_future)
+    if not res:
+        return ""
+    time_match = re.search(r"\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b", user_input)
+    if time_match:
+        try:
+            hh = int(time_match.group(1))
+            mm = int(time_match.group(2))
+            ss = int(time_match.group(3)) if time_match.group(3) else 0
+            if 0 <= hh <= 23 and 0 <= mm <= 59 and 0 <= ss <= 59:
+                return f"{res} {hh:02d}:{mm:02d}"
+        except Exception:
+            pass
+    return res
+
+
+def _parse_date_local_ru_no_time(user_input: str, today: Optional[date] = None, allow_future: bool = False) -> str:
     """
     Локальный разбор частых форматов без ИИ:
     - 30.10.2025

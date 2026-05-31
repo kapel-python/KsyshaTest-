@@ -970,6 +970,22 @@ class Database:
                 )
             ''')
 
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS ai_usage_window (
+                    user_key        TEXT PRIMARY KEY,
+                    window_start    TEXT NOT NULL,
+                    message_count   INTEGER NOT NULL DEFAULT 0
+                )
+            ''')
+
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS user_subscription_tier (
+                    user_key    TEXT PRIMARY KEY,
+                    tier        TEXT NOT NULL DEFAULT 'free',
+                    expires_at  TEXT
+                )
+            ''')
+
             # Миграция: создаём первую пару из config CREATOR_ID + KSUSHA_ID (если не созданы)
             self._migrate_to_couples(conn)
 
@@ -3541,8 +3557,166 @@ class Database:
             return []
 
 
+    # === Методы лимита сообщений ИИ-компаньона ===
+
+    def get_user_tier(self, user_key: str) -> str:
+        """Возвращает тарифный план пользователя ('free', 'plus', 'premium')."""
+        if not user_key:
+            return "free"
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT tier, expires_at FROM user_subscription_tier WHERE user_key = ?",
+                    (user_key,),
+                ).fetchone()
+            if not row:
+                return "free"
+            tier, expires_at = row[0], row[1]
+            if expires_at:
+                exp = datetime.fromisoformat(expires_at).replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) > exp:
+                    return "free"
+            return tier or "free"
+        except Exception as e:
+            logger.exception("Ошибка при получении тарифа пользователя: %s", e)
+            return "free"
+
+    def check_and_record_ai_usage(self, user_key: str, limit: Optional[int]) -> dict:
+        """
+        Атомарная проверка лимита и запись использования (lazy reset).
+
+        Сначала проверяет, не истекло ли окно. Если истекло — начинает новый период.
+        Если окна нет — создаёт первое.
+        Если лимит превышен — возвращает allowed=False, не изменяя счётчик.
+
+        Возвращает dict:
+          {"allowed": True,  "used": 3,  "limit": 50, "window_start": "..."}
+          {"allowed": False, "used": 50, "limit": 50, "resets_at": "..."}
+        """
+        from constants import COMPANION_WINDOW_HOURS
+        now_utc = datetime.now(timezone.utc)
+        now_str = now_utc.strftime("%Y-%m-%dT%H:%M:%S")
+        window_seconds = COMPANION_WINDOW_HOURS * 3600
+
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT window_start, message_count FROM ai_usage_window WHERE user_key = ?",
+                    (user_key,),
+                ).fetchone()
+
+                if row:
+                    window_start = datetime.fromisoformat(row[0]).replace(tzinfo=timezone.utc)
+                    count = int(row[1])
+                    age_seconds = (now_utc - window_start).total_seconds()
+
+                    if age_seconds >= window_seconds:
+                        conn.execute(
+                            "UPDATE ai_usage_window SET window_start = ?, message_count = 1 WHERE user_key = ?",
+                            (now_str, user_key),
+                        )
+                        conn.commit()
+                        return {"allowed": True, "used": 1, "limit": limit, "window_start": now_str}
+
+                    if limit is not None and count >= limit:
+                        resets_at = (window_start + timedelta(seconds=window_seconds))
+                        return {
+                            "allowed": False,
+                            "used": count,
+                            "limit": limit,
+                            "resets_at": resets_at.strftime("%Y-%m-%dT%H:%M:%S"),
+                        }
+
+                    conn.execute(
+                        "UPDATE ai_usage_window SET message_count = message_count + 1 WHERE user_key = ?",
+                        (user_key,),
+                    )
+                    conn.commit()
+                    return {"allowed": True, "used": count + 1, "limit": limit, "window_start": row[0]}
+
+                conn.execute(
+                    "INSERT INTO ai_usage_window (user_key, window_start, message_count) VALUES (?, ?, 1)",
+                    (user_key, now_str),
+                )
+                conn.commit()
+                return {"allowed": True, "used": 1, "limit": limit, "window_start": now_str}
+
+        except Exception as e:
+            logger.exception("Ошибка check_and_record_ai_usage для key=%s: %s", user_key, e)
+            return {"allowed": True, "used": 0, "limit": limit, "window_start": now_str}
+
+    def decrement_ai_usage(self, user_key: str) -> None:
+        """Откат счётчика при ошибке ИИ. Не уходит ниже 0."""
+        if not user_key:
+            return
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "UPDATE ai_usage_window SET message_count = MAX(0, message_count - 1) WHERE user_key = ?",
+                    (user_key,),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.exception("Ошибка decrement_ai_usage для key=%s: %s", user_key, e)
+
+    def get_ai_usage_status(self, user_key: str, limit: Optional[int]) -> dict:
+        """
+        Только чтение, без изменений состояния.
+
+        Возвращает текущее состояние лимита:
+          {
+            "used": 33,
+            "limit": 50,
+            "remaining": 17,
+            "window_start": "2026-05-31T10:00:00",
+            "resets_at": "2026-06-01T10:00:00",
+            "window_active": True
+          }
+        """
+        from constants import COMPANION_WINDOW_HOURS
+        now_utc = datetime.now(timezone.utc)
+        window_seconds = COMPANION_WINDOW_HOURS * 3600
+        no_window = {
+            "used": 0,
+            "limit": limit,
+            "remaining": limit,
+            "window_start": None,
+            "resets_at": None,
+            "window_active": False,
+        }
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT window_start, message_count FROM ai_usage_window WHERE user_key = ?",
+                    (user_key,),
+                ).fetchone()
+
+            if not row:
+                return no_window
+
+            window_start = datetime.fromisoformat(row[0]).replace(tzinfo=timezone.utc)
+            count = int(row[1])
+            age_seconds = (now_utc - window_start).total_seconds()
+
+            if age_seconds >= window_seconds:
+                return no_window
+
+            resets_at = (window_start + timedelta(seconds=window_seconds))
+            remaining = None if limit is None else max(0, limit - count)
+            return {
+                "used": count,
+                "limit": limit,
+                "remaining": remaining,
+                "window_start": row[0],
+                "resets_at": resets_at.strftime("%Y-%m-%dT%H:%M:%S"),
+                "window_active": True,
+            }
+        except Exception as e:
+            logger.exception("Ошибка get_ai_usage_status для key=%s: %s", user_key, e)
+            return no_window
 
     # ── Site notifications ───────────────────────────────────────────────────
+
 
     def add_site_notification(self, text: str, media_path: str = None, media_type: str = None,
                                media_items: list = None, couple_id: Optional[int] = None) -> int:

@@ -26,3 +26,10 @@ MSG_CANCEL = "Отмена"
 MSG_ERROR_UNEXPECTED = "Произошла непредвиденная ошибка. Напиши создателю."
 
 MSG_ERROR_TEMPLATE = "❌ Ошибка: {detail}\n\n👤 Напиши создателю о ней"
+
+COMPANION_WINDOW_HOURS = 24
+COMPANION_LIMIT_BY_TIER: dict = {
+    "free":    50,
+    "plus":    500,
+    "premium": None,
+}

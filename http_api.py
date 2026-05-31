@@ -2337,6 +2337,26 @@ async def ai_companion(request: web.Request) -> web.Response:
 
         return _add_cors_headers(web.json_response({"ok": False, "error": "rate_limited"}, status=429))
 
+    _limit_key = _get_companion_limit_key(visitor_id)
+    if _limit_key:
+        from constants import COMPANION_LIMIT_BY_TIER
+        _tier  = db.get_user_tier(_limit_key)
+        _limit = COMPANION_LIMIT_BY_TIER.get(_tier, 50)
+        _usage = db.check_and_record_ai_usage(_limit_key, _limit)
+        if not _usage["allowed"]:
+            _lmsg = _companion_limit_message()
+            logger.info("AI companion limit exceeded (JSON): key=%s used=%s limit=%s", _limit_key, _usage.get("used"), _usage.get("limit"))
+            try:
+                db.add_companion_message(visitor_id=visitor_id, role="user", site_role=site_role, message=message)
+                db.add_companion_message(visitor_id=visitor_id, role="assistant", site_role=site_role, message=_lmsg)
+            except Exception:
+                logger.exception("Не удалось сохранить limit-сообщение в историю")
+            return _add_cors_headers(web.json_response({"ok": True, "reply": _lmsg, "suggestions": []}))
+    else:
+        _limit_key = None
+
+
+
     # Всегда сохраняем текущее сообщение пользователя в историю компаньона.
 
     # Если visitor_id нет, оно всё равно сохранится (visitor_id = NULL), но историю
@@ -2475,7 +2495,14 @@ async def ai_companion(request: web.Request) -> web.Response:
 
         logger.exception("Ошибка при обращении к ИИ-компаньону")
 
+        if _limit_key:
+            try:
+                db.decrement_ai_usage(_limit_key)
+            except Exception:
+                logger.exception("Не удалось откатить счётчик лимита (JSON)")
+
         return _add_cors_headers(web.json_response({"ok": False, "error": "ai_failed"}, status=502))
+
 
     # Сохраняем ответ ИИ в историю диалога (вся переписка на стороне сервера)
 
@@ -2636,6 +2663,43 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
         logger.warning("AI companion (stream) rate limit exceeded: key=%s", _ai_rl_key)
 
         return _add_cors_headers(web.json_response({"ok": False, "error": "rate_limited"}, status=429))
+
+    _limit_key = _get_companion_limit_key(visitor_id)
+    if _limit_key:
+        from constants import COMPANION_LIMIT_BY_TIER
+        _tier  = db.get_user_tier(_limit_key)
+        _limit = COMPANION_LIMIT_BY_TIER.get(_tier, 50)
+        _usage = db.check_and_record_ai_usage(_limit_key, _limit)
+        if not _usage["allowed"]:
+            _lmsg = _companion_limit_message()
+            logger.info("AI companion limit exceeded (stream): key=%s used=%s limit=%s", _limit_key, _usage.get("used"), _usage.get("limit"))
+            try:
+                db.add_companion_message(visitor_id=visitor_id, role="user", site_role=site_role, message=message)
+                db.add_companion_message(visitor_id=visitor_id, role="assistant", site_role=site_role, message=_lmsg)
+            except Exception:
+                logger.exception("Не удалось сохранить limit-сообщение в историю (stream)")
+            _lmsg_safe = _lmsg.replace("\n", "\\n")
+            import json as _json_limit
+            _limit_resp = web.StreamResponse()
+            _limit_resp.headers["Content-Type"] = "text/event-stream; charset=utf-8"
+            _limit_resp.headers["Cache-Control"] = "no-cache"
+            _limit_resp.headers["Connection"] = "keep-alive"
+            _add_cors_headers(_limit_resp)
+            try:
+                await _limit_resp.prepare(request)
+                await _limit_resp.write(f"data: {_lmsg_safe}\n\n".encode("utf-8"))
+                await _limit_resp.write(
+                    ("event: suggestions\ndata: " + _json_limit.dumps({"suggestions": []}) + "\n\n").encode("utf-8")
+                )
+                await _limit_resp.write(b"data: [DONE]\n\n")
+                await _limit_resp.write_eof()
+            except (ConnectionResetError, RuntimeError, asyncio.CancelledError):
+                pass
+            return _limit_resp
+    else:
+        _limit_key = None
+
+
 
     logger.info(
 
@@ -2831,7 +2895,11 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
                 break
 
             if chunk == "__worker_error__":
-                # Не раскрываем внутренние детали исключений клиенту.
+                if _limit_key:
+                    try:
+                        db.decrement_ai_usage(_limit_key)
+                    except Exception:
+                        logger.exception("Не удалось откатить счётчик лимита (stream worker_error)")
                 await response.write(b"data: [ERROR] ai_failed\n\n")
                 break
 
@@ -2871,6 +2939,12 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
     except Exception:
 
         logger.exception("Ошибка в стриминговом ИИ-компаньоне")
+
+        if _limit_key and not full_reply:
+            try:
+                db.decrement_ai_usage(_limit_key)
+            except Exception:
+                logger.exception("Не удалось откатить счётчик лимита (stream exception)")
 
         try:
             await response.write(b"data: [ERROR]\n\ndata: [DONE]\n\n")
@@ -5845,6 +5919,25 @@ _AI_RL_MAX_KEYS = 10000  # hard-cap числа уникальных ключей
 _AI_RL_SWEEP_EVERY = 250  # каждые N запросов выполняем очистку старых ключей
 _ai_rl_ops_count = 0
 _AI_MAX_MSG_LEN = 2000 # макс длина сообщения пользователя (символы)
+
+# ── 5b. Бизнес-лимит ИИ-компаньона (сессионное окно 24ч) ─────────────
+# Использует таблицу ai_usage_window в SQLite.
+# Антифлуд (_ai_rate_check) остаётся первым барьером.
+
+def _get_companion_limit_key(visitor_id: str) -> str:
+    """Ключ для таблицы ai_usage_window. Сейчас — visitor_id напрямую."""
+    return f"vid:{visitor_id}" if visitor_id else ""
+
+def _companion_limit_message() -> str:
+    return (
+        "🌙 На сегодня всё.\n\n"
+        "Ты использовал все сообщения за этот период. "
+        "Лимит полностью сбросится через 24 часа после "
+        "твоего первого сообщения этого периода.\n\n"
+        "Увидимся совсем скоро! 💛"
+    )
+
+
 
 # ── 6. Runtime metrics ───────────────────────────────────────────────────
 _metrics = {

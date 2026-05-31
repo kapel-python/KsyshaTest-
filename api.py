@@ -1091,7 +1091,7 @@ def build_companion_system_prompt(
 
         current_user_settings = {}
 
-    from companion_personality import COMPANION_CORE_IDENTITY
+    from companion_personality import COMPANION_CORE_IDENTITY, COMPANION_SUGGESTION_RULES
 
     return (
 
@@ -1143,7 +1143,7 @@ def build_companion_system_prompt(
 
         "<suggestions>\nПодсказка 1\nПодсказка 2\nПодсказка 3\n</suggestions>\n"
 
-        "Придумай 3 короткие подсказки — до 4-5 слов каждая, без вопросительного знака, по теме разговора.\n\n"
+        f"{COMPANION_SUGGESTION_RULES}\n\n"
         f"ВНУТРЕННЯЯ ИНСТРУКЦИЯ ПРОЕКТА (KB):\n{_kb_for_prompt(endpoint)}\n"
 
     )
@@ -1182,7 +1182,7 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
 
     now_iso = now.isoformat(timespec="seconds")
 
-    from companion_personality import COMPANION_CORE_IDENTITY
+    from companion_personality import COMPANION_CORE_IDENTITY, COMPANION_SUGGESTION_RULES
 
     return (
         f"{COMPANION_CORE_IDENTITY}\n\n"
@@ -1209,6 +1209,7 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
         "НИ ПРИ КАКИХ ОБСТОЯТЕЛЬСТВАХ НЕ ПРИДУМЫВАЙ СВОИ СОБСТВЕННЫЕ НАЗВАНИЯ TOOLS ИЛИ ЭНДПОИНТОВ. "
         "МОЖНО ИСПОЛЬЗОВАТЬ ТОЛЬКО перечисленные выше варианты.\n\n"
         "Ты всегда отвечаешь СТРОГО ОДНОЙ СТРОКОЙ В ВИДЕ ВАЛИДНОГО JSON-БЛОКА, БЕЗ ПРЕДИСЛОВИЙ И КОММЕНТАРИЕВ.\n\n"
+        f"{COMPANION_SUGGESTION_RULES}\n\n"
         "Форматы ответа:\n\n"
         "1) Если данные с сайта НЕ нужны (можно ответить сразу):\n"
         "{\n"

@@ -48,7 +48,7 @@
     }
     
     console.log("=== MEMORY PIPELINE ===");
-    console.log("Server timezone:", "Sun May 31 01:08:30 AM CEST 2026");
+    console.log("Server timezone:", "Sun May 31 06:46:40 PM CEST 2026");
     console.log("User timezone:", tz);
     console.log("Database value (date):", "2026-05-30");
     console.log("API date_resolved:", "2026-05-30");
@@ -58,12 +58,12 @@
     console.log("Expected value:", "30 мая 2026");
 
     console.log("\n=== WISH PIPELINE ===");
-    console.log("Server timezone:", "Sun May 31 01:08:30 AM CEST 2026");
+    console.log("Server timezone:", "Sun May 31 06:46:40 PM CEST 2026");
     console.log("User timezone:", tz);
-    console.log("Database value (created_at):", "2026-05-30 23:08:27");
+    console.log("Database value (created_at):", "2026-05-31 16:46:38");
     // API sends exactly what's in DB
-    console.log("API raw value:", "2026-05-30 23:08:27");
+    console.log("API raw value:", "2026-05-31 16:46:38");
     // UI renders formatDateTimeLocal
-    console.log("Rendered value (UI main text):", formatDateTimeLocal("2026-05-30 23:08:27"));
-    console.log("Expected value:", formatDateTimeLocal("2026-05-30 23:08:27"));
+    console.log("Rendered value (UI main text):", formatDateTimeLocal("2026-05-31 16:46:38"));
+    console.log("Expected value:", formatDateTimeLocal("2026-05-31 16:46:38"));
     

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.86'
-description = 'Прошлый фикс не помог, критический фикс  истечения токена сессии'
+version = '1.0.87'
+description = 'Фикс кнопок ии компаньона'
 
 
 def get_version_metadata() -> tuple[str, str]:

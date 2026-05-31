@@ -1145,9 +1145,9 @@ def build_companion_system_prompt(
 
         "Отвечай только на основе реально переданных выше структур.\n\n"
 
-        "ВАЖНО: в самом конце каждого ответа добавь СТРОГО в таком формате (одна строка, слово SUGGESTIONS пиши на английском без перевода):\n"
+        "ВАЖНО: в самом конце каждого ответа добавь блок подсказок СТРОГО в следующем XML-формате (напиши теги <suggestions> и </suggestions> на английском без перевода, внутри укажи 3 подсказки, каждая с новой строки):\n"
 
-        "[SUGGESTIONS: Подсказка | Подсказка | Подсказка]\n"
+        "<suggestions>\nПодсказка 1\nПодсказка 2\nПодсказка 3\n</suggestions>\n"
 
         "Придумай 3 короткие подсказки — до 4-5 слов каждая, без вопросительного знака, по теме разговора.\n\n"
         f"ВНУТРЕННЯЯ ИНСТРУКЦИЯ ПРОЕКТА (KB):\n{_kb_for_prompt(endpoint)}\n"
@@ -1245,6 +1245,45 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
         "Никогда не пиши ничего, кроме JSON. Никакого текста до или после JSON, никаких комментариев.\n"
     )
 
+def _extract_suggestions(text: str) -> Tuple[str, List[str]]:
+    """
+    Извлекает подсказки из текста ответа.
+    Поддерживает XML-теги <suggestions>...</suggestions> и старый bracket-синтаксис [SUGGESTIONS:...].
+    Возвращает очищенный текст и список подсказок (максимум 3).
+    """
+    import re
+    suggestions = []
+    
+    # 1. Попытка извлечения через XML-теги <suggestions>...</suggestions>
+    tag_idx = text.lower().find("<suggestions>")
+    if tag_idx != -1:
+        part = text[tag_idx + len("<suggestions>"):]
+        clean_text = text[:tag_idx].strip()
+        
+        # Убираем закрывающий тег, если есть
+        part_clean = re.sub(r"</?suggestions>", "", part, flags=re.IGNORECASE).strip()
+        if part_clean:
+            for line in re.split(r"[\n|]", part_clean):
+                line = line.strip()
+                # Убираем маркеры списков
+                line = re.sub(r"^[-\*\d\.\s]+", "", line).strip()
+                if line:
+                    suggestions.append(line)
+        return clean_text, suggestions[:3]
+        
+    # 2. Фолбек на старый синтаксис [SUGGESTIONS:...] с поддержкой кириллической С (U+0421) в СUGGESTIONS
+    m = re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST|СUGGESTIONS):\s*(.+?)\]", text, flags=re.IGNORECASE | re.DOTALL)
+    if m:
+        part = m.group(1)
+        for s in part.split("|"):
+            s = s.strip()
+            if s:
+                suggestions.append(s)
+        clean_text = re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST|СUGGESTIONS):.*?\]", "", text, flags=re.IGNORECASE | re.DOTALL).strip()
+        return clean_text, suggestions[:3]
+        
+    return text, []
+
 def ask_companion(
 
     user_message: str,
@@ -1341,15 +1380,9 @@ def ask_companion(
 
         # Подсказки во втором шаге имеют приоритет над подсказками от router-а
 
-        m2 = re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):\s*(.+?)\]", reply, flags=re.IGNORECASE | re.DOTALL)
-
-        if m2:
-
-            part2 = m2.group(1)
-
-            suggestions = [s.strip() for s in part2.split("|") if s.strip()][:3]
-
-            reply = re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", "", reply, flags=re.IGNORECASE | re.DOTALL).strip()
+        reply, second_suggestions = _extract_suggestions(reply)
+        if second_suggestions:
+            suggestions = second_suggestions
 
         logger.info("AI-companion data-step completed successfully")
 
@@ -1450,11 +1483,9 @@ def route_companion_request(
             }
         logger.warning("AI-companion router JSON returned unknown tool=%r", tool)
 
-    m_sug = re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):\s*(.+?)\]", raw_router, flags=re.IGNORECASE | re.DOTALL)
-    if m_sug:
-        part = m_sug.group(1)
-        suggestions = [s.strip() for s in part.split("|") if s.strip()][:3]
-        raw_router = re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", "", raw_router, flags=re.IGNORECASE | re.DOTALL).strip()
+    raw_router, router_suggestions = _extract_suggestions(raw_router)
+    if router_suggestions:
+        suggestions = router_suggestions
     lower_router = raw_router.lower()
     if lower_router.startswith("none."):
         return {
@@ -1622,32 +1653,60 @@ def ask_companion_stream(
         messages.append({"role": "user", "content": user_text})
 
     suggestions: List[str] = []
-
     full_reply = ""
-
+    in_suggestions = False
+    suggestions_buf = ""
     tail_buf = ""
 
     for chunk in _send_messages_stream(messages, model=COMPANION_MODEL):
-
         full_reply += chunk
+
+        if in_suggestions:
+            suggestions_buf += chunk
+            continue
 
         tail_buf += chunk
 
-        m_tail = _re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
-        if m_tail:
-            clean = tail_buf[:m_tail.start()]
+        # 1. Проверяем XML-тег <suggestions>
+        tag_idx = tail_buf.lower().find("<suggestions>")
+        if tag_idx != -1:
+            clean = tail_buf[:tag_idx]
             if clean:
                 yield clean
-            tail_buf = tail_buf[m_tail.end():]
+            in_suggestions = True
+            suggestions_buf = tail_buf[tag_idx + len("<suggestions>"):]
+            tail_buf = ""
             continue
 
+        # 2. Проверяем bracket-теги [SUGGESTIONS: или [СУПЕР: и т.д.
+        m_bracket = _re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST|СUGGESTIONS):.*?\]", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
+        if m_bracket:
+            clean = tail_buf[:m_bracket.start()]
+            if clean:
+                yield clean
+            in_suggestions = True
+            suggestions_buf = tail_buf[m_bracket.start() + len(m_bracket.group(0)):]
+            tail_buf = ""
+            continue
+
+        # 3. Буферизируем потенциальные префиксы тегов во избежание утечки в поток
         suf_len = 0
-        last_bracket = tail_buf[-20:].rfind("[")
-        if last_bracket != -1:
-            idx = len(tail_buf) - 20 + last_bracket
-            suffix = tail_buf[idx:]
-            if _re.match(r"^\[[A-Za-zА-ЯЁа-яё\s:]*$", suffix):
+        
+        # Проверяем потенциальный префикс XML-тега
+        last_xml_bracket = tail_buf.rfind("<")
+        if last_xml_bracket != -1:
+            suffix = tail_buf[last_xml_bracket:]
+            if "<suggestions>".startswith(suffix.lower()):
                 suf_len = len(suffix)
+
+        # Проверяем потенциальный префикс bracket-тега
+        if suf_len == 0:
+            last_bracket = tail_buf[-20:].rfind("[")
+            if last_bracket != -1:
+                idx = len(tail_buf) - 20 + last_bracket
+                suffix = tail_buf[idx:]
+                if _re.match(r"^\[[A-Za-zА-ЯЁа-яё\s:]*$", suffix):
+                    suf_len = len(suffix)
 
         if suf_len > 0:
             clean = tail_buf[:-suf_len]
@@ -1659,19 +1718,19 @@ def ask_companion_stream(
             tail_buf = ""
 
     if tail_buf:
+        tag_idx = tail_buf.lower().find("<suggestions>")
+        if tag_idx != -1:
+            clean = tail_buf[:tag_idx]
+            if clean:
+                yield clean
+            suggestions_buf += tail_buf[tag_idx + len("<suggestions>"):]
+        else:
+            clean_tail = _re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST|СUGGESTIONS):.*?\]", "", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
+            if clean_tail:
+                yield clean_tail
 
-        clean_tail = _re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", "", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
-
-        if clean_tail:
-
-            yield clean_tail
-
-    m2 = _re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):\s*(.+?)\]", full_reply, flags=_re.IGNORECASE | _re.DOTALL)
-
-    if m2:
-
-        suggestions = [s.strip() for s in m2.group(1).split("|") if s.strip()][:3]
-
+    # Извлекаем подсказки из полного ответа централизованно и детерминированно
+    _, suggestions = _extract_suggestions(full_reply)
     yield _json.dumps({"__suggestions__": suggestions})
 
     logger.info("AI-companion-stream: done")

@@ -2885,7 +2885,12 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
         import re as _re
 
-        clean_reply = _re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", "", full_reply, flags=_re.IGNORECASE | _re.DOTALL).strip()
+        # Сначала очищаем от XML-тегов <suggestions>...</suggestions>
+        clean_reply = _re.sub(r"<suggestions>.*?</suggestions>", "", full_reply, flags=_re.IGNORECASE | _re.DOTALL).strip()
+        # Убираем возможные незакрытые теги <suggestions>
+        clean_reply = _re.sub(r"<suggestions>.*", "", clean_reply, flags=_re.IGNORECASE | _re.DOTALL).strip()
+        # Убираем bracket-синтаксис (включая кириллическую С в СUGGESTIONS)
+        clean_reply = _re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST|СUGGESTIONS):.*?\]", "", clean_reply, flags=_re.IGNORECASE | _re.DOTALL).strip()
 
         try:
 

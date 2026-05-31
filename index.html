@@ -3298,6 +3298,31 @@
 
         }
 
+        .info-btn {
+            margin-left: auto;
+            margin-right: 6px;
+            padding: 5px 12px;
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 999px;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            transition: background 0.18s, border-color 0.18s, transform 0.1s;
+            z-index: 10;
+        }
+        .info-btn:hover {
+            background: rgba(255, 255, 255, 0.22);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+        .info-btn:active {
+            transform: scale(0.96);
+        }
+
         .section-header span {
 
             display: inline-flex;
@@ -4797,6 +4822,8 @@
 
             <span data-i18n="secImportantMoments">💫 Важные моменты</span>
 
+            <button class="info-btn" type="button" onclick="openInfoModal('important_moments'); event.stopPropagation();">Что это?</button>
+
             <button class="toggle-btn" type="button" aria-expanded="false">
 
                 <span class="toggle-icon"></span>
@@ -4813,6 +4840,8 @@
 
             <span data-i18n="secMemories">📖 Воспоминания</span>
 
+            <button class="info-btn" type="button" onclick="openInfoModal('memories'); event.stopPropagation();">Что это?</button>
+
             <button class="toggle-btn" type="button" aria-expanded="false">
 
                 <span class="toggle-icon"></span>
@@ -4828,6 +4857,8 @@
         <h2 class="section-title section-header" data-target="important_dates_container">
 
             <span data-i18n="secDates">📅 Важные даты</span>
+
+            <button class="info-btn" type="button" onclick="openInfoModal('important_dates'); event.stopPropagation();">Что это?</button>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
 
@@ -4848,6 +4879,8 @@
 
             <span data-i18n="secEvents">📆 События на дату</span>
 
+            <button class="info-btn" type="button" onclick="openInfoModal('events'); event.stopPropagation();">Что это?</button>
+
             <button class="toggle-btn" type="button" aria-expanded="false">
 
                 <span class="toggle-icon"></span>
@@ -4863,6 +4896,8 @@
         <h2 class="section-title section-header" data-target="wishes_container">
 
             <span data-i18n="secWishes">💫 Желания</span>
+
+            <button class="info-btn" type="button" onclick="openInfoModal('wishes'); event.stopPropagation();">Что это?</button>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
 
@@ -9511,6 +9546,7 @@
           const deferred = data.deferred || {};
 
           const customCategories = data.custom_categories || [];
+          window._customCategories = customCategories;
 
           // Регистрируем пользовательские категории в ADD_CATEGORIES для модального окна
           customCategories.forEach(cat => {
@@ -10289,6 +10325,16 @@
             hdr.style.background = getGradientForColor(catColor);
             const hdrTitle = document.createElement('span');
             hdrTitle.textContent = catEmoji + ' ' + catName;
+
+            const infoBtn = document.createElement('button');
+            infoBtn.className = 'info-btn';
+            infoBtn.type = 'button';
+            infoBtn.textContent = 'Что это?';
+            infoBtn.onclick = (e) => {
+              e.stopPropagation();
+              openInfoModal(key);
+            };
+
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'toggle-btn';
             toggleBtn.type = 'button';
@@ -10301,6 +10347,7 @@
             toggleBtn.appendChild(icon);
             toggleBtn.appendChild(label);
             hdr.appendChild(hdrTitle);
+            hdr.appendChild(infoBtn);
             hdr.appendChild(toggleBtn);
             anchor.appendChild(hdr);
 
@@ -15806,9 +15853,84 @@
       document.body.style.overflow = '';
       _stgCloseTimer = null;
     }, 230);
+  let _infoCloseTimer = null;
+  window.openInfoModal = function(categoryKey) {
+    const ov = document.getElementById('infoOverlay');
+    const card = document.getElementById('infoCard');
+    const stripe = document.getElementById('infoStripe');
+    const title = document.getElementById('infoTitle');
+    const body = document.getElementById('infoBody');
+    
+    let catTitle = '';
+    let catDesc = '';
+    let catGradient = '';
+    
+    if (categoryKey === 'important_moments') {
+      catTitle = 'Важные моменты';
+      catDesc = 'Раздел для коротких, но ценных моментов, которые хочется быстро сохранить и не потерять.';
+      catGradient = 'linear-gradient(135deg, #d43f8d, #9b3ac7)';
+    } else if (categoryKey === 'memories') {
+      catTitle = 'Воспоминания';
+      catDesc = 'В этом разделе вы можете сохранять важные воспоминания, совместные моменты, истории и всё то, что хочется сохранить на память.';
+      catGradient = 'linear-gradient(135deg, #7c3aed, #4158d0)';
+    } else if (categoryKey === 'important_dates') {
+      catTitle = 'Важные даты';
+      catDesc = 'Здесь хранятся значимые даты вашей пары: знакомство, годовщины, праздники и другие особенные дни.';
+      catGradient = 'linear-gradient(135deg, #4158d0, #06b6d4)';
+    } else if (categoryKey === 'events') {
+      catTitle = 'События на дату';
+      catDesc = 'Этот раздел помогает не забыть о важных будущих событиях. Когда наступит нужная дата, система напомнит вам об этом.';
+      catGradient = 'linear-gradient(135deg, #16a34a, #0d9488)';
+    } else if (categoryKey === 'wishes') {
+      catTitle = 'Желания';
+      catDesc = 'Здесь можно записывать мечты, цели и желания, которые вы хотите исполнить вместе.';
+      catGradient = 'linear-gradient(135deg, #d97706, #dc2626)';
+    } else if (categoryKey.startsWith('custom_')) {
+      const mapItem = (typeof categoriesMap !== 'undefined' && categoriesMap[categoryKey]) || {};
+      const name = mapItem.title || 'Категория';
+      const emoji = mapItem.emoji || '📁';
+      catTitle = name;
+      if (mapItem.description && mapItem.description.trim()) {
+        catDesc = mapItem.description.trim();
+      } else if (name && name !== 'Категория') {
+        catDesc = `Это пользовательская категория ${emoji} ${name} для хранения воспоминаний и заметок по выбранной теме.`;
+      } else {
+        catDesc = "Это пользовательская категория для хранения воспоминаний и заметок по выбранной теме.";
+      }
+      const customCat = (window._customCategories || []).find(c => 'custom_' + c.id === categoryKey);
+      const colorStr = (customCat && customCat.color) ? customCat.color.trim() : 'slateblue';
+      catGradient = getGradientForColor(colorStr);
+    }
+    
+    title.textContent = 'ℹ️ ' + catTitle;
+    body.innerHTML = `<p style="margin: 0; font-size: 0.98rem; font-weight: 500; line-height: 1.5; color: var(--text-color);">${catDesc}</p>`;
+    stripe.style.background = catGradient;
+    
+    if (_infoCloseTimer) { clearTimeout(_infoCloseTimer); _infoCloseTimer = null; }
+    ov.classList.add('open');
+    void ov.offsetWidth;
+    ov.classList.remove('anim-out');   ov.classList.add('anim-in');
+    card.classList.remove('anim-out'); card.classList.add('anim-in');
+    document.body.style.overflow = 'hidden';
+  }
+
+  window.closeInfoModal = function() {
+    const ov = document.getElementById('infoOverlay');
+    const card = document.getElementById('infoCard');
+    ov.classList.remove('anim-in');   card.classList.remove('anim-in');
+    void ov.offsetWidth;
+    ov.classList.add('anim-out');     card.classList.add('anim-out');
+    _infoCloseTimer = setTimeout(() => {
+      ov.classList.remove('open', 'anim-out');
+      card.classList.remove('anim-out');
+      document.body.style.overflow = '';
+      _infoCloseTimer = null;
+    }, 230);
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    const infoOv = document.getElementById('infoOverlay');
+    if (infoOv) infoOv.addEventListener('click', e => { if (e.target === infoOv) window.closeInfoModal(); });
     const btnS = document.getElementById('settingsBtnSave');
     const btnC = document.getElementById('settingsBtnCancel');
     const ov   = document.getElementById('settingsOverlay');
@@ -16066,6 +16188,20 @@
       <div class="settings-footer">
         <button class="settings-btn-cancel" id="settingsBtnCancel">Отмена</button>
         <button class="settings-btn-save"   id="settingsBtnSave">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ INFO MODAL ════════ -->
+  <div class="settings-overlay" id="infoOverlay">
+    <div class="settings-card" id="infoCard">
+      <div class="settings-stripe" id="infoStripe"></div>
+      <div class="settings-header">
+        <div class="settings-title" id="infoTitle">ℹ️ Описание раздела</div>
+      </div>
+      <div class="settings-body" id="infoBody" style="font-size: 0.95rem; line-height: 1.5; color: var(--text-color);"></div>
+      <div class="settings-footer" style="justify-content: center;">
+        <button class="settings-btn-save" id="infoBtnClose" onclick="closeInfoModal()">Закрыть</button>
       </div>
     </div>
   </div>

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.105'
-description = 'Градиентные цвета в кастомных карточках + добавление эмодзи при создании категории'
+version = '1.0.106'
+description = 'Раздел "что это?\''
 
 
 def get_version_metadata() -> tuple[str, str]:

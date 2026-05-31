@@ -10275,6 +10275,7 @@
             "important_dates": { title: _i('catDates').replace('📅 ',''), emoji: "📅" }
 
           };
+          window._categoriesMap = categoriesMap;
 
           // Добавляем пользовательские категории в categoriesMap + создаём секции
           const anchor = document.getElementById('custom_categories_anchor');
@@ -10336,6 +10337,7 @@
             const l2 = Math.max(10, Math.min(90, l - 12));
             return `linear-gradient(135deg, hsl(${h}, ${s}%, ${l}%), hsl(${h2}, ${s2}%, ${l2}%))`;
           }
+          window.getGradientForColor = getGradientForColor;
 
           customCategories.forEach(cat => {
             const key = 'custom_' + cat.id;
@@ -14493,6 +14495,19 @@
       botOpen:   'Открыть бота',
       botAI:     'Спросить ИИ',
       botAdmin:  'Админ панель',
+      infoTitle_important_moments: 'Важные моменты',
+      infoTitle_memories: 'Воспоминания',
+      infoTitle_important_dates: 'Важные даты',
+      infoTitle_events: 'События на дату',
+      infoTitle_wishes: 'Желания',
+      infoDesc_important_moments: 'Иногда хочется сохранить что-то важное прямо сейчас. Этот раздел как раз для таких небольших, но ценных моментов',
+      infoDesc_memories: 'Здесь живут ваши общие истории, счастливые моменты и всё то, к чему приятно возвращаться спустя время',
+      infoDesc_important_dates: 'Тут можно хранить даты, которые не хочется забывать например знакомство, годовщины, праздники и другие особенные дни',
+      infoDesc_events: 'Бывало такое, что хочешь что-то сделать в будущем но не можешь запомнить? Запиши суда, а когда настанет момент я тебе напомню',
+      infoDesc_wishes: 'Здесь можно собирать мечты, планы и всё то, что хочется однажды осуществить вместе',
+      customCatDefaultName: 'Категория',
+      customDescFallbackWithTitle: 'Это пользовательская категория {emoji} {name} для хранения воспоминаний и заметок по выбранной теме.',
+      customDescFallbackEmpty: 'Это пользовательская категория для хранения воспоминаний и заметок по выбранной теме.',
     },
     de: {
       settingsTitle:  '⚙️ Einstellungen',
@@ -14604,6 +14619,19 @@
       botOpen:   'Bot öffnen',
       botAI:     'KI fragen',
       botAdmin:  'Admin-Panel',
+      infoTitle_important_moments: 'Wichtige Momente',
+      infoTitle_memories: 'Erinnerungen',
+      infoTitle_important_dates: 'Wichtige Daten',
+      infoTitle_events: 'Ereignisse auf ein Datum',
+      infoTitle_wishes: 'Wünsche',
+      infoDesc_important_moments: 'Manchmal möchte man sofort etwas Wichtiges festhalten. Dieser Bereich ist genau für solche kleinen, aber wertvollen Momente gedacht',
+      infoDesc_memories: 'Hier leben Ihre gemeinsamen Geschichten, glücklichen Momente und all das, worauf man nach einiger Zeit gerne zurückblickt',
+      infoDesc_important_dates: 'Hier können Sie Daten speichern, die Sie nicht vergessen möchten, wie z. B. das Kennenlernen, Jahrestage, Feiertage und andere besondere Tage',
+      infoDesc_events: 'Wollten Sie schon einmal etwas in der Zukunft tun, konnten es sich aber nicht merken? Schreiben Sie es hier auf, und wenn der Moment gekommen ist, werde ich Sie daran erinnern',
+      infoDesc_wishes: 'Hier können Sie Träume, Pläne und all das sammeln, was Sie eines Tages gemeinsam verwirklichen möchten',
+      customCatDefaultName: 'Kategorie',
+      customDescFallbackWithTitle: 'Dies ist eine benutzerdefinierte Kategorie {emoji} {name} für die Speicherung von Erinnerungen und Notizen zum ausgewählten Thema.',
+      customDescFallbackEmpty: 'Dies ist eine benutzerdefinierte Kategorie für die Speicherung von Erinnerungen und Notizen zum ausgewählten Thema.',
     },
     en: {
       settingsTitle:  '⚙️ Settings',
@@ -14715,6 +14743,19 @@
       botOpen:   'Open bot',
       botAI:     'Ask AI',
       botAdmin:  'Admin panel',
+      infoTitle_important_moments: 'Important moments',
+      infoTitle_memories: 'Memories',
+      infoTitle_important_dates: 'Important dates',
+      infoTitle_events: 'Events on date',
+      infoTitle_wishes: 'Wishes',
+      infoDesc_important_moments: 'Sometimes you want to save something important right now. This section is just for such small but valuable moments',
+      infoDesc_memories: 'This is where your shared stories, happy moments, and everything that is nice to look back on after some time live',
+      infoDesc_important_dates: 'Here you can store dates you don\'t want to forget, such as the day you met, anniversaries, holidays, and other special days',
+      infoDesc_events: 'Have you ever wanted to do something in the future but couldn\'t remember it? Write it down here, and when the moment comes, I will remind you',
+      infoDesc_wishes: 'Here you can collect dreams, plans, and everything you want to make come true together one day',
+      customCatDefaultName: 'Category',
+      customDescFallbackWithTitle: 'This is a custom category {emoji} {name} for storing memories and notes on the selected topic.',
+      customDescFallbackEmpty: 'This is a custom category for storing memories and notes on the selected topic.',
     },
   };
 
@@ -15900,40 +15941,48 @@
     let catGradient = '';
     
     if (categoryKey === 'important_moments') {
-      catTitle = 'Важные моменты';
-      catDesc = 'Раздел для коротких, но ценных моментов, которые хочется быстро сохранить и не потерять.';
+      catTitle = _ui('infoTitle_important_moments');
+      catDesc = _ui('infoDesc_important_moments');
       catGradient = 'linear-gradient(135deg, #d43f8d, #9b3ac7)';
     } else if (categoryKey === 'memories') {
-      catTitle = 'Воспоминания';
-      catDesc = 'В этом разделе вы можете сохранять важные воспоминания, совместные моменты, истории и всё то, что хочется сохранить на память.';
+      catTitle = _ui('infoTitle_memories');
+      catDesc = _ui('infoDesc_memories');
       catGradient = 'linear-gradient(135deg, #7c3aed, #4158d0)';
     } else if (categoryKey === 'important_dates') {
-      catTitle = 'Важные даты';
-      catDesc = 'Здесь хранятся значимые даты вашей пары: знакомство, годовщины, праздники и другие особенные дни.';
+      catTitle = _ui('infoTitle_important_dates');
+      catDesc = _ui('infoDesc_important_dates');
       catGradient = 'linear-gradient(135deg, #4158d0, #06b6d4)';
     } else if (categoryKey === 'events') {
-      catTitle = 'События на дату';
-      catDesc = 'Этот раздел помогает не забыть о важных будущих событиях. Когда наступит нужная дата, система напомнит вам об этом.';
+      catTitle = _ui('infoTitle_events');
+      catDesc = _ui('infoDesc_events');
       catGradient = 'linear-gradient(135deg, #16a34a, #0d9488)';
     } else if (categoryKey === 'wishes') {
-      catTitle = 'Желания';
-      catDesc = 'Здесь можно записывать мечты, цели и желания, которые вы хотите исполнить вместе.';
+      catTitle = _ui('infoTitle_wishes');
+      catDesc = _ui('infoDesc_wishes');
       catGradient = 'linear-gradient(135deg, #d97706, #dc2626)';
     } else if (categoryKey.startsWith('custom_')) {
-      const mapItem = (typeof categoriesMap !== 'undefined' && categoriesMap[categoryKey]) || {};
-      const name = mapItem.title || 'Категория';
+      const mapItem = (window._categoriesMap && window._categoriesMap[categoryKey]) || {};
+      const name = mapItem.title || _ui('customCatDefaultName') || 'Категория';
       const emoji = mapItem.emoji || '📁';
       catTitle = name;
       if (mapItem.description && mapItem.description.trim()) {
         catDesc = mapItem.description.trim();
-      } else if (name && name !== 'Категория') {
-        catDesc = `Это пользовательская категория ${emoji} ${name} для хранения воспоминаний и заметок по выбранной теме.`;
       } else {
-        catDesc = "Это пользовательская категория для хранения воспоминаний и заметок по выбранной теме.";
+        const isDefault = !name || name === 'Категория' || name === 'Category' || name === 'Kategorie';
+        if (!isDefault) {
+          catDesc = _ui('customDescFallbackWithTitle').replace('{emoji}', emoji).replace('{name}', name);
+        } else {
+          catDesc = _ui('customDescFallbackEmpty');
+        }
       }
       const customCat = (window._customCategories || []).find(c => 'custom_' + c.id === categoryKey);
       const colorStr = (customCat && customCat.color) ? customCat.color.trim() : 'slateblue';
-      catGradient = getGradientForColor(colorStr);
+      const getGradient = window.getGradientForColor || (typeof getGradientForColor !== 'undefined' ? getGradientForColor : null);
+      if (getGradient) {
+        catGradient = getGradient(colorStr);
+      } else {
+        catGradient = 'linear-gradient(135deg, ' + colorStr + ', ' + colorStr + ')';
+      }
     }
     
     title.textContent = 'ℹ️ ' + catTitle;

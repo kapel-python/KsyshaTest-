@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.110'
-description = 'Оказывается не последний, ещё один фикс визуала (двойная кнопка)'
+version = '1.0.111'
+description = 'Добавление мультиязычности, оживление описаний и исправление с тем что кнопка не работает на кастомных категориях'
 
 
 def get_version_metadata() -> tuple[str, str]:

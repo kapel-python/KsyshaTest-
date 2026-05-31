@@ -829,6 +829,41 @@ def format_time_remaining(event_datetime_str: str, creator_user_id: Optional[int
         return "—"
 
 
+def calculate_next_occurrence(dt_str: str, creator_user_id: Optional[int] = None) -> str:
+    if not dt_str or not dt_str.strip():
+        return dt_str
+    is_full_dt = len(dt_str) >= 19
+    fmt = '%Y-%m-%d %H:%M:%S' if is_full_dt else '%Y-%m-%d'
+    try:
+        if is_full_dt:
+            event_dt = datetime.strptime(dt_str[:19], '%Y-%m-%d %H:%M:%S')
+        else:
+            event_dt = datetime.strptime(dt_str[:10], '%Y-%m-%d')
+    except Exception:
+        return dt_str
+    creator_offset = 3
+    if creator_user_id:
+        try:
+            from database import db
+            tz_id = db.get_user_setting(creator_user_id, "timezone")
+            creator_offset = _tz_offset(tz_id, 3)
+        except Exception:
+            pass
+    now_creator = datetime.now(timezone.utc) + timedelta(hours=creator_offset)
+    now_creator = now_creator.replace(tzinfo=None)
+    if event_dt >= now_creator:
+        return dt_str
+    y = now_creator.year
+    while True:
+        try:
+            candidate = event_dt.replace(year=y)
+        except ValueError:
+            candidate = event_dt.replace(year=y, day=28)
+        if candidate >= now_creator:
+            return candidate.strftime(fmt)
+        y += 1
+
+
 def format_scheduled_event_text(event: ScheduledEvent, user_id: Optional[int] = None,
                                 expired: bool = False) -> str:
     """

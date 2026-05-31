@@ -543,7 +543,7 @@ def _extract_today_from_context(datetime_context: str) -> Optional[date]:
         return None
 
 
-def _parse_date_local_ru(user_input: str, today: Optional[date] = None) -> str:
+def _parse_date_local_ru(user_input: str, today: Optional[date] = None, allow_future: bool = False) -> str:
     """
     Локальный разбор частых форматов без ИИ:
     - 30.10.2025
@@ -592,7 +592,7 @@ def _parse_date_local_ru(user_input: str, today: Optional[date] = None) -> str:
             y += 2000 if y < 50 else 1900
         try:
             parsed = date(y, m, d)
-            if parsed > today:
+            if parsed > today and not allow_future:
                 return ""
             return f"{parsed.day}.{parsed.month}.{parsed.year}"
         except ValueError:
@@ -604,7 +604,7 @@ def _parse_date_local_ru(user_input: str, today: Optional[date] = None) -> str:
         d, m = int(m_num_no_year.group(1)), int(m_num_no_year.group(2))
         try:
             parsed = date(today.year, m, d)
-            if parsed > today:
+            if parsed > today and not allow_future:
                 parsed = date(today.year - 1, m, d)
             return f"{parsed.day}.{parsed.month}.{parsed.year}"
         except ValueError:
@@ -623,7 +623,7 @@ def _parse_date_local_ru(user_input: str, today: Optional[date] = None) -> str:
             return ""
         try:
             parsed = date(y, month_num, d)
-            if parsed > today:
+            if parsed > today and not allow_future:
                 return ""
             return f"{parsed.day}.{parsed.month}.{parsed.year}"
         except ValueError:
@@ -639,7 +639,7 @@ def _parse_date_local_ru(user_input: str, today: Optional[date] = None) -> str:
             return ""
         try:
             parsed = date(today.year, month_num, d)
-            if parsed > today:
+            if parsed > today and not allow_future:
                 parsed = date(today.year - 1, month_num, d)
             return f"{parsed.day}.{parsed.month}.{parsed.year}"
         except ValueError:
@@ -648,8 +648,8 @@ def _parse_date_local_ru(user_input: str, today: Optional[date] = None) -> str:
     return ""
 
 
-def _coerce_non_future_ai_date(result: str, today: Optional[date] = None) -> str:
-    """Нормализует ответ ИИ и отбрасывает будущие даты."""
+def _coerce_non_future_ai_date(result: str, today: Optional[date] = None, allow_future: bool = False) -> str:
+    """Нормализует ответ ИИ и отбрасывает будущие даты (если не разрешено)."""
     s = (result or "").strip()
     if not s:
         return ""
@@ -664,7 +664,7 @@ def _coerce_non_future_ai_date(result: str, today: Optional[date] = None) -> str
     except ValueError:
         return ""
     today = today or date.today()
-    if parsed > today:
+    if parsed > today and not allow_future:
         return ""
     if hh is not None and mm is not None:
         h, mi = int(hh), int(mm)
@@ -673,15 +673,23 @@ def _coerce_non_future_ai_date(result: str, today: Optional[date] = None) -> str
         return f"{parsed.day}.{parsed.month}.{parsed.year} {h:02d}:{mi:02d}"
     return f"{parsed.day}.{parsed.month}.{parsed.year}"
 
-def parse_date_with_ai(user_input: str, datetime_context: str) -> str:
 
+def parse_date_with_ai(user_input: str, datetime_context: str, allow_future: bool = False) -> str:
     """
-
     Передаёт ИИ текст пользователя о дате и контекст (дата, время, часовой пояс).
-
     Возвращает дату в формате D.M.YYYY или D.M.YYYY HH:MM (если пользователь указал время).
-
     """
+    if allow_future:
+        rules = """Правила:
+1) Разрешено и приветствуется определять БУДУЩИЕ даты/время.
+2) Если год не указан и дата получается в прошлом, выбери текущий год. Если дата без года в текущем году уже прошла — выбери текущий или следующий год в зависимости от контекста.
+3) Если пользователь указал время, верни его."""
+    else:
+        rules = """Правила:
+1) Никогда не возвращай будущую дату/время.
+2) Если год не указан, выбери наиболее вероятный прошлый вариант (обычно текущий год, но если такая дата в будущем — предыдущий год).
+3) Если дата неоднозначна, выбери наиболее вероятную прошлую дату, а не пустой ответ.
+4) Если пользователь указал время, верни его."""
 
     prompt = f"""{datetime_context}
 
@@ -689,35 +697,27 @@ def parse_date_with_ai(user_input: str, datetime_context: str) -> str:
 
 Определи точную дату и время, если пользователь его указал. Учти контекст выше для относительных выражений ("вчера", "сегодня", "30 октября", "30.10", "неделю назад", "в 15:00" и т.п.).
 
-Правила:
-1) Никогда не возвращай будущую дату/время.
-2) Если год не указан, выбери наиболее вероятный прошлый вариант (обычно текущий год, но если такая дата в будущем — предыдущий год).
-3) Если дата неоднозначна, выбери наиболее вероятную прошлую дату, а не пустой ответ.
-4) Если пользователь указал время, верни его.
+{rules}
 
 Ответь ТОЛЬКО датой в формате Д.М.ГГГГ (например: 25.1.2026) или датой и временем Д.М.ГГГГ ЧЧ:ММ (например: 25.1.2026 14:30). Без текста, без объяснений. Только дата (и время при необходимости)."""
 
     context_today = _extract_today_from_context(datetime_context)
 
     # Быстрый локальный разбор — чтобы не зависеть от внешнего API для базовых дат.
-    parsed_local = _parse_date_local_ru(user_input, today=context_today)
+    parsed_local = _parse_date_local_ru(user_input, today=context_today, allow_future=allow_future)
     if parsed_local:
         return parsed_local
 
     try:
-
         # Для распознавания дат важнее быстрый ответ, чем долгий подвисший запрос.
         result = send_prompt(prompt, timeout_seconds=25, model=DATE_PARSER_MODEL)
-
         result = (result or "").strip()
-
         if result:
-            normalized = _coerce_non_future_ai_date(result, today=context_today)
+            normalized = _coerce_non_future_ai_date(result, today=context_today, allow_future=allow_future)
             if normalized:
                 return normalized
             logger.warning("parse_date_with_ai: AI produced invalid/future date for input=%r result=%r", user_input, result)
         logger.warning("parse_date_with_ai: empty AI response for input=%r", user_input)
-
     except Exception as e:
         logger.exception("parse_date_with_ai: AI parse failed for input=%r: %s", user_input, e)
 

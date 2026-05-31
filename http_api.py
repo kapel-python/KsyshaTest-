@@ -6622,6 +6622,16 @@ async def site_create_event(request: web.Request) -> web.Response:
     except Exception as e:
         logger.warning("site_create_event notify scheduling error: %s", e)
 
+    timezone_id = db.get_user_setting(user_id, "timezone") if user_id else None
+    event_obj = db.get_scheduled_event(event_id)
+    if event_obj:
+        return _add_cors_headers(web.json_response({
+            "ok": True,
+            "id": event_id,
+            "event_datetime": event_obj.event_datetime,
+            "event_datetime_human": format_scheduled_event_datetime_for_timezone(event_obj.event_datetime or "", event_obj.user_id, timezone_id),
+            "is_passed": bool(is_scheduled_event_moment_passed(event_obj.event_datetime or "", event_obj.user_id)),
+        }))
     return _add_cors_headers(web.json_response({"ok": True, "id": event_id}))
 
 
@@ -6681,7 +6691,7 @@ async def site_parse_date_ai(request: web.Request) -> web.Response:
         ctx     = get_user_datetime_context(user_id)
 
         import asyncio as _asyncio
-        ai_date = await _asyncio.to_thread(parse_date_with_ai, raw_date, ctx)
+        ai_date = await _asyncio.to_thread(parse_date_with_ai, raw_date, ctx, True)
 
         if not ai_date:
             return _add_cors_headers(web.json_response({"ok": False, "error": "could not parse"}))
@@ -6690,7 +6700,9 @@ async def site_parse_date_ai(request: web.Request) -> web.Response:
         if not db_format:
             return _add_cors_headers(web.json_response({"ok": False, "error": "could not convert"}))
 
-        display = format_scheduled_event_datetime(db_format, user_id, user_id)
+        from utils import calculate_next_occurrence
+        next_db_format = calculate_next_occurrence(db_format, user_id)
+        display = format_scheduled_event_datetime(next_db_format, user_id, user_id)
         return _add_cors_headers(web.json_response({
             "ok":       True,
             "db_format": db_format,

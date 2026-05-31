@@ -2820,7 +2820,7 @@ async def scheduled_event_process_date_raw(message: Message, state: FSMContext):
     msg_status = await message.answer("⏳ Определяю дату...")
     try:
         ctx = get_user_datetime_context(user_id)
-        ai_date = await asyncio.to_thread(parse_date_with_ai, raw, ctx)
+        ai_date = await asyncio.to_thread(parse_date_with_ai, raw, ctx, True)
     except Exception as e:
         logger.error(f"Ошибка ИИ при распознавании даты: {e}")
         ai_date = ""
@@ -2842,7 +2842,9 @@ async def scheduled_event_process_date_raw(message: Message, state: FSMContext):
             parse_mode=ParseMode.HTML
         )
         return
-    display_format = format_scheduled_event_datetime(db_format, user_id, user_id)
+    from utils import calculate_next_occurrence
+    next_db_format = calculate_next_occurrence(db_format, user_id)
+    display_format = format_scheduled_event_datetime(next_db_format, user_id, user_id)
     await state.update_data(
         event_datetime_db=db_format,
         event_datetime_display=display_format,
@@ -2852,7 +2854,7 @@ async def scheduled_event_process_date_raw(message: Message, state: FSMContext):
     data = await state.get_data()
     title = data.get("title", "")
     desc = data.get("description", "") or "—"
-    remaining = format_time_remaining(db_format, user_id)
+    remaining = format_time_remaining(next_db_format, user_id)
     confirm_text = (
         f"📅 Я распознал дату: <b>{display_format}</b>\n\n"
         "Всё верно?\n\n"
@@ -3091,7 +3093,7 @@ async def scheduled_event_process_edit_date(message: Message, state: FSMContext)
     msg_status = await message.answer("⏳ Определяю дату...")
     try:
         ctx = get_user_datetime_context(user_id)
-        ai_date = await asyncio.to_thread(parse_date_with_ai, raw, ctx)
+        ai_date = await asyncio.to_thread(parse_date_with_ai, raw, ctx, True)
     except Exception as e:
         logger.error(f"Ошибка ИИ при распознавании даты: {e}")
         ai_date = ""
@@ -3106,7 +3108,9 @@ async def scheduled_event_process_edit_date(message: Message, state: FSMContext)
     if not db_format:
         await message.answer("❌ Не удалось преобразовать дату. Попробуй: 25.1.2026")
         return
-    display_format = format_scheduled_event_datetime(db_format, user_id, user_id)
+    from utils import calculate_next_occurrence
+    next_db_format = calculate_next_occurrence(db_format, user_id)
+    display_format = format_scheduled_event_datetime(next_db_format, user_id, user_id)
     await state.update_data(
         event_datetime_db=db_format,
         event_datetime_display=display_format,
@@ -3116,7 +3120,7 @@ async def scheduled_event_process_edit_date(message: Message, state: FSMContext)
     data = await state.get_data()
     title = data.get("title", "")
     desc = data.get("description", "") or "—"
-    remaining = format_time_remaining(db_format, user_id)
+    remaining = format_time_remaining(next_db_format, user_id)
     confirm_text = (
         f"📅 Я распознал дату: <b>{display_format}</b>\n\n"
         "Всё верно?\n\n"
@@ -3467,7 +3471,7 @@ async def scheduled_event_existing_process_date(message: Message, state: FSMCont
     msg_status = await message.answer("⏳ Определяю дату...")
     try:
         ctx = get_user_datetime_context(user_id)
-        ai_date = await asyncio.to_thread(parse_date_with_ai, raw, ctx)
+        ai_date = await asyncio.to_thread(parse_date_with_ai, raw, ctx, True)
     except Exception as e:
         logger.error(f"Ошибка ИИ при распознавании даты: {e}")
         ai_date = ""
@@ -3484,7 +3488,9 @@ async def scheduled_event_existing_process_date(message: Message, state: FSMCont
     if not db_format:
         await message.answer("❌ Не удалось преобразовать дату. Попробуй: 25.1.2026")
         return
-    display_format = format_scheduled_event_datetime(db_format, user_id, user_id)
+    from utils import calculate_next_occurrence
+    next_db_format = calculate_next_occurrence(db_format, user_id)
+    display_format = format_scheduled_event_datetime(next_db_format, user_id, user_id)
     await state.update_data(
         new_event_datetime_db=db_format,
         new_event_datetime_display=display_format

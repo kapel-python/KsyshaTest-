@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.92'
-description = 'Фикс личности ии'
+version = '1.0.93'
+description = 'Исправлен баг с тем что при создании событии на дату отображалась прошедшая а не будущая дата'
 
 
 def get_version_metadata() -> tuple[str, str]:

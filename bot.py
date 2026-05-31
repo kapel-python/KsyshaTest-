@@ -640,7 +640,8 @@ async def _check_expired_events(bot):
                         ]
                     )
                     for user_id in pending_users:
-                        if not is_scheduled_event_expired(event.event_datetime, user_id):
+                        dt_to_check = getattr(event, "original_event_datetime", None) or event.event_datetime
+                        if not is_scheduled_event_expired(dt_to_check, user_id):
                             continue
                         if not db.are_notifications_enabled(user_id):
                             db.mark_event_notified_for_user(event.id, user_id)

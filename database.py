@@ -112,6 +112,15 @@ class ScheduledEvent:
     media_type: Optional[str] = None
     media_file_id: Optional[str] = None
     media_path: Optional[str] = None
+    original_event_datetime: str = ""
+
+    def __post_init__(self):
+        self.original_event_datetime = self.event_datetime
+        try:
+            from utils import calculate_next_occurrence
+            self.event_datetime = calculate_next_occurrence(self.event_datetime, self.user_id)
+        except Exception:
+            pass
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -120,6 +129,7 @@ class ScheduledEvent:
             'title': self.title,
             'description': self.description,
             'event_datetime': self.event_datetime,
+            'original_event_datetime': self.original_event_datetime,
             'created_at': self.created_at,
             'notified_at': self.notified_at,
             'media_type': self.media_type,

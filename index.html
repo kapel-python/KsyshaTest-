@@ -9267,7 +9267,16 @@
 
           });
 
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          if (!resp.ok) {
+            let errText = 'HTTP ' + resp.status;
+            try {
+              const errJson = await resp.json();
+              if (errJson && errJson.error) {
+                errText = errJson.error;
+              }
+            } catch (_) {}
+            throw new Error(errText);
+          }
 
           let bubble = null;
 
@@ -9306,7 +9315,7 @@
 
                 if (raw === '[DONE]') continue;
 
-                if (raw === '[ERROR]') {
+                if (raw.startsWith('[ERROR]')) {
 
                   if (bubble) bubble.textContent = _ui('aiErrorGeneric');
 
@@ -9378,7 +9387,19 @@
 
           const bubble = addAIMessage('ai', '');
 
-          if (bubble) await typeAIText(bubble, _ui('aiErrorGeneric'));
+          if (bubble) {
+            let errMsg = _ui('aiErrorGeneric');
+            if (e.message === 'unauthorized_ai_session') {
+              errMsg = _ui('aiErrorSessionExpired');
+            } else if (e.message === 'visitor_required') {
+              errMsg = _ui('aiErrorVisitorRequired');
+            } else if (e.message === 'rate_limited') {
+              errMsg = _ui('aiErrorRateLimited');
+            } else if (e.message.startsWith('HTTP ')) {
+              errMsg = e.message + ': ' + _ui('aiErrorGeneric');
+            }
+            await typeAIText(bubble, errMsg);
+          }
 
         }
 
@@ -9695,6 +9716,9 @@
               searchFound: (visible, total) => 'Найдено: ' + visible + ' из ' + total,
               aiSearchCount: (count) => count ? (count + ' совп.') : 'Не найдено',
               aiErrorGeneric: 'Упс, что-то пошло не так. Попробуй ещё раз 😅',
+              aiErrorSessionExpired: 'Сессия ИИ истекла. Пожалуйста, обнови страницу.',
+              aiErrorVisitorRequired: 'Сессия браузера утеряна. Пожалуйста, обнови страницу.',
+              aiErrorRateLimited: 'Слишком много сообщений. Пожалуйста, подожди немного.',
               wishStatusTitle: 'Статус желания',
               wishStatusHint: 'Нажми, чтобы изменить статус',
               wishStatusCreated: 'Ещё не начато',
@@ -9898,6 +9922,9 @@
               searchFound: (visible, total) => 'Gefunden: ' + visible + ' von ' + total,
               aiSearchCount: (count) => count ? (count + ' Treffer') : 'Nicht gefunden',
               aiErrorGeneric: 'Ups, etwas ist schiefgelaufen. Versuch es noch einmal 😅',
+              aiErrorSessionExpired: 'Ihre KI-Sitzung ist abgelaufen. Bitte laden Sie die Seite neu.',
+              aiErrorVisitorRequired: 'Ihre Browsersitzung ging verloren. Bitte laden Sie die Seite neu.',
+              aiErrorRateLimited: 'Zu viele Nachrichten gesendet. Bitte warten Sie einen Moment.',
               wishStatusTitle: 'Wunschstatus',
               wishStatusHint: 'Tippe, um den Status zu ändern',
               wishStatusCreated: 'Noch nicht begonnen',
@@ -10101,6 +10128,9 @@
               searchFound: (visible, total) => 'Found: ' + visible + ' of ' + total,
               aiSearchCount: (count) => count ? (count + ' matches') : 'No results',
               aiErrorGeneric: 'Oops, something went wrong. Try again 😅',
+              aiErrorSessionExpired: 'Your AI session expired. Refresh the page.',
+              aiErrorVisitorRequired: 'Your browser session was lost. Refresh the page.',
+              aiErrorRateLimited: 'Too many messages sent. Please wait a moment.',
               wishStatusTitle: 'Wish status',
               wishStatusHint: 'Tap to change the status',
               wishStatusCreated: 'Not started',
@@ -14731,6 +14761,9 @@
       searchFound: (visible, total) => 'Найдено: ' + visible + ' из ' + total,
       aiSearchCount: (count) => count ? (count + ' совп.') : 'Не найдено',
       aiErrorGeneric: 'Упс, что-то пошло не так. Попробуй ещё раз 😅',
+      aiErrorSessionExpired: 'Сессия ИИ истекла. Пожалуйста, обнови страницу.',
+      aiErrorVisitorRequired: 'Сессия браузера утеряна. Пожалуйста, обнови страницу.',
+      aiErrorRateLimited: 'Слишком много сообщений. Пожалуйста, подожди немного.',
       wishStatusTitle: 'Статус желания',
       wishStatusHint: 'Нажми, чтобы изменить статус',
       wishStatusCreated: 'Ещё не начато',
@@ -14934,6 +14967,9 @@
       searchFound: (visible, total) => 'Gefunden: ' + visible + ' von ' + total,
       aiSearchCount: (count) => count ? (count + ' Treffer') : 'Nicht gefunden',
       aiErrorGeneric: 'Ups, etwas ist schiefgelaufen. Versuch es noch einmal 😅',
+      aiErrorSessionExpired: 'Ihre KI-Sitzung ist abgelaufen. Bitte laden Sie die Seite neu.',
+      aiErrorVisitorRequired: 'Ihre Browsersitzung ging verloren. Bitte laden Sie die Seite neu.',
+      aiErrorRateLimited: 'Zu viele Nachrichten gesendet. Bitte warten Sie einen Moment.',
       wishStatusTitle: 'Wunschstatus',
       wishStatusHint: 'Tippe, um den Status zu ändern',
       wishStatusCreated: 'Noch nicht begonnen',
@@ -15137,6 +15173,9 @@
       searchFound: (visible, total) => 'Found: ' + visible + ' of ' + total,
       aiSearchCount: (count) => count ? (count + ' matches') : 'No results',
       aiErrorGeneric: 'Oops, something went wrong. Try again 😅',
+      aiErrorSessionExpired: 'Your AI session expired. Refresh the page.',
+      aiErrorVisitorRequired: 'Your browser session was lost. Refresh the page.',
+      aiErrorRateLimited: 'Too many messages sent. Please wait a moment.',
       wishStatusTitle: 'Wish status',
       wishStatusHint: 'Tap to change the status',
       wishStatusCreated: 'Not started',

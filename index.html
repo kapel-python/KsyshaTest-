@@ -4846,7 +4846,7 @@
 
             <span class="section-header-title-wrap">
                 <span data-i18n="secImportantMoments">💫 Важные моменты</span>
-                <button class="info-btn" type="button" onclick="openInfoModal('important_moments'); event.stopPropagation();">ⓘ</button>
+                <button class="info-btn" type="button" onclick="openInfoModal('important_moments'); event.stopPropagation();"></button>
             </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
@@ -4865,7 +4865,7 @@
 
             <span class="section-header-title-wrap">
                 <span data-i18n="secMemories">📖 Воспоминания</span>
-                <button class="info-btn" type="button" onclick="openInfoModal('memories'); event.stopPropagation();">ⓘ</button>
+                <button class="info-btn" type="button" onclick="openInfoModal('memories'); event.stopPropagation();"></button>
             </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
@@ -4884,7 +4884,7 @@
 
             <span class="section-header-title-wrap">
                 <span data-i18n="secDates">📅 Важные даты</span>
-                <button class="info-btn" type="button" onclick="openInfoModal('important_dates'); event.stopPropagation();">ⓘ</button>
+                <button class="info-btn" type="button" onclick="openInfoModal('important_dates'); event.stopPropagation();"></button>
             </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
@@ -4906,7 +4906,7 @@
 
             <span class="section-header-title-wrap">
                 <span data-i18n="secEvents">📆 События на дату</span>
-                <button class="info-btn" type="button" onclick="openInfoModal('events'); event.stopPropagation();">ⓘ</button>
+                <button class="info-btn" type="button" onclick="openInfoModal('events'); event.stopPropagation();"></button>
             </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
@@ -4925,7 +4925,7 @@
 
             <span class="section-header-title-wrap">
                 <span data-i18n="secWishes">💫 Желания</span>
-                <button class="info-btn" type="button" onclick="openInfoModal('wishes'); event.stopPropagation();">ⓘ</button>
+                <button class="info-btn" type="button" onclick="openInfoModal('wishes'); event.stopPropagation();"></button>
             </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
@@ -10358,7 +10358,7 @@
             const infoBtn = document.createElement('button');
             infoBtn.className = 'info-btn';
             infoBtn.type = 'button';
-            infoBtn.textContent = 'ⓘ';
+            infoBtn.textContent = '';
             infoBtn.onclick = (e) => {
               e.stopPropagation();
               openInfoModal(key);

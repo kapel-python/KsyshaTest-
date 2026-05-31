@@ -2885,7 +2885,7 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
         import re as _re
 
-        clean_reply = _re.sub(r"\[SUGGESTIONS:.*?\]", "", full_reply, flags=_re.IGNORECASE | _re.DOTALL).strip()
+        clean_reply = _re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", "", full_reply, flags=_re.IGNORECASE | _re.DOTALL).strip()
 
         try:
 

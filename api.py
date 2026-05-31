@@ -1145,7 +1145,7 @@ def build_companion_system_prompt(
 
         "Отвечай только на основе реально переданных выше структур.\n\n"
 
-        "ВАЖНО: в самом конце каждого ответа добавь СТРОГО в таком формате (одна строка):\n"
+        "ВАЖНО: в самом конце каждого ответа добавь СТРОГО в таком формате (одна строка, слово SUGGESTIONS пиши на английском без перевода):\n"
 
         "[SUGGESTIONS: Подсказка | Подсказка | Подсказка]\n"
 
@@ -1341,7 +1341,7 @@ def ask_companion(
 
         # Подсказки во втором шаге имеют приоритет над подсказками от router-а
 
-        m2 = re.search(r"\[SUGGESTIONS:\s*(.+?)\]", reply, flags=re.IGNORECASE | re.DOTALL)
+        m2 = re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):\s*(.+?)\]", reply, flags=re.IGNORECASE | re.DOTALL)
 
         if m2:
 
@@ -1349,7 +1349,7 @@ def ask_companion(
 
             suggestions = [s.strip() for s in part2.split("|") if s.strip()][:3]
 
-            reply = re.sub(r"\[SUGGESTIONS:.*?\]", "", reply, flags=re.IGNORECASE | re.DOTALL).strip()
+            reply = re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", "", reply, flags=re.IGNORECASE | re.DOTALL).strip()
 
         logger.info("AI-companion data-step completed successfully")
 
@@ -1450,11 +1450,11 @@ def route_companion_request(
             }
         logger.warning("AI-companion router JSON returned unknown tool=%r", tool)
 
-    m_sug = re.search(r"\[SUGGESTIONS:\s*(.+?)\]", raw_router, flags=re.IGNORECASE | re.DOTALL)
+    m_sug = re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):\s*(.+?)\]", raw_router, flags=re.IGNORECASE | re.DOTALL)
     if m_sug:
         part = m_sug.group(1)
         suggestions = [s.strip() for s in part.split("|") if s.strip()][:3]
-        raw_router = re.sub(r"\[SUGGESTIONS:.*?\]", "", raw_router, flags=re.IGNORECASE | re.DOTALL).strip()
+        raw_router = re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", "", raw_router, flags=re.IGNORECASE | re.DOTALL).strip()
     lower_router = raw_router.lower()
     if lower_router.startswith("none."):
         return {
@@ -1633,7 +1633,7 @@ def ask_companion_stream(
 
         tail_buf += chunk
 
-        m_tail = _re.search(r"\[SUGGESTIONS:.*?\]", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
+        m_tail = _re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
         if m_tail:
             clean = tail_buf[:m_tail.start()]
             if clean:
@@ -1641,13 +1641,13 @@ def ask_companion_stream(
             tail_buf = tail_buf[m_tail.end():]
             continue
 
-        target_tag = "[SUGGESTIONS:"
         suf_len = 0
-        for i in range(min(len(tail_buf), len(target_tag)), 0, -1):
-            suffix = tail_buf[-i:]
-            if target_tag.startswith(suffix.upper()):
-                suf_len = i
-                break
+        last_bracket = tail_buf[-20:].rfind("[")
+        if last_bracket != -1:
+            idx = len(tail_buf) - 20 + last_bracket
+            suffix = tail_buf[idx:]
+            if _re.match(r"^\[[A-Za-zА-ЯЁа-яё\s:]*$", suffix):
+                suf_len = len(suffix)
 
         if suf_len > 0:
             clean = tail_buf[:-suf_len]
@@ -1660,13 +1660,13 @@ def ask_companion_stream(
 
     if tail_buf:
 
-        clean_tail = _re.sub(r"\[SUGGESTIONS:.*?\]", "", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
+        clean_tail = _re.sub(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):.*?\]", "", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
 
         if clean_tail:
 
             yield clean_tail
 
-    m2 = _re.search(r"\[SUGGESTIONS:\s*(.+?)\]", full_reply, flags=_re.IGNORECASE | _re.DOTALL)
+    m2 = _re.search(r"\[(?:SUGGESTIONS|СУПЕР|ПОДСКАЗКИ|ПРЕДЛОЖЕНИЯ|SUGGEST):\s*(.+?)\]", full_reply, flags=_re.IGNORECASE | _re.DOTALL)
 
     if m2:
 

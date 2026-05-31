@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.99'
-description = 'Стабильный фикс дублирования уведомлений на события на дату + сортировка по времени'
+version = '1.0.100'
+description = 'Фикс прошедшего времени в событиях на дату'
 
 
 def get_version_metadata() -> tuple[str, str]:

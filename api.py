@@ -1318,6 +1318,43 @@ def _extract_suggestions(text: str) -> Tuple[str, List[str]]:
         
     return text, []
 
+def _extract_json_block(text: str) -> Tuple[str, dict | None]:
+    """
+    Ищет и извлекает JSON-блок (содержащий ключ "tool") из текста.
+    Возвращает (оставшийся текст, распарсенный JSON-объект или None).
+    """
+    import json
+    text_len = len(text)
+    first_brace = text.find("{")
+    if first_brace == -1:
+        return text, None
+
+    for i in range(text_len - 1, -1, -1):
+        if text[i] == "}":
+            brace_count = 0
+            for j in range(i, -1, -1):
+                if text[j] == "}":
+                    brace_count += 1
+                elif text[j] == "{":
+                    brace_count -= 1
+                    if brace_count == 0:
+                        candidate = text[j:i+1].strip()
+                        try:
+                            if candidate.startswith("```json"):
+                                candidate = candidate[7:].strip()
+                            elif candidate.startswith("```"):
+                                candidate = candidate[3:].strip()
+                            if candidate.endswith("```"):
+                                candidate = candidate[:-3].strip()
+                            
+                            obj = json.loads(candidate)
+                            if isinstance(obj, dict) and ("tool" in obj or "answer" in obj):
+                                left_text = (text[:j].strip() + "\n" + text[i+1:].strip()).strip()
+                                return left_text, obj
+                        except Exception:
+                            pass
+    return text, None
+
 def ask_companion(
 
     user_message: str,
@@ -1484,12 +1521,7 @@ def route_companion_request(
     logger.info("AI-companion router raw reply: %s", raw_router.replace("\n", " ")[:200])
 
     suggestions: List[str] = []
-    router_obj = None
-    if raw_router.startswith("{") and raw_router.endswith("}"):
-        try:
-            router_obj = json.loads(raw_router)
-        except Exception:
-            router_obj = None
+    left_text, router_obj = _extract_json_block(raw_router)
     if isinstance(router_obj, dict) and "tool" in router_obj:
         tool = router_obj.get("tool")
         tool_params = router_obj.get("params") if isinstance(router_obj.get("params"), dict) else {}
@@ -1497,9 +1529,10 @@ def route_companion_request(
         if isinstance(raw_sug, list):
             suggestions = [str(s).strip() for s in raw_sug if str(s).strip()][:3]
         if tool is None:
+            reply_val = left_text.strip() or (router_obj.get("answer") or "").strip()
             return {
                 "needs_data": False,
-                "reply": (router_obj.get("answer") or "").strip() or "Не смог ответить, попробуй ещё раз",
+                "reply": reply_val or "Не смог ответить, попробуй ещё раз",
                 "suggestions": suggestions,
                 "endpoint": None,
                 "tool_params": {},
@@ -1617,20 +1650,14 @@ def ask_companion_stream(
             raw_router = (
                 _send_messages(router_msgs, timeout_seconds=40, retries_on_timeout=1, model=COMPANION_MODEL) or ""
             ).strip()
-            router_obj = None
-            if raw_router.startswith("{") and raw_router.endswith("}"):
-                try:
-                    router_obj = _json.loads(raw_router)
-                except Exception:
-                    pass
-
+            left_text, router_obj = _extract_json_block(raw_router)
             if isinstance(router_obj, dict) and "tool" in router_obj:
                 tool = router_obj.get("tool")
                 tool_params_stream = router_obj.get("params") if isinstance(router_obj.get("params"), dict) else {}
 
                 if tool is None:
                     # Данные не нужны — отдаём готовый ответ без стриминга
-                    reply_text = (router_obj.get("answer") or "Не смог ответить, попробуй ещё раз").strip()
+                    reply_text = left_text.strip() or (router_obj.get("answer") or "Не смог ответить, попробуй ещё раз").strip()
                     raw_sug = router_obj.get("suggestions") or []
                     sug_direct = [str(s).strip() for s in raw_sug if str(s).strip()][:3] if isinstance(raw_sug, list) else []
                     logger.info("AI-companion-stream: router no data needed, direct answer")

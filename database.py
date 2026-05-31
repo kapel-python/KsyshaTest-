@@ -2884,8 +2884,6 @@ class Database:
             logger.exception(f"Ошибка при получении инвайт-кода для пары {couple_id}: {e}")
             return None
 
-    # === Уведомления о событиях (новая система) ===
-
     def is_event_notified_for_user(self, event_id: int, user_id: int) -> bool:
         """Проверяет, получил ли конкретный пользователь уведомление о событии для его последней прошедшей/текущей годовщины."""
         try:
@@ -2899,7 +2897,6 @@ class Database:
                 return True
             
             event_datetime_str = row[0]
-            creator_user_id = row[1]
             
             # 2. Парсим исходную дату события
             is_full_dt = len(event_datetime_str) >= 19
@@ -2908,33 +2905,33 @@ class Database:
             else:
                 event_dt = datetime.strptime(event_datetime_str[:10], '%Y-%m-%d')
                 
-            # 3. Вычисляем смещение часового пояса создателя
+            # 3. Вычисляем смещение часового пояса конкретного пользователя
             from utils import _tz_offset
-            creator_offset = 3
-            if creator_user_id:
+            user_offset = 3
+            if user_id:
                 try:
-                    tz_id = self.get_user_setting(creator_user_id, "timezone")
-                    creator_offset = _tz_offset(tz_id, 3)
+                    tz_id = self.get_user_setting(user_id, "timezone")
+                    user_offset = _tz_offset(tz_id, 3)
                 except Exception:
                     pass
             
-            # 4. Получаем текущее время в поясе создателя
-            now_creator = datetime.now(timezone.utc) + timedelta(hours=creator_offset)
-            now_creator = now_creator.replace(tzinfo=None)
+            # 4. Получаем текущее время в поясе этого пользователя
+            now_user = datetime.now(timezone.utc) + timedelta(hours=user_offset)
+            now_user = now_user.replace(tzinfo=None)
             
             # 5. Если исходное событие в будущем, уведомлять ещё рано
-            if event_dt > now_creator:
+            if event_dt > now_user:
                 return True
                 
-            # 6. Находим последнюю прошедшую или текущую годовщину (latest_occurrence)
-            y = now_creator.year
+            # 6. Находим последнюю прошедшую или текущую годовщину (latest_occurrence) в часовом поясе пользователя
+            y = now_user.year
             latest_occurrence = None
             while True:
                 try:
                     candidate = event_dt.replace(year=y)
                 except ValueError:
                     candidate = event_dt.replace(year=y, day=28)
-                if candidate <= now_creator:
+                if candidate <= now_user:
                     latest_occurrence = candidate
                     break
                 y -= 1
@@ -2943,7 +2940,7 @@ class Database:
                 return True
                 
             # 7. Переводим latest_occurrence в UTC для точного сравнения с notified_at в БД
-            latest_occurrence_utc = latest_occurrence - timedelta(hours=creator_offset)
+            latest_occurrence_utc = latest_occurrence - timedelta(hours=user_offset)
             latest_occurrence_utc = latest_occurrence_utc.replace(tzinfo=timezone.utc)
             
             # 8. Проверяем наличие записи об уведомлении в БД
@@ -2971,9 +2968,10 @@ class Database:
                 return notified_at_utc >= latest_occurrence_utc
             else:
                 # 9. Если уведомления ещё не было, но последняя годовщина была в прошлых годах,
-                # помечаем её как уведомлённую без отправки, чтобы исключить false-positive при создании старых дат
-                if latest_occurrence.year < now_creator.year:
-                    self.mark_event_notified_for_user(event_id, user_id)
+                # помечаем её как уведомлённую без отправки, чтобы исключить false-positive при создании старых дат.
+                # Храним точное UTC-время пропущенного события, чтобы не перекрывать реальные срабатывания текущего года!
+                if latest_occurrence.year < now_user.year:
+                    self.mark_event_notified_for_user(event_id, user_id, latest_occurrence_utc)
                     return True
                 return False
                 
@@ -2981,14 +2979,21 @@ class Database:
             logger.exception("Ошибка в is_event_notified_for_user для event_id=%s user_id=%s: %s", event_id, user_id, e)
             return False
 
-    def mark_event_notified_for_user(self, event_id: int, user_id: int) -> bool:
+    def mark_event_notified_for_user(self, event_id: int, user_id: int, notified_at: Optional[datetime] = None) -> bool:
         """Помечает, что пользователь получил уведомление о событии."""
         try:
+            val = notified_at.strftime('%Y-%m-%d %H:%M:%S') if notified_at else None
             with self._get_connection() as conn:
-                conn.execute(
-                    'INSERT OR IGNORE INTO event_notifications (event_id, user_id) VALUES (?, ?)',
-                    (event_id, user_id)
-                )
+                if val:
+                    conn.execute(
+                        'INSERT OR REPLACE INTO event_notifications (event_id, user_id, notified_at) VALUES (?, ?, ?)',
+                        (event_id, user_id, val)
+                    )
+                else:
+                    conn.execute(
+                        'INSERT OR IGNORE INTO event_notifications (event_id, user_id) VALUES (?, ?)',
+                        (event_id, user_id)
+                    )
                 conn.commit()
                 return True
         except Exception as e:
@@ -3020,17 +3025,19 @@ class Database:
         return result
 
     def get_scheduled_events_for_users(self, user_ids: List[int]) -> List['ScheduledEvent']:
-        """Возвращает все события для пользователей из списка."""
+        """Возвращает все события для пользователей из списка, отсортированные по ближайшему наступлению."""
         if not user_ids:
             return []
         try:
             with self._get_connection() as conn:
                 placeholders = ','.join('?' * len(user_ids))
                 cursor = conn.execute(
-                    f'SELECT * FROM scheduled_events WHERE user_id IN ({placeholders}) ORDER BY event_datetime ASC',
+                    f'SELECT * FROM scheduled_events WHERE user_id IN ({placeholders})',
                     user_ids
                 )
-                return [_row_to_scheduled_event(row) for row in cursor.fetchall()]
+                events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
+            events.sort(key=lambda ev: ev.event_datetime)
+            return events
         except Exception as e:
             logger.exception(f"Ошибка при получении событий для пользователей: {e}")
             return []
@@ -4568,25 +4575,20 @@ class Database:
             return None
 
     def get_scheduled_events(self, limit: int = 100, user_ids: Optional[List[int]] = None) -> List['ScheduledEvent']:
-        """Получает ожидаемые события, отсортированные по дате. Опционально фильтрует по user_ids."""
+        """Получает ожидаемые события, отсортированные по ближайшему наступлению. Опционально фильтрует по user_ids."""
         try:
             with self._get_connection() as conn:
                 if user_ids:
                     placeholders = ','.join('?' * len(user_ids))
                     cursor = conn.execute(
-                        f'SELECT * FROM scheduled_events WHERE user_id IN ({placeholders}) ORDER BY event_datetime ASC LIMIT ?',
-                        (*user_ids, limit)
+                        f'SELECT * FROM scheduled_events WHERE user_id IN ({placeholders})',
+                        user_ids
                     )
                 else:
-                    cursor = conn.execute('''
-                        SELECT * FROM scheduled_events
-                        ORDER BY event_datetime ASC
-                        LIMIT ?
-                    ''', (limit,))
-                return [
-                    _row_to_scheduled_event(row)
-                    for row in cursor.fetchall()
-                ]
+                    cursor = conn.execute('SELECT * FROM scheduled_events')
+                events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
+            events.sort(key=lambda ev: ev.event_datetime)
+            return events[:limit]
         except Exception as e:
             logger.exception(f"Ошибка при получении событий: {e}")
             return []
@@ -4603,44 +4605,37 @@ class Database:
             return 0
 
     def get_scheduled_events_paged(self, page: int = 1, per_page: int = 10) -> Tuple[List['ScheduledEvent'], int]:
-        """События по странице. Возвращает (список событий, всего записей)."""
+        """События по странице, отсортированные по ближайшему наступлению."""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute('SELECT COUNT(*) FROM scheduled_events')
-                total = cursor.fetchone()[0]
-                offset = (page - 1) * per_page
-                cursor = conn.execute('''
-                    SELECT * FROM scheduled_events
-                    ORDER BY event_datetime ASC
-                    LIMIT ? OFFSET ?
-                ''', (per_page, offset))
-                events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
-                return events, total
+                cursor = conn.execute('SELECT * FROM scheduled_events')
+                all_events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
+            all_events.sort(key=lambda ev: ev.event_datetime)
+            total = len(all_events)
+            offset = (page - 1) * per_page
+            events = all_events[offset:offset + per_page]
+            return events, total
         except Exception as e:
             logger.exception(f"Ошибка при получении событий по странице: {e}")
             return [], 0
 
     def search_scheduled_events(self, query: str, page: int = 1, per_page: int = 10) -> Tuple[List['ScheduledEvent'], int]:
-        """Поиск по названию и описанию. Возвращает (список, всего совпадений)."""
+        """Поиск по названию и описанию, отсортированный по ближайшему наступлению."""
         if not (query or "").strip():
             return self.get_scheduled_events_paged(page, per_page)
         try:
             with self._get_connection() as conn:
                 like = f"%{query.strip()}%"
                 cursor = conn.execute(
-                    'SELECT COUNT(*) FROM scheduled_events WHERE title LIKE ? OR description LIKE ?',
+                    'SELECT * FROM scheduled_events WHERE title LIKE ? OR description LIKE ?',
                     (like, like)
                 )
-                total = cursor.fetchone()[0]
-                offset = (page - 1) * per_page
-                cursor = conn.execute('''
-                    SELECT * FROM scheduled_events
-                    WHERE title LIKE ? OR description LIKE ?
-                    ORDER BY event_datetime ASC
-                    LIMIT ? OFFSET ?
-                ''', (like, like, per_page, offset))
-                events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
-                return events, total
+                all_events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
+            all_events.sort(key=lambda ev: ev.event_datetime)
+            total = len(all_events)
+            offset = (page - 1) * per_page
+            events = all_events[offset:offset + per_page]
+            return events, total
         except Exception as e:
             logger.exception(f"Ошибка при поиске событий: {e}")
             return [], 0

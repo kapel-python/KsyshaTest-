@@ -3299,28 +3299,39 @@
         }
 
         .info-btn {
-            margin-left: auto;
-            margin-right: 6px;
-            padding: 5px 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            padding: 0;
+            margin-left: 6px;
             font-family: inherit;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: #fff;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.85);
             background: rgba(255, 255, 255, 0.12);
             border: 1px solid rgba(255, 255, 255, 0.35);
-            border-radius: 999px;
+            border-radius: 50%;
             cursor: pointer;
             backdrop-filter: blur(4px);
             -webkit-backdrop-filter: blur(4px);
-            transition: background 0.18s, border-color 0.18s, transform 0.1s;
+            transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.1s;
             z-index: 10;
         }
         .info-btn:hover {
             background: rgba(255, 255, 255, 0.22);
-            border-color: rgba(255, 255, 255, 0.6);
+            border-color: rgba(255, 255, 255, 0.7);
+            color: #fff;
         }
         .info-btn:active {
-            transform: scale(0.96);
+            transform: scale(0.92);
+        }
+
+        .section-header-title-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
         }
 
         .section-header span {
@@ -4820,9 +4831,10 @@
 
         <h2 class="section-title section-header" data-target="important_moments_container">
 
-            <span data-i18n="secImportantMoments">💫 Важные моменты</span>
-
-            <button class="info-btn" type="button" onclick="openInfoModal('important_moments'); event.stopPropagation();">Что это?</button>
+            <span class="section-header-title-wrap">
+                <span data-i18n="secImportantMoments">💫 Важные моменты</span>
+                <button class="info-btn" type="button" onclick="openInfoModal('important_moments'); event.stopPropagation();">ⓘ</button>
+            </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
 
@@ -4838,9 +4850,10 @@
 
         <h2 class="section-title section-header" data-target="memories_container">
 
-            <span data-i18n="secMemories">📖 Воспоминания</span>
-
-            <button class="info-btn" type="button" onclick="openInfoModal('memories'); event.stopPropagation();">Что это?</button>
+            <span class="section-header-title-wrap">
+                <span data-i18n="secMemories">📖 Воспоминания</span>
+                <button class="info-btn" type="button" onclick="openInfoModal('memories'); event.stopPropagation();">ⓘ</button>
+            </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
 
@@ -4856,9 +4869,10 @@
 
         <h2 class="section-title section-header" data-target="important_dates_container">
 
-            <span data-i18n="secDates">📅 Важные даты</span>
-
-            <button class="info-btn" type="button" onclick="openInfoModal('important_dates'); event.stopPropagation();">Что это?</button>
+            <span class="section-header-title-wrap">
+                <span data-i18n="secDates">📅 Важные даты</span>
+                <button class="info-btn" type="button" onclick="openInfoModal('important_dates'); event.stopPropagation();">ⓘ</button>
+            </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
 
@@ -4877,9 +4891,10 @@
 
         <h2 class="section-title section-header" data-target="events_container">
 
-            <span data-i18n="secEvents">📆 События на дату</span>
-
-            <button class="info-btn" type="button" onclick="openInfoModal('events'); event.stopPropagation();">Что это?</button>
+            <span class="section-header-title-wrap">
+                <span data-i18n="secEvents">📆 События на дату</span>
+                <button class="info-btn" type="button" onclick="openInfoModal('events'); event.stopPropagation();">ⓘ</button>
+            </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
 
@@ -4895,9 +4910,10 @@
 
         <h2 class="section-title section-header" data-target="wishes_container">
 
-            <span data-i18n="secWishes">💫 Желания</span>
-
-            <button class="info-btn" type="button" onclick="openInfoModal('wishes'); event.stopPropagation();">Что это?</button>
+            <span class="section-header-title-wrap">
+                <span data-i18n="secWishes">💫 Желания</span>
+                <button class="info-btn" type="button" onclick="openInfoModal('wishes'); event.stopPropagation();">ⓘ</button>
+            </span>
 
             <button class="toggle-btn" type="button" aria-expanded="false">
 
@@ -10329,11 +10345,16 @@
             const infoBtn = document.createElement('button');
             infoBtn.className = 'info-btn';
             infoBtn.type = 'button';
-            infoBtn.textContent = 'Что это?';
+            infoBtn.textContent = 'ⓘ';
             infoBtn.onclick = (e) => {
               e.stopPropagation();
               openInfoModal(key);
             };
+
+            const titleWrap = document.createElement('span');
+            titleWrap.className = 'section-header-title-wrap';
+            titleWrap.appendChild(hdrTitle);
+            titleWrap.appendChild(infoBtn);
 
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'toggle-btn';
@@ -10346,8 +10367,7 @@
             label.textContent = 'Показать';
             toggleBtn.appendChild(icon);
             toggleBtn.appendChild(label);
-            hdr.appendChild(hdrTitle);
-            hdr.appendChild(infoBtn);
+            hdr.appendChild(titleWrap);
             hdr.appendChild(toggleBtn);
             anchor.appendChild(hdr);
 

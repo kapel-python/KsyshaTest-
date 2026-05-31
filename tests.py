@@ -1530,6 +1530,15 @@ def _test_business_logic():
             assert result is not None, f"Не распознана дата: {inp}"
             assert expected in result, f"Ожидали {expected}, получили {result}"
 
+    def t_parse_date_validation_retry():
+        from api import validate_parsed_date
+        from datetime import date
+        today = date(2026, 5, 31)
+        assert validate_parsed_date("через 7 дней", "7.6.2026", today, True) is True
+        assert validate_parsed_date("31 мая 2027", "31.5.2025", today, True) is False
+        assert validate_parsed_date("31 мая 2027", "31.5.2027", today, True) is True
+        assert validate_parsed_date("через 7 дней", "31.5.2026", today, True) is False
+
     def t_format_time_remaining_days():
         from utils import format_time_remaining
         future = (datetime.now(timezone.utc) + timedelta(days=10, hours=3)).strftime("%Y-%m-%d %H:%M:%S")
@@ -1632,6 +1641,7 @@ def _test_business_logic():
         ("Logic: site_open after date_met", t_site_open_after_date_met),
         ("Logic: days_together positive", t_days_together_positive),
         ("Logic: parse_ai_date various formats", t_parse_ai_date_formats),
+        ("Logic: parse date validation retry", t_parse_date_validation_retry),
         ("Logic: time_remaining days", t_format_time_remaining_days),
         ("Logic: time_remaining hours", t_format_time_remaining_hours),
         ("Logic: sanitize preserves b/i", t_sanitize_preserves_bold_italic),

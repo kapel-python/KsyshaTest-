@@ -601,6 +601,40 @@ def _parse_date_local_ru_no_time(user_input: str, today: Optional[date] = None, 
             d = date(today.year - 1, today.month, min(today.day, 28))
         return f"{d.day}.{d.month}.{d.year}"
 
+    # Будущие относительные даты
+    if allow_future:
+        if re.search(r"\bзавтра\b", s):
+            d = today + timedelta(days=1)
+            return f"{d.day}.{d.month}.{d.year}"
+        if re.search(r"\bпослезавтра\b", s):
+            d = today + timedelta(days=2)
+            return f"{d.day}.{d.month}.{d.year}"
+        m_days = re.search(r"\bчерез\s+(\d+)\s+(дней|дня|день)\b", s)
+        if m_days:
+            days = int(m_days.group(1))
+            d = today + timedelta(days=days)
+            return f"{d.day}.{d.month}.{d.year}"
+        m_weeks = re.search(r"\bчерез\s+(\d+)\s+недел[иья]\b", s)
+        if not m_weeks:
+            m_weeks = re.search(r"\bчерез\s+неделю\b", s)
+            if m_weeks:
+                d = today + timedelta(days=7)
+                return f"{d.day}.{d.month}.{d.year}"
+        else:
+            weeks = int(m_weeks.group(1))
+            d = today + timedelta(days=weeks * 7)
+            return f"{d.day}.{d.month}.{d.year}"
+        m_months = re.search(r"\bчерез\s+(\d+)\s+месяц[аев]*\b", s)
+        if not m_months:
+            m_months = re.search(r"\bчерез\s+месяц\b", s)
+            if m_months:
+                d = today + timedelta(days=30)
+                return f"{d.day}.{d.month}.{d.year}"
+        else:
+            months = int(m_months.group(1))
+            d = today + timedelta(days=months * 30)
+            return f"{d.day}.{d.month}.{d.year}"
+
     # Числовой формат: D.M.YYYY / D-M-YYYY / D/M/YYYY
     m_num = re.search(r"\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b", s)
     if m_num:
@@ -691,6 +725,34 @@ def _coerce_non_future_ai_date(result: str, today: Optional[date] = None, allow_
     return f"{parsed.day}.{parsed.month}.{parsed.year}"
 
 
+def validate_parsed_date(user_input: str, parsed_result: str, today: Optional[date], allow_future: bool) -> bool:
+    if not parsed_result:
+        return False
+    m = re.match(r"^\s*(\d{1,2})\.(\d{1,2})\.(\d{4})", parsed_result)
+    if not m:
+        return False
+    p_d, p_m, p_y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    
+    # 1. Если пользователь явно указал 4-значный год, он должен сохраниться
+    user_years = [int(yr) for yr in re.findall(r"\b(20\d{2})\b", user_input)]
+    if user_years:
+        if p_y not in user_years:
+            return False
+            
+    # 2. Если есть относительные будущие выражения, результат не должен быть равен сегодня
+    future_words = ["через", "завтра", "послезавтра", "будущем", "будущее"]
+    has_future_word = any(w in user_input.lower() for w in future_words)
+    if has_future_word and allow_future and today:
+        try:
+            parsed_date = date(p_y, p_m, p_d)
+            if parsed_date <= today:
+                return False
+        except ValueError:
+            return False
+            
+    return True
+
+
 def parse_date_with_ai(user_input: str, datetime_context: str, allow_future: bool = False) -> str:
     """
     Передаёт ИИ текст пользователя о дате и контекст (дата, время, часовой пояс).
@@ -700,7 +762,9 @@ def parse_date_with_ai(user_input: str, datetime_context: str, allow_future: boo
         rules = """Правила:
 1) Разрешено и приветствуется определять БУДУЩИЕ даты/время.
 2) Если год не указан и дата получается в прошлом, выбери текущий год. Если дата без года в текущем году уже прошла — выбери текущий или следующий год в зависимости от контекста.
-3) Если пользователь указал время, верни его."""
+3) Если пользователь указал время, верни его.
+4) Если пользователь явно указал год (например, 2027, 2028 и т.д.), этот год ОБЯЗАТЕЛЬНО должен быть сохранён в результате.
+5) Относительные выражения (например, "через 7 дней", "через неделю") должны быть вычислены относительно даты "Сейчас у пользователя"."""
     else:
         rules = """Правила:
 1) Никогда не возвращай будущую дату/время.
@@ -725,18 +789,34 @@ def parse_date_with_ai(user_input: str, datetime_context: str, allow_future: boo
     if parsed_local:
         return parsed_local
 
+    first_response = ""
     try:
-        # Для распознавания дат важнее быстрый ответ, чем долгий подвисший запрос.
         result = send_prompt(prompt, timeout_seconds=25, model=DATE_PARSER_MODEL)
         result = (result or "").strip()
         if result:
             normalized = _coerce_non_future_ai_date(result, today=context_today, allow_future=allow_future)
-            if normalized:
+            if normalized and validate_parsed_date(user_input, normalized, context_today, allow_future):
                 return normalized
-            logger.warning("parse_date_with_ai: AI produced invalid/future date for input=%r result=%r", user_input, result)
-        logger.warning("parse_date_with_ai: empty AI response for input=%r", user_input)
+            first_response = normalized or result
     except Exception as e:
-        logger.exception("parse_date_with_ai: AI parse failed for input=%r: %s", user_input, e)
+        logger.exception("parse_date_with_ai: AI parse failed on attempt 1 for input=%r: %s", user_input, e)
+
+    # Попытка 2 с уточнением (retry)
+    try:
+        retry_prompt = prompt + f"\n\nПредыдущий ответ '{first_response}' не прошёл валидацию логической согласованности. "
+        if allow_future:
+            retry_prompt += "Убедись, что относительные будущие выражения типа 'через N дней/недель' вычислены корректно относительно текущей даты пользователя и не равны текущей дате. Также обязательно сохрани явный год, если пользователь его указал."
+        else:
+            retry_prompt += "Убедись, что дата не в будущем."
+        
+        result = send_prompt(retry_prompt, timeout_seconds=25, model=DATE_PARSER_MODEL)
+        result = (result or "").strip()
+        if result:
+            normalized = _coerce_non_future_ai_date(result, today=context_today, allow_future=allow_future)
+            if normalized and validate_parsed_date(user_input, normalized, context_today, allow_future):
+                return normalized
+    except Exception as e:
+        logger.exception("parse_date_with_ai: AI parse failed on attempt 2 for input=%r: %s", user_input, e)
 
     return ""
 

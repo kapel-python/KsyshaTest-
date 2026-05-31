@@ -1382,7 +1382,7 @@ def ask_companion(
 
     # Этого достаточно, чтобы ИИ видел текущий диалог.
 
-    MAX_HISTORY_ITEMS = 10
+    MAX_HISTORY_ITEMS = 100
 
     if history:
 
@@ -1600,7 +1600,7 @@ def ask_companion_stream(
 
     extra = extra or {}
 
-    MAX_HISTORY_ITEMS = 10
+    MAX_HISTORY_ITEMS = 100
 
     if history:
 

@@ -113,14 +113,16 @@ class ScheduledEvent:
     media_file_id: Optional[str] = None
     media_path: Optional[str] = None
     original_event_datetime: str = ""
+    is_recurring: int = 0
 
     def __post_init__(self):
         self.original_event_datetime = self.event_datetime
-        try:
-            from utils import calculate_next_occurrence
-            self.event_datetime = calculate_next_occurrence(self.event_datetime, self.user_id)
-        except Exception:
-            pass
+        if self.is_recurring == 1:
+            try:
+                from utils import calculate_next_occurrence
+                self.event_datetime = calculate_next_occurrence(self.event_datetime, self.user_id)
+            except Exception:
+                pass
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -135,6 +137,7 @@ class ScheduledEvent:
             'media_type': self.media_type,
             'media_file_id': self.media_file_id,
             'media_path': self.media_path,
+            'is_recurring': self.is_recurring,
         }
 
 
@@ -152,6 +155,7 @@ def _row_to_scheduled_event(row) -> ScheduledEvent:
         media_type=d.get('media_type'),
         media_file_id=d.get('media_file_id'),
         media_path=d.get('media_path'),
+        is_recurring=d.get('is_recurring', 0) if d.get('is_recurring') is not None else 0,
     )
 
 
@@ -576,6 +580,7 @@ class Database:
                     event_datetime TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     notified_at TIMESTAMP,
+                    is_recurring INTEGER DEFAULT 0,
                     FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
             ''')
@@ -583,7 +588,7 @@ class Database:
             conn.execute('CREATE INDEX IF NOT EXISTS idx_scheduled_events_datetime ON scheduled_events(event_datetime)')
 
             # Миграция: добавить колонки для раздельной отметки уведомлений (по часовому поясу каждого)
-            for col in ["notified_to_creator INTEGER DEFAULT 0", "notified_to_ksusha INTEGER DEFAULT 0"]:
+            for col in ["notified_to_creator INTEGER DEFAULT 0", "notified_to_ksusha INTEGER DEFAULT 0", "is_recurring INTEGER DEFAULT 0"]:
                 try:
                     conn.execute(f"ALTER TABLE scheduled_events ADD COLUMN {col}")
                 except Exception as e:
@@ -2890,13 +2895,24 @@ class Database:
             # 1. Получаем само событие из БД
             with self._get_connection() as conn:
                 row = conn.execute(
-                    'SELECT event_datetime, user_id FROM scheduled_events WHERE id = ?',
+                    'SELECT event_datetime, user_id, is_recurring FROM scheduled_events WHERE id = ?',
                     (event_id,)
                 ).fetchone()
             if not row:
                 return True
             
             event_datetime_str = row[0]
+            is_recurring = row[2] if len(row) > 2 else 0
+            
+            # Для разового события достаточно наличия любой записи в event_notifications
+            if not is_recurring:
+                with self._get_connection() as conn:
+                    notif_row = conn.execute(
+                        'SELECT notified_at FROM event_notifications WHERE event_id = ? AND user_id = ?',
+                        (event_id, user_id)
+                    ).fetchone()
+                if notif_row:
+                    return True
             
             # 2. Парсим исходную дату события
             is_full_dt = len(event_datetime_str) >= 19
@@ -4529,15 +4545,16 @@ class Database:
         media_type: Optional[str] = None,
         media_file_id: Optional[str] = None,
         media_path: Optional[str] = None,
+        is_recurring: int = 0,
     ) -> int:
         """Добавляет ожидаемое событие (описание может быть HTML, с медиа как у воспоминаний)."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute('''
                     INSERT INTO scheduled_events
-                    (user_id, title, description, event_datetime, media_type, media_file_id, media_path)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (user_id, title, description or "", event_datetime, media_type, media_file_id, media_path))
+                    (user_id, title, description, event_datetime, media_type, media_file_id, media_path, is_recurring)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (user_id, title, description or "", event_datetime, media_type, media_file_id, media_path, is_recurring))
                 conn.commit()
                 event_id = cursor.lastrowid
                 logger.info(f"Добавлено событие #{event_id} пользователем {user_id}")
@@ -4569,6 +4586,7 @@ class Database:
                     media_type=d.get('media_type'),
                     media_file_id=d.get('media_file_id'),
                     media_path=d.get('media_path'),
+                    is_recurring=d.get('is_recurring', 0) if d.get('is_recurring') is not None else 0,
                 )
         except Exception as e:
             logger.exception(f"Ошибка при получении события: {e}")
@@ -4690,7 +4708,7 @@ class Database:
 
     def update_scheduled_event(self, event_id: int, **kwargs) -> bool:
         """Обновляет событие (в т.ч. description, media_type, media_file_id, media_path)."""
-        allowed = ['title', 'description', 'event_datetime', 'media_type', 'media_file_id', 'media_path']
+        allowed = ['title', 'description', 'event_datetime', 'media_type', 'media_file_id', 'media_path', 'is_recurring']
         updates = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
         if not updates:
             return False
@@ -4915,6 +4933,7 @@ class Database:
                     "media_type", "media_file_id", "media_path",
                     "created_at", "notified_at",
                     "notified_to_creator", "notified_to_ksusha",
+                    "is_recurring",
                 ]
                 for ev in events:
                     try:
@@ -4934,6 +4953,7 @@ class Database:
                             ev.get("media_type"), ev.get("media_file_id"), ev.get("media_path"),
                             ev.get("created_at"), ev.get("notified_at"),
                             ev.get("notified_to_creator"), ev.get("notified_to_ksusha"),
+                            ev.get("is_recurring", 0) if ev.get("is_recurring") is not None else 0,
                         ]
                         conn.execute(
                             f"""

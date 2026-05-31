@@ -459,8 +459,9 @@ def _install_resilient_message_delivery(bot: Bot):
         return _track_sent_message(chat_id, msg)
 
     async def resilient_send_message(self, chat_id, text, **kwargs):
+        force_new = kwargs.pop("force_new_message", False)
         # Для reply-потоков/тредов оставляем обычную отправку.
-        if kwargs.get("reply_to_message_id") or kwargs.get("message_thread_id"):
+        if force_new or kwargs.get("reply_to_message_id") or kwargs.get("message_thread_id"):
             return await _safe_send_new(chat_id, text, **kwargs)
 
         def _build_edit_target():
@@ -652,6 +653,7 @@ async def _check_expired_events(bot):
                                 text=text,
                                 reply_markup=keyboard,
                                 parse_mode=ParseMode.HTML,
+                                force_new_message=True,
                             )
                             db.mark_event_notified_for_user(event.id, user_id)
                         except Exception as e:

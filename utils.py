@@ -845,16 +845,29 @@ def format_time_remaining(event_datetime_str: str, creator_user_id: Optional[int
         hours, rest = divmod(total_seconds, 3600)
         mins, _ = divmod(rest, 60)
 
+        def pluralize(n, one, two, many):
+            if n % 10 == 1 and n % 100 != 11:
+                return f"{n} {one}"
+            elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+                return f"{n} {two}"
+            else:
+                return f"{n} {many}"
+
         parts = []
         if years > 0:
-            parts.append(f"{years} г.")
+            parts.append(pluralize(years, "год", "года", "лет"))
         if months > 0:
-            parts.append(f"{months} мес")
+            parts.append(pluralize(months, "месяц", "месяца", "месяцев"))
         if days > 0:
-            parts.append(f"{days} д")
-        if hours > 0 or mins > 0 or not parts:
-            parts.append(f"{hours}ч")
-            parts.append(f"{mins}м")
+            parts.append(pluralize(days, "день", "дня", "дней"))
+        if hours > 0:
+            parts.append(pluralize(hours, "час", "часа", "часов"))
+        if mins > 0:
+            parts.append(pluralize(mins, "минута", "минуты", "минут"))
+
+        if not parts:
+            return "меньше 1 минуты"
+
         return " ".join(parts)
     except Exception:
         return "—"
@@ -1007,6 +1020,15 @@ def create_scheduled_event_confirm_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="✅ Да, верно", callback_data="scheduled_event_confirm_yes")],
         [InlineKeyboardButton(text="❌ Нет, изменить", callback_data="scheduled_event_confirm_no")]
     ])
+
+
+def create_scheduled_event_recurrence_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура выбора повторения события"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔁 Повторять каждый год", callback_data="scheduled_event_recurrence_yes")],
+        [InlineKeyboardButton(text="1️⃣ Однократное событие", callback_data="scheduled_event_recurrence_no")]
+    ])
+
 
 
 def create_scheduled_event_edit_options_keyboard(has_description: bool = True) -> InlineKeyboardMarkup:

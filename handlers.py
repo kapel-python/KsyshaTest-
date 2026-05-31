@@ -57,6 +57,7 @@ from utils import (
     format_scheduled_event_text, format_scheduled_event_datetime,
     create_scheduled_events_menu_keyboard, create_scheduled_event_detail_keyboard,
     create_scheduled_event_confirm_keyboard, create_scheduled_event_edit_options_keyboard,
+    create_scheduled_event_recurrence_keyboard,
     create_scheduled_event_existing_edit_keyboard, create_scheduled_event_delete_confirm_keyboard,
     send_scheduled_event_with_media,
     parse_ai_date_to_db,
@@ -862,6 +863,7 @@ class AddScheduledEventStates(StatesGroup):
     waiting_for_edit_title = State()
     waiting_for_edit_description = State()
     waiting_for_edit_date = State()
+    waiting_for_recurrence = State()
 
 
 class EditScheduledEventStates(StatesGroup):
@@ -2872,8 +2874,21 @@ async def scheduled_event_process_date_raw(message: Message, state: FSMContext):
 @router.callback_query(F.data == "scheduled_event_confirm_yes",
                        AddScheduledEventStates.waiting_for_confirm)
 async def scheduled_event_confirm_yes(callback: CallbackQuery, state: FSMContext):
-    """Подтверждение — добавляем событие в БД и показываем (с медиа при наличии)."""
+    """Подтверждение даты — переходим к выбору повторения события."""
+    await state.set_state(AddScheduledEventStates.waiting_for_recurrence)
+    await callback.message.edit_text(
+        "🔁 Повторять это событие каждый год?",
+        reply_markup=create_scheduled_event_recurrence_keyboard(),
+        parse_mode=ParseMode.HTML
+    )
+
+
+@router.callback_query(F.data.in_({"scheduled_event_recurrence_yes", "scheduled_event_recurrence_no"}),
+                       AddScheduledEventStates.waiting_for_recurrence)
+async def scheduled_event_recurrence_selected(callback: CallbackQuery, state: FSMContext):
+    """Выбор повторения — добавляем событие в БД и показываем."""
     user_id = callback.from_user.id
+    is_recurring = 1 if callback.data == "scheduled_event_recurrence_yes" else 0
     data = await state.get_data()
     title = data.get("title", "")
     desc = data.get("description") or ""
@@ -2888,6 +2903,7 @@ async def scheduled_event_confirm_yes(callback: CallbackQuery, state: FSMContext
     event_id = db.add_scheduled_event(
         user_id, title, desc, event_datetime,
         media_type=media_type, media_file_id=media_file_id, media_path=media_path,
+        is_recurring=is_recurring,
     )
     if event_id == -1:
         await callback.answer("Ошибка при сохранении")
@@ -2917,7 +2933,8 @@ async def scheduled_event_confirm_yes(callback: CallbackQuery, state: FSMContext
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"scheduled_event_{event.id}")]
                 ]),
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Уведомление о новом событии: {e}")
@@ -3233,7 +3250,7 @@ async def scheduled_event_delete_yes(callback: CallbackQuery, state: FSMContext)
             if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, "events"):
                 user_name = db.get_display_name(user_id, fallback="Партнёр")
                 notify = f"🗑 {user_name} удалил(а) событие: <b>{event.title or ''}</b>"
-                await callback.bot.send_message(partner_id, notify, parse_mode=ParseMode.HTML)
+                await callback.bot.send_message(partner_id, notify, parse_mode=ParseMode.HTML, force_new_message=True)
         except Exception as e:
             logger.error(f"Уведомление об удалении события: {e}")
         await callback.answer("Событие удалено")
@@ -3389,7 +3406,8 @@ async def scheduled_event_existing_process_title(message: Message, state: FSMCon
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"scheduled_event_{event.id}")]
                 ]),
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Уведомление об изменении события: {e}")
@@ -3448,7 +3466,8 @@ async def scheduled_event_existing_process_desc(message: Message, state: FSMCont
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"scheduled_event_{event.id}")]
                 ]),
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Уведомление об изменении события: {e}")
@@ -3546,7 +3565,8 @@ async def scheduled_event_existing_date_confirm_yes(callback: CallbackQuery, sta
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"scheduled_event_{event.id}")]
                 ]),
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Уведомление об изменении события: {e}")

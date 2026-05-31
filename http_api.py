@@ -6552,8 +6552,10 @@ async def site_create_event(request: web.Request) -> web.Response:
         media_path = validated_media_path
 
     try:
+        is_recurring = int(p.get("is_recurring", 0)) if p.get("is_recurring") is not None else 0
         event_id = db.add_scheduled_event(user_id, title, description, event_dt,
-                                          media_type=media_type, media_path=media_path)
+                                          media_type=media_type, media_path=media_path,
+                                          is_recurring=is_recurring)
         if not event_id or event_id == -1:
             return _add_cors_headers(web.json_response({"ok": False, "error": "db error"}))
     except Exception as e:

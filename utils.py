@@ -803,17 +803,48 @@ def format_time_remaining(event_datetime_str: str, creator_user_id: Optional[int
         if event_utc is None:
             return "—"
         now_utc = datetime.now(timezone.utc)
-        delta = event_utc - now_utc
-        if delta.total_seconds() <= 0:
+        if event_utc <= now_utc:
             return "0"
-        total_sec = int(delta.total_seconds())
-        days, rest = divmod(total_sec, 86400)
-        hours, rest = divmod(rest, 3600)
+
+        import calendar
+        # Calculate calendar difference precisely
+        years = event_utc.year - now_utc.year
+        try:
+            temp = now_utc.replace(year=event_utc.year)
+        except ValueError:
+            temp = now_utc.replace(year=event_utc.year, day=28)
+
+        if temp > event_utc:
+            years -= 1
+            y = event_utc.year - 1
+            try:
+                temp = now_utc.replace(year=y)
+            except ValueError:
+                temp = now_utc.replace(year=y, day=28)
+
+        def add_months(dt, m):
+            y_add, m_add = divmod(dt.month - 1 + m, 12)
+            new_year = dt.year + y_add
+            new_month = m_add + 1
+            _, max_days = calendar.monthrange(new_year, new_month)
+            new_day = min(dt.day, max_days)
+            return dt.replace(year=new_year, month=new_month, day=new_day)
+
+        months = 0
+        while True:
+            next_temp = add_months(temp, months + 1)
+            if next_temp > event_utc:
+                break
+            months += 1
+
+        temp_months = add_months(temp, months)
+        delta = event_utc - temp_months
+        days = delta.days
+
+        total_seconds = delta.seconds
+        hours, rest = divmod(total_seconds, 3600)
         mins, _ = divmod(rest, 60)
-        years = days // 365
-        days = days % 365
-        months = days // 30
-        days = days % 30
+
         parts = []
         if years > 0:
             parts.append(f"{years} г.")

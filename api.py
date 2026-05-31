@@ -1091,11 +1091,43 @@ def build_companion_system_prompt(
 
         current_user_settings = {}
 
+    # Извлекаем данные для приоритетов имен
+    if site_role == "creator":
+        current_user_display = users_creator.get("display") or ""
+        current_user_first_name = users_creator.get("first_name") or ""
+        current_user_username = users_creator.get("username") or ""
+        
+        partner_role = "ksyusha"
+        partner_user_display = users_ksyusha.get("display") or ""
+        partner_user_first_name = users_ksyusha.get("first_name") or ""
+        partner_user_username = users_ksyusha.get("username") or ""
+    else:
+        current_user_display = users_ksyusha.get("display") or ""
+        current_user_first_name = users_ksyusha.get("first_name") or ""
+        current_user_username = users_ksyusha.get("username") or ""
+        
+        partner_role = "creator"
+        partner_user_display = users_creator.get("display") or ""
+        partner_user_first_name = users_creator.get("first_name") or ""
+        partner_user_username = users_creator.get("username") or ""
+
     from companion_personality import COMPANION_CORE_IDENTITY, COMPANION_SUGGESTION_RULES
 
     return (
 
         f"{COMPANION_CORE_IDENTITY}\n\n"
+        
+        "ИМЕНА ПОЛЬЗОВАТЕЛЕЙ И ПРИОРИТЕТЫ:\n"
+        "Когда обращаешься к пользователю по имени или отвечаешь на вопрос 'как меня зовут', ты ДОЛЖНА строго соблюдать следующий приоритет имен:\n"
+        "1. Имя, которое пользователь сам явно назвал тебе в текущей беседе (например, если он написал 'Меня зовут Артём', запомни это имя и используй его).\n"
+        f"2. Имя/Никнейм из базы данных текущего пользователя: '{current_user_display}'\n"
+        f"3. Имя Telegram (first_name) текущего пользователя: '{current_user_first_name}'\n"
+        f"4. Username Telegram текущего пользователя: '@{current_user_username}' (это крайний случай, НИКОГДА не используй его, если есть имя в беседе, никнейм или first_name!)\n\n"
+        
+        "ДЕТАЛИ СОБЕСЕДНИКОВ:\n"
+        f"- Текущий пользователь (ты общаешься с ним): Роль={site_role}, Никнейм в БД='{current_user_display}', Telegram first_name='{current_user_first_name}', Telegram username='@{current_user_username}'\n"
+        f"- Его партнёр: Роль={partner_role}, Никнейм в БД='{partner_user_display}', Telegram first_name='{partner_user_first_name}', Telegram username='@{partner_user_username}'\n\n"
+
         f"Текущее время пользователя: {now_date} {now_time} ({weekday}), timezone={timezone_id}, iso={now_iso}.\n\n"
 
         f"ВАЖНЫЕ ДАТЫ ПАРЫ:\n"
@@ -1122,7 +1154,11 @@ def build_companion_system_prompt(
         f"- Настройки партнёра: {user_settings_ksyusha}\n"
 
         f"- Настройки текущего пользователя (по роли): {current_user_settings}\n"
+        f"- Никнейм создателя: {users_creator.get('display') or ''}\n"
+        f"- Имя Telegram создателя: {users_creator.get('first_name') or ''}\n"
         f"- Username создателя в боте: @{(users_creator.get('username') or '')}\n"
+        f"- Никнейм партнёра: {users_ksyusha.get('display') or ''}\n"
+        f"- Имя Telegram партнёра: {users_ksyusha.get('first_name') or ''}\n"
         f"- Username партнёра в боте: @{(users_ksyusha.get('username') or '')}\n"
         f"- Базовая статистика текущего пользователя: {raw_profile_stats}\n"
         f"- Текущая роль пользователя: {(site_role or 'unknown')}\n\n"

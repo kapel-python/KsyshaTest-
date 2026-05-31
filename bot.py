@@ -95,7 +95,7 @@ _diagnostic_test_progress = {
 _diagnostic_tests_watch_tasks: dict[tuple[int, int], asyncio.Task] = {}
 _diagnostic_tests_view_state: dict[tuple[int, int], dict] = {}
 
-CHECK_EXPIRED_INTERVAL_SEC = 60
+CHECK_EXPIRED_INTERVAL_SEC = 10
 
 
 class BotLogFilter(logging.Filter):

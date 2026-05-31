@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.79'
-description = 'Первый тест фикса блока наше небо'
+version = '1.0.80'
+description = 'Фикс блока наше небо при котором блок не учитывает время на сайте а берет только из бота'
 
 
 def get_version_metadata() -> tuple[str, str]:

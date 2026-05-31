@@ -410,6 +410,21 @@ class EditTargetMiddleware(BaseMiddleware):
             _active_edit_target.reset(token)
 
 
+def _extract_retry_after(err: Exception) -> float | None:
+    import re
+    from aiogram.exceptions import TelegramRetryAfter
+    if isinstance(err, TelegramRetryAfter):
+        return err.retry_after
+    msg = str(err).lower()
+    m = re.search(r"retry after\s*(\d+)", msg)
+    if m:
+        return float(m.group(1))
+    m_sec = re.search(r"too many requests.*?(\d+)\s*sec", msg)
+    if m_sec:
+        return float(m_sec.group(1))
+    return None
+
+
 def _install_resilient_message_delivery(bot: Bot):
     """
     Глобальная стратегия отправки текста:
@@ -431,6 +446,9 @@ def _install_resilient_message_delivery(bot: Bot):
     _orig_send_contact = bot.send_contact
     _orig_send_poll = bot.send_poll
     _orig_edit_message_text = bot.edit_message_text
+    _orig_edit_message_reply_markup = bot.edit_message_reply_markup
+    _orig_edit_message_caption = bot.edit_message_caption
+    _orig_edit_message_media = bot.edit_message_media
     _orig_delete_message = bot.delete_message
     _last_bot_msg: dict[int | str, int] = {}
 
@@ -458,6 +476,20 @@ def _install_resilient_message_delivery(bot: Bot):
             chat_id = args[0]
         return _track_sent_message(chat_id, msg)
 
+    async def _resilient_edit(orig_edit_method, *args, **kwargs):
+        try:
+            return await orig_edit_method(*args, **kwargs)
+        except Exception as err:
+            if _is_message_not_modified_error(err):
+                logger.debug("edit failed: message is not modified")
+                return True
+            retry_after = _extract_retry_after(err)
+            if retry_after is not None:
+                logger.warning("Telegram rate limit hit. Sleeping for %s seconds before retrying edit...", retry_after)
+                await asyncio.sleep(retry_after)
+                return await _resilient_edit(orig_edit_method, *args, **kwargs)
+            raise
+
     async def resilient_send_message(self, chat_id, text, **kwargs):
         force_new = kwargs.pop("force_new_message", False)
         # Для reply-потоков/тредов оставляем обычную отправку.
@@ -473,7 +505,8 @@ def _install_resilient_message_delivery(bot: Bot):
         edit_target_id = _build_edit_target()
         if edit_target_id:
             try:
-                edited = await _orig_edit_message_text(
+                edited = await _resilient_edit(
+                    _orig_edit_message_text,
                     chat_id=chat_id,
                     message_id=edit_target_id,
                     text=text,
@@ -485,9 +518,6 @@ def _install_resilient_message_delivery(bot: Bot):
                 )
                 return edited
             except Exception as e:
-                em = str(e).lower()
-                if "message is not modified" in em:
-                    return True
                 try:
                     await _orig_delete_message(chat_id=chat_id, message_id=edit_target_id)
                 except Exception as delete_err:
@@ -500,7 +530,8 @@ def _install_resilient_message_delivery(bot: Bot):
         # Явный edit из хендлеров: если не удалось — delete + send new.
         no_fallback_on_edit_error = bool(kwargs.pop("no_fallback_on_edit_error", False))
         try:
-            edited = await _orig_edit_message_text(
+            edited = await _resilient_edit(
+                _orig_edit_message_text,
                 text=text,
                 chat_id=chat_id,
                 message_id=message_id,
@@ -510,20 +541,6 @@ def _install_resilient_message_delivery(bot: Bot):
                 _last_bot_msg[chat_id] = message_id
             return edited
         except Exception as edit_err:
-            if _is_message_not_modified_error(edit_err):
-                logger.debug(
-                    "edit_message_text: контент не изменился (chat_id=%s, message_id=%s)",
-                    chat_id,
-                    message_id,
-                )
-                return True
-            if _is_rate_limit_edit_error(edit_err):
-                logger.debug(
-                    "edit_message_text: rate limit/flood wait (chat_id=%s, message_id=%s), ждём следующий цикл",
-                    chat_id,
-                    message_id,
-                )
-                return True
             if no_fallback_on_edit_error:
                 logger.debug(
                     "edit_message_text: fallback отключен, сохраняем исходное сообщение (chat_id=%s, message_id=%s): %s",
@@ -542,8 +559,20 @@ def _install_resilient_message_delivery(bot: Bot):
                 raise
             return await _safe_send_new(chat_id=chat_id, text=text, **kwargs)
 
+    async def resilient_edit_message_reply_markup(self, chat_id=None, message_id=None, **kwargs):
+        return await _resilient_edit(_orig_edit_message_reply_markup, chat_id=chat_id, message_id=message_id, **kwargs)
+
+    async def resilient_edit_message_caption(self, chat_id=None, message_id=None, **kwargs):
+        return await _resilient_edit(_orig_edit_message_caption, chat_id=chat_id, message_id=message_id, **kwargs)
+
+    async def resilient_edit_message_media(self, chat_id=None, message_id=None, **kwargs):
+        return await _resilient_edit(_orig_edit_message_media, chat_id=chat_id, message_id=message_id, **kwargs)
+
     bot.send_message = MethodType(resilient_send_message, bot)
     bot.edit_message_text = MethodType(resilient_edit_message_text, bot)
+    bot.edit_message_reply_markup = MethodType(resilient_edit_message_reply_markup, bot)
+    bot.edit_message_caption = MethodType(resilient_edit_message_caption, bot)
+    bot.edit_message_media = MethodType(resilient_edit_message_media, bot)
     bot.send_photo = MethodType(lambda self, *a, **k: _tracked_sender(_orig_send_photo, self, *a, **k), bot)
     bot.send_document = MethodType(lambda self, *a, **k: _tracked_sender(_orig_send_document, self, *a, **k), bot)
     bot.send_video = MethodType(lambda self, *a, **k: _tracked_sender(_orig_send_video, self, *a, **k), bot)

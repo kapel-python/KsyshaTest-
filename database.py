@@ -4030,7 +4030,17 @@ class Database:
                     return None
                 cat = row["category"]
                 # Только title — в конфиге уже есть эмодзи (💫 Важные моменты и т.д.)
-                label = (config.CATEGORIES.get(cat) or {}).get("title", cat)
+                label = None
+                if cat.startswith("custom_"):
+                    try:
+                        cat_id = int(cat.replace("custom_", ""))
+                        cc_row = conn.execute("SELECT name FROM custom_categories WHERE id = ?", (cat_id,)).fetchone()
+                        if cc_row:
+                            label = "📁 " + cc_row["name"]
+                    except Exception:
+                        pass
+                if not label:
+                    label = (config.CATEGORIES.get(cat) or {}).get("title", cat)
                 if isinstance(label, str):
                     label = label.strip()
                 else:

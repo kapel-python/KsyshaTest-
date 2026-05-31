@@ -4826,8 +4826,9 @@ async def category_open(request: web.Request) -> web.Response:
     section_id = _pstr(payload.get("section_id")).strip()
 
     allowed = {"important_moments", "memories", "important_dates", "events", "wishes"}
+    is_custom_section = section_id.startswith("custom_cat_") and section_id[11:].isdigit()
 
-    if section_id not in allowed:
+    if section_id not in allowed and not is_custom_section:
 
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_section_id"}))
 
@@ -4835,7 +4836,11 @@ async def category_open(request: web.Request) -> web.Response:
     if not visitor_id:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
-    db.add_category_open(visitor_id=visitor_id, section_id=section_id)
+    db_section_id = section_id
+    if is_custom_section:
+        db_section_id = "custom_" + section_id[11:]
+
+    db.add_category_open(visitor_id=visitor_id, section_id=db_section_id)
 
     return _add_cors_headers(web.json_response({"ok": True}))
 
@@ -5347,6 +5352,14 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
                     "de": {"important_moments":"Wichtige Momente","memories":"Erinnerungen","important_dates":"Wichtige Daten"},
                 }
                 fav_mem_cat_label = _cat_map.get(lang, _cat_map["ru"]).get(m.category, fav_mem_cat_label)
+                if m.category.startswith("custom_"):
+                    try:
+                        cat_id = int(m.category.replace("custom_", ""))
+                        cc = db.get_custom_category(cat_id)
+                        if cc:
+                            fav_mem_cat_label = cc.get("name", m.category).strip()
+                    except Exception:
+                        pass
 
         except Exception:
 
@@ -6355,7 +6368,8 @@ async def site_create_memory(request: web.Request) -> web.Response:
     content  = _pstr(p.get("content")).strip()
 
     allowed_cats = {"important_moments", "memories", "important_dates"}
-    if not category or category not in allowed_cats:
+    is_custom = category.startswith("custom_") and category[7:].isdigit()
+    if not category or (category not in allowed_cats and not is_custom):
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid category"}, status=400))
     if not title or not date or not content:
         return _add_cors_headers(web.json_response({"ok": False, "error": "missing fields"}, status=400))
@@ -6416,7 +6430,17 @@ async def site_create_memory(request: web.Request) -> web.Response:
     # Уведомление партнёра уводим в фон, чтобы ответ сайта не ждал Telegram.
     try:
         cat_labels = {"important_moments": "важный момент", "memories": "воспоминание", "important_dates": "важную дату"}
-        cat_label = cat_labels.get(category, "момент")
+        cat_label = cat_labels.get(category)
+        if not cat_label and category.startswith("custom_"):
+            try:
+                cat_id = int(category.replace("custom_", ""))
+                cc = db.get_custom_category(cat_id)
+                if cc:
+                    cat_label = f"момент в категорию «{cc['name']}»"
+            except Exception:
+                pass
+        if not cat_label:
+            cat_label = "момент"
         other_id = _visitor_partner_id(visitor_id)
         actor = "Создатель" if visitor_id == "creator" else "Партнёр"
         notify_text = f"✨ <b>{actor} добавил(а) {cat_label}</b>\n\n<b>{title}</b>\n{date}"

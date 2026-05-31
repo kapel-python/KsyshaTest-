@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.103'
-description = 'Версия в которой парсер определяет это ОШИБКА времени или ПРОШЕДШАЯ дата и даёт уточнения'
+version = '1.0.104'
+description = 'Исправление кастомных категорий'
 
 
 def get_version_metadata() -> tuple[str, str]:

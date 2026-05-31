@@ -3302,24 +3302,37 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 18px;
-            height: 18px;
+            width: 32px;
+            height: 32px;
             padding: 0;
-            margin-left: 6px;
-            font-family: inherit;
-            font-size: 0.82rem;
+            margin-left: -2px;
+            margin-right: -4px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            z-index: 10;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s;
+        }
+        .info-btn::before {
+            content: 'ⓘ';
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            font-size: 0.68rem;
             font-weight: 700;
             color: rgba(255, 255, 255, 0.85);
             background: rgba(255, 255, 255, 0.12);
             border: 1px solid rgba(255, 255, 255, 0.35);
             border-radius: 50%;
-            cursor: pointer;
             backdrop-filter: blur(4px);
             -webkit-backdrop-filter: blur(4px);
-            transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.1s;
-            z-index: 10;
+            transition: background 0.18s, border-color 0.18s, color 0.18s;
         }
-        .info-btn:hover {
+        .info-btn:hover::before {
             background: rgba(255, 255, 255, 0.22);
             border-color: rgba(255, 255, 255, 0.7);
             color: #fff;

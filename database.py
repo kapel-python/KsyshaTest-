@@ -159,6 +159,24 @@ def _row_to_scheduled_event(row) -> ScheduledEvent:
     )
 
 
+def _get_event_sort_key(ev: ScheduledEvent):
+    try:
+        from utils import _event_datetime_to_utc
+        from datetime import datetime, timezone
+        event_utc = _event_datetime_to_utc(ev.event_datetime, ev.user_id)
+        if event_utc is None:
+            return (0, 9999999999.0)
+        is_passed = event_utc <= datetime.now(timezone.utc)
+        utc_val = event_utc.timestamp()
+    except Exception:
+        is_passed = False
+        utc_val = 9999999999.0
+    if not is_passed:
+        return (0, utc_val)
+    else:
+        return (1, -utc_val)
+
+
 class Database:
     """Класс для работы с базой данных SQLite"""
     
@@ -3055,7 +3073,7 @@ class Database:
                     user_ids
                 )
                 events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
-            events.sort(key=lambda ev: ev.event_datetime)
+            events.sort(key=_get_event_sort_key)
             return events
         except Exception as e:
             logger.exception(f"Ошибка при получении событий для пользователей: {e}")
@@ -4608,7 +4626,7 @@ class Database:
                 else:
                     cursor = conn.execute('SELECT * FROM scheduled_events')
                 events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
-            events.sort(key=lambda ev: ev.event_datetime)
+            events.sort(key=_get_event_sort_key)
             return events[:limit]
         except Exception as e:
             logger.exception(f"Ошибка при получении событий: {e}")
@@ -4631,7 +4649,7 @@ class Database:
             with self._get_connection() as conn:
                 cursor = conn.execute('SELECT * FROM scheduled_events')
                 all_events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
-            all_events.sort(key=lambda ev: ev.event_datetime)
+            all_events.sort(key=_get_event_sort_key)
             total = len(all_events)
             offset = (page - 1) * per_page
             events = all_events[offset:offset + per_page]
@@ -4652,7 +4670,7 @@ class Database:
                     (like, like)
                 )
                 all_events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
-            all_events.sort(key=lambda ev: ev.event_datetime)
+            all_events.sort(key=_get_event_sort_key)
             total = len(all_events)
             offset = (page - 1) * per_page
             events = all_events[offset:offset + per_page]

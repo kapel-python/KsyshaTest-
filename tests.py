@@ -462,8 +462,17 @@ def _test_database():
         assert test_db.get_scheduled_event(eid) is None
 
     def t_get_scheduled_events():
+        with test_db._get_connection() as conn:
+            conn.execute('DELETE FROM scheduled_events')
+        test_db.add_scheduled_event(111, "Far Future", "", "2027-01-01 12:00:00")
+        test_db.add_scheduled_event(111, "Near Future", "", "2026-06-01 12:00:00")
+        test_db.add_scheduled_event(111, "Past Event", "", "2026-05-01 12:00:00")
         evs = test_db.get_scheduled_events(limit=100)
         assert isinstance(evs, list)
+        assert len(evs) == 3
+        assert evs[0].title == "Near Future"
+        assert evs[1].title == "Far Future"
+        assert evs[2].title == "Past Event"
 
     def t_scheduled_events_count():
         cnt = test_db.get_scheduled_events_count()

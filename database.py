@@ -3021,7 +3021,7 @@ class Database:
         Возвращает список (event, couple_members) для событий, которые не уведомили всех членов пары.
         Возвращает события, не имеющие уведомлений (с учётом новой таблицы event_notifications).
         """
-        result = []
+        events_map = {}
         try:
             couples = self.get_all_couples()
             for couple in couples:
@@ -3035,10 +3035,13 @@ class Database:
                         if not self.is_event_notified_for_user(event.id, uid)
                     ]
                     if pending_users:
-                        result.append((event, pending_users))
+                        if event.id not in events_map:
+                            events_map[event.id] = (event, set(pending_users))
+                        else:
+                            events_map[event.id][1].update(pending_users)
         except Exception as e:
             logger.exception(f"Ошибка при получении неуведомлённых событий: {e}")
-        return result
+        return [(event, list(users)) for event, users in events_map.values()]
 
     def get_scheduled_events_for_users(self, user_ids: List[int]) -> List['ScheduledEvent']:
         """Возвращает все события для пользователей из списка, отсортированные по ближайшему наступлению."""

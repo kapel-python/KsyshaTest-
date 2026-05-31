@@ -647,6 +647,28 @@ async def _check_expired_events(bot):
                         if not db.are_notifications_enabled(user_id):
                             db.mark_event_notified_for_user(event.id, user_id)
                             continue
+                        
+                        import asyncio as _asyncio_debug
+                        import time as _time_debug
+                        _task_debug = _asyncio_debug.current_task()
+                        _task_id = id(_task_debug) if _task_debug else "none"
+                        _task_name = _task_debug.get_name() if _task_debug else "none"
+                        _notified_before = None
+                        try:
+                            with db._get_connection() as _conn_debug:
+                                _row_debug = _conn_debug.execute(
+                                    'SELECT notified_at FROM event_notifications WHERE event_id = ? AND user_id = ?',
+                                    (event.id, user_id)
+                                ).fetchone()
+                                _notified_before = _row_debug[0] if _row_debug else None
+                        except Exception as _e_debug:
+                            logger.error(f"Debug logging error before: {_e_debug}")
+                        
+                        logger.info(
+                            "[DEBUG EVENT NOTIFICATION] TASK_ID=%s (%s) EVENT_ID=%s USER_ID=%s TS=%s NOTIFIED_BEFORE=%s",
+                            _task_id, _task_name, event.id, user_id, _time_debug.strftime('%Y-%m-%d %H:%M:%S'), _notified_before
+                        )
+                        
                         try:
                             await bot.send_message(
                                 chat_id=user_id,
@@ -656,6 +678,22 @@ async def _check_expired_events(bot):
                                 force_new_message=True,
                             )
                             db.mark_event_notified_for_user(event.id, user_id)
+                            
+                            _notified_after = None
+                            try:
+                                with db._get_connection() as _conn_debug:
+                                    _row_debug = _conn_debug.execute(
+                                        'SELECT notified_at FROM event_notifications WHERE event_id = ? AND user_id = ?',
+                                        (event.id, user_id)
+                                    ).fetchone()
+                                    _notified_after = _row_debug[0] if _row_debug else None
+                            except Exception as _e_debug:
+                                logger.error(f"Debug logging error after: {_e_debug}")
+                            
+                            logger.info(
+                                "[DEBUG EVENT NOTIFICATION SUCCESS] TASK_ID=%s (%s) EVENT_ID=%s USER_ID=%s TS=%s NOTIFIED_AFTER=%s",
+                                _task_id, _task_name, event.id, user_id, _time_debug.strftime('%Y-%m-%d %H:%M:%S'), _notified_after
+                            )
                         except Exception as e:
                             err_str = str(e).lower()
                             if "chat not found" in err_str or "user not found" in err_str or "bot was blocked" in err_str:

@@ -2405,7 +2405,7 @@ async def ai_companion(request: web.Request) -> web.Response:
 
             role = (h.get("role") or "").strip()
 
-            content = (h.get("message") or "").strip()
+            content = (h.get("content") or "").strip()
 
             if role in ("user", "assistant") and content:
 
@@ -2681,11 +2681,11 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
             history_items = [
 
-                {"role": (h.get("role") or "").strip(), "content": (h.get("message") or "").strip()}
+                {"role": (h.get("role") or "").strip(), "content": (h.get("content") or "").strip()}
 
                 for h in prev
 
-                if (h.get("role") or "").strip() in ("user", "assistant") and (h.get("message") or "").strip()
+                if (h.get("role") or "").strip() in ("user", "assistant") and (h.get("content") or "").strip()
 
             ]
 

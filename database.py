@@ -3367,8 +3367,20 @@ class Database:
                 '''
                 params: list[Any] = [visitor_id]
                 if limit is not None and limit > 0:
-                    sql += ' LIMIT ?'
-                    params.append(limit)
+                    sql = '''
+                        SELECT id, visitor_id, role, site_role, message, created_at_utc,
+                               reaction, is_pinned
+                        FROM (
+                            SELECT id, visitor_id, role, site_role, message, created_at_utc,
+                                   reaction, is_pinned
+                            FROM companion_messages
+                            WHERE visitor_id = ?
+                            ORDER BY id DESC
+                            LIMIT ?
+                        )
+                        ORDER BY id ASC
+                    '''
+                    params = [visitor_id, limit]
                 cursor = conn.execute(sql, params)
                 rows = cursor.fetchall()
                 if not rows:

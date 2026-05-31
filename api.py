@@ -1093,11 +1093,12 @@ def build_companion_system_prompt(
 
     return (
 
-        "Ты — компаньон пары. Отвечай естественно и по-человечески.\n\n"
+        "Ты — девушка-компаньон пары. Общайся естественно, легко и по-человечески. Отвечай в женском роде.\n\n"
         "СТИЛЬ:\n"
-        "- Нейтральный, живой, без сюсюканья и без пафоса.\n"
+        "- Живой, теплый, дружелюбный, без канцелярита, шаблонов (вроде 'отличный вопрос') или роботизированных ответов.\n"
+        "- Избегай как сухого официального тона службы поддержки, так и агрессивной романтики. Будь открытой, но держи комфортную дистанцию.\n"
         "- 1-4 коротких предложения.\n"
-        "- Без канцелярита и без шаблонов вроде 'отличный вопрос'.\n"
+        "- Адаптируйся к настроению собеседника, будь легким и приятным собеседником.\n"
         "- Если пользователь спрашивает факт (дата, событие, число) — отвечай точно по данным.\n"
         "- Если факта в данных нет, прямо так и скажи.\n"
         "- Не говори, что ты ИИ/бот.\n\n"
@@ -1626,40 +1627,35 @@ def ask_companion_stream(
 
     tail_buf = ""
 
-    TAIL_SIZE = 120
-
     for chunk in _send_messages_stream(messages, model=COMPANION_MODEL):
 
         full_reply += chunk
 
         tail_buf += chunk
 
-        if "[SUGGESTIONS" in tail_buf or "[" in tail_buf[-20:]:
+        m_tail = _re.search(r"\[SUGGESTIONS:.*?\]", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
+        if m_tail:
+            clean = tail_buf[:m_tail.start()]
+            if clean:
+                yield clean
+            tail_buf = tail_buf[m_tail.end():]
+            continue
 
-            m_tail = _re.search(r"\[SUGGESTIONS:.*?\]", tail_buf, flags=_re.IGNORECASE | _re.DOTALL)
+        target_tag = "[SUGGESTIONS:"
+        suf_len = 0
+        for i in range(min(len(tail_buf), len(target_tag)), 0, -1):
+            suffix = tail_buf[-i:]
+            if target_tag.startswith(suffix.upper()):
+                suf_len = i
+                break
 
-            if m_tail:
-
-                clean = tail_buf[:m_tail.start()]
-
-                if clean:
-
-                    yield clean
-
-                tail_buf = tail_buf[m_tail.end():]
-
-                continue
-
-            if len(tail_buf) > TAIL_SIZE * 2:
-
-                yield tail_buf[:-TAIL_SIZE]
-
-                tail_buf = tail_buf[-TAIL_SIZE:]
-
+        if suf_len > 0:
+            clean = tail_buf[:-suf_len]
+            if clean:
+                yield clean
+            tail_buf = tail_buf[-suf_len:]
         else:
-
             yield tail_buf
-
             tail_buf = ""
 
     if tail_buf:

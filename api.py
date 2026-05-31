@@ -1319,40 +1319,28 @@ def _extract_suggestions(text: str) -> Tuple[str, List[str]]:
     return text, []
 
 def _extract_json_block(text: str) -> Tuple[str, dict | None]:
-    """
-    Ищет и извлекает JSON-блок (содержащий ключ "tool") из текста.
-    Возвращает (оставшийся текст, распарсенный JSON-объект или None).
-    """
     import json
-    text_len = len(text)
-    first_brace = text.find("{")
-    if first_brace == -1:
-        return text, None
-
-    for i in range(text_len - 1, -1, -1):
-        if text[i] == "}":
-            brace_count = 0
-            for j in range(i, -1, -1):
-                if text[j] == "}":
-                    brace_count += 1
-                elif text[j] == "{":
-                    brace_count -= 1
-                    if brace_count == 0:
-                        candidate = text[j:i+1].strip()
-                        try:
-                            if candidate.startswith("```json"):
-                                candidate = candidate[7:].strip()
-                            elif candidate.startswith("```"):
-                                candidate = candidate[3:].strip()
-                            if candidate.endswith("```"):
-                                candidate = candidate[:-3].strip()
-                            
-                            obj = json.loads(candidate)
-                            if isinstance(obj, dict) and ("tool" in obj or "answer" in obj):
-                                left_text = (text[:j].strip() + "\n" + text[i+1:].strip()).strip()
-                                return left_text, obj
-                        except Exception:
-                            pass
+    idx = 0
+    while True:
+        first_brace = text.find("{", idx)
+        if first_brace == -1:
+            break
+        try:
+            obj, end_idx = json.JSONDecoder().raw_decode(text[first_brace:])
+            if isinstance(obj, dict) and ("tool" in obj or "answer" in obj):
+                before_json = text[:first_brace].strip()
+                after_json = text[first_brace + end_idx:].strip()
+                if before_json.endswith("```json"):
+                    before_json = before_json[:-7].strip()
+                elif before_json.endswith("```"):
+                    before_json = before_json[:-3].strip()
+                if after_json.startswith("```"):
+                    after_json = after_json[3:].strip()
+                left_text = (before_json + "\n" + after_json).strip()
+                return left_text, obj
+        except json.JSONDecodeError:
+            pass
+        idx = first_brace + 1
     return text, None
 
 def ask_companion(

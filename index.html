@@ -5261,6 +5261,43 @@
         } catch(e) {}
       }
 
+      function isAISessionExpired() {
+        const token = _getAISessionToken();
+        if (!token) return true;
+        const parts = token.split('.');
+        if (parts.length < 4) return true;
+        const exp = parseInt(parts[1], 10);
+        if (isNaN(exp)) return true;
+        return exp - 30 < Math.floor(Date.now() / 1000);
+      }
+
+      async function refreshAISession() {
+        const vid = ensureVisitorIdForRole();
+        const sig = _getAIVisitorSig();
+        if (!vid || !sig) return false;
+        try {
+          const resp = await fetch('/api/refresh_ai_session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...withOptionalApiKey({ 'X-Visitor-Signature': sig }),
+            },
+            body: JSON.stringify({ visitor_id: vid }),
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.ok && data.ai_session) {
+              _setAIAuth(data.ai_session, sig);
+              console.log('[auth] AI session refreshed successfully');
+              return true;
+            }
+          }
+        } catch (e) {
+          console.error('[auth] Failed to refresh AI session', e);
+        }
+        return false;
+      }
+
       function _aiAuthHeaders(visitorId) {
         return {
           'X-AI-Session': _getAISessionToken(),
@@ -9238,169 +9275,122 @@
 
         showAITyping();
 
-        try {
+        let retryCount = 0;
+        const maxRetries = 1;
+        let success = false;
 
-          const resp = await fetch('/api/ai_companion_stream', {
+        while (retryCount <= maxRetries && !success) {
+          try {
+            const resp = await fetch('/api/ai_companion_stream', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ..._aiAuthHeaders(ensureVisitorIdForRole() || ''),
+              },
+              body: JSON.stringify({
+                message: text,
+                history: aiChatHistory,
+                tz: getUserTimezone() || '',
+                visitor_id: ensureVisitorIdForRole() || '',
+                role: getCurrentRole() || '',
+              }),
+            });
 
-            method: 'POST',
-
-            headers: {
-
-              'Content-Type': 'application/json',
-              ..._aiAuthHeaders(ensureVisitorIdForRole() || ''),
-
-            },
-
-            body: JSON.stringify({
-
-              message: text,
-
-              history: aiChatHistory,
-
-              tz: getUserTimezone() || '',
-
-              visitor_id: ensureVisitorIdForRole() || '',
-
-              role: getCurrentRole() || '',
-
-            }),
-
-          });
-
-          if (!resp.ok) {
-            let errText = 'HTTP ' + resp.status;
-            try {
-              const errJson = await resp.json();
-              if (errJson && errJson.error) {
-                errText = errJson.error;
-              }
-            } catch (_) {}
-            throw new Error(errText);
-          }
-
-          let bubble = null;
-
-          const reader = resp.body.getReader();
-
-          const decoder = new TextDecoder();
-
-          let fullReply = '';
-
-          let suggestions = [];
-
-          let buffer = '';
-
-          while (true) {
-
-            const { done, value } = await reader.read();
-
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-
-            // Разбираем SSE построчно
-
-            const lines = buffer.split('\n');
-
-            buffer = lines.pop(); // последняя неполная строка остаётся в буфере
-
-            let nextIsSuggestions = false;
-            for (const line of lines) {
-
-              if (line.startsWith('event: suggestions')) { nextIsSuggestions = true; continue; }
-
-              if (line.startsWith('data: ')) {
-
-                const raw = line.slice(6);
-
-                if (raw === '[DONE]') continue;
-
-                if (raw.startsWith('[ERROR]')) {
-
-                  if (bubble) bubble.textContent = _ui('aiErrorGeneric');
-
-                  continue;
-
+            if (!resp.ok) {
+              let errText = 'HTTP ' + resp.status;
+              try {
+                const errJson = await resp.json();
+                if (errJson && errJson.error) {
+                  errText = errJson.error;
                 }
+              } catch (_) {}
 
-                // Подсказки и msg_id
+              if (errText === 'unauthorized_ai_session' && retryCount < maxRetries) {
+                console.log('[auth] AI session expired during request, attempting auto-refresh...');
+                const refreshed = await refreshAISession();
+                if (refreshed) {
+                  retryCount++;
+                  continue;
+                }
+              }
+              throw new Error(errText);
+            }
 
-                if (nextIsSuggestions || raw.startsWith('{"suggestions"') || raw.startsWith('{"msg_id"')) {
+            let bubble = null;
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let fullReply = '';
+            let suggestions = [];
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop();
+
+              let nextIsSuggestions = false;
+              for (const line of lines) {
+                if (line.startsWith('event: suggestions')) { nextIsSuggestions = true; continue; }
+                if (line.startsWith('data: ')) {
+                  const raw = line.slice(6);
+                  if (raw === '[DONE]') continue;
+                  if (raw.startsWith('[ERROR]')) {
+                    if (bubble) bubble.textContent = _ui('aiErrorGeneric');
+                    continue;
+                  }
+                  if (nextIsSuggestions || raw.startsWith('{"suggestions"') || raw.startsWith('{"msg_id"')) {
+                    nextIsSuggestions = false;
+                    try {
+                      const meta = JSON.parse(raw);
+                      if (meta.suggestions) suggestions = meta.suggestions;
+                      if (meta.msg_id && bubble) {
+                        const msgEl = bubble.closest ? bubble.closest('.msg') : bubble.parentElement;
+                        if (msgEl) msgEl.dataset.msgId = meta.msg_id;
+                      }
+                    } catch(e) {}
+                    continue;
+                  }
                   nextIsSuggestions = false;
-
-                  try {
-
-                    const meta = JSON.parse(raw);
-
-                    if (meta.suggestions) suggestions = meta.suggestions;
-
-                    // Баг-фикс: сервер вернул id сохранённого сообщения — присваиваем элементу
-                    if (meta.msg_id && bubble) {
-                      const msgEl = bubble.closest ? bubble.closest('.msg') : bubble.parentElement;
-                      if (msgEl) msgEl.dataset.msgId = meta.msg_id;
-                    }
-
-                  } catch(e) {}
-
-                  continue;
-
+                  const token = raw.replace(/\\n/g, '\n');
+                  fullReply += token;
+                  if (!bubble) {
+                    hideAITyping();
+                    bubble = addAIMessage('ai', '');
+                  }
+                  bubble.textContent += token;
+                  const msgs = document.getElementById('aiMessages');
+                  if (msgs) msgs.scrollTop = msgs.scrollHeight;
                 }
-
-                nextIsSuggestions = false;
-                // Обычный токен — восстанавливаем переносы строк
-
-                const token = raw.replace(/\\n/g, '\n');
-
-                fullReply += token;
-
-                if (!bubble) {
-
-                  hideAITyping();
-
-                  bubble = addAIMessage('ai', '');
-
-                }
-
-                bubble.textContent += token;
-
-                // Скролл вниз
-
-                const msgs = document.getElementById('aiMessages');
-
-                if (msgs) msgs.scrollTop = msgs.scrollHeight;
-
               }
-
             }
 
-          }
+            if (fullReply) aiChatHistory.push({ role: 'assistant', content: fullReply });
+            if (suggestions.length) addAISuggestions(suggestions);
+            success = true;
 
-          // Сохраняем в историю и показываем подсказки
-
-          if (fullReply) aiChatHistory.push({ role: 'assistant', content: fullReply });
-
-          if (suggestions.length) addAISuggestions(suggestions);
-
-        } catch (e) {
-
-          hideAITyping();
-
-          const bubble = addAIMessage('ai', '');
-
-          if (bubble) {
-            let errMsg = _ui('aiErrorGeneric');
-            if (e.message === 'unauthorized_ai_session') {
-              errMsg = _ui('aiErrorSessionExpired');
-            } else if (e.message === 'visitor_required') {
-              errMsg = _ui('aiErrorVisitorRequired');
-            } else if (e.message === 'rate_limited') {
-              errMsg = _ui('aiErrorRateLimited');
-            } else if (e.message.startsWith('HTTP ')) {
-              errMsg = e.message + ': ' + _ui('aiErrorGeneric');
+          } catch (e) {
+            if (retryCount >= maxRetries) {
+              hideAITyping();
+              const bubble = addAIMessage('ai', '');
+              if (bubble) {
+                let errMsg = _ui('aiErrorGeneric');
+                if (e.message === 'unauthorized_ai_session') {
+                  errMsg = _ui('aiErrorSessionExpired');
+                } else if (e.message === 'visitor_required') {
+                  errMsg = _ui('aiErrorVisitorRequired');
+                } else if (e.message === 'rate_limited') {
+                  errMsg = _ui('aiErrorRateLimited');
+                } else if (e.message.startsWith('HTTP ')) {
+                  errMsg = e.message + ': ' + _ui('aiErrorGeneric');
+                }
+                await typeAIText(bubble, errMsg);
+              }
+              break;
             }
-            await typeAIText(bubble, errMsg);
+            retryCount++;
           }
-
         }
 
         aiIsTyping = false;
@@ -12767,6 +12757,11 @@
             return;
           }
           window.__visitorId = _vid;
+
+          if (isAISessionExpired()) {
+            console.log('[auth] AI session is expired on load, refreshing...');
+            await refreshAISession();
+          }
 
           updateExportBtn();
 

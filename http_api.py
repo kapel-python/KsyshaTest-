@@ -3610,6 +3610,30 @@ async def ai_companion_history_clear(request: web.Request) -> web.Response:
     return _add_cors_headers(web.json_response({"ok": True, "deleted": deleted}))
 
 
+async def refresh_ai_session(request: web.Request) -> web.Response:
+    """Генерирует новую AI сессию, если подпись посетителя верна."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception:
+        payload = {}
+    visitor_id = _pstr(payload.get("visitor_id")).strip()
+    visitor_sig = (request.headers.get("X-Visitor-Signature") or "").strip()
+    if not visitor_id or not visitor_sig:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "visitor_required"}, status=401))
+    if not _verify_visitor_signature(visitor_id, visitor_sig):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "unauthorized_ai_session"}, status=401))
+    ai_session, ai_session_exp = _issue_ai_session(visitor_id)
+    return _add_cors_headers(web.json_response({
+        "ok": True,
+        "ai_session": ai_session,
+        "ai_session_exp": ai_session_exp,
+    }))
+
+
 async def ai_companion_history(request: web.Request) -> web.Response:
     """Возвращает историю диалога ИИ-компаньона для visitor_id."""
     if not _check_api_secret(request):
@@ -7547,6 +7571,8 @@ def create_app() -> web.Application:
     app.router.add_route("OPTIONS", "/api/ai_companion_history_clear", handle_options)
     app.router.add_post("/api/ai_companion_history_clear", ai_companion_history_clear)
     app.router.add_get("/api/ai_companion_history", ai_companion_history)
+    app.router.add_route("OPTIONS", "/api/refresh_ai_session", handle_options)
+    app.router.add_post("/api/refresh_ai_session", refresh_ai_session)
 
     # ── Create endpoints from site ────────────────────────────────
     app.router.add_route("OPTIONS", "/api/create_memory",  handle_options)

@@ -13715,7 +13715,8 @@
           });
           const d = await r.json();
           if (!d.ok) {
-            _addToast(_ui('addErrorParse'));
+            const err_msg = d.error && d.error.includes('прошлом') ? d.error : _ui('addErrorParse');
+            _addToast(err_msg);
             btn.disabled = false; btn.textContent = _ui('addDeterminingDate');
             return;
           }

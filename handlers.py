@@ -2830,6 +2830,9 @@ async def scheduled_event_process_date_raw(message: Message, state: FSMContext):
         await msg_status.delete()
     except Exception as e:
         logger.debug("Не удалось удалить статусное сообщение edit scheduled event date: %s", e)
+    if ai_date == "ERROR:PAST_DATE":
+        await message.answer("❌ Не используй даты в прошлом, мне нужны будущие события")
+        return
     if not ai_date:
         await message.answer(
             "❌ Не удалось распознать дату. Попробуй написать по другому например\n"
@@ -3118,6 +3121,9 @@ async def scheduled_event_process_edit_date(message: Message, state: FSMContext)
         await msg_status.delete()
     except Exception:
         pass
+    if ai_date == "ERROR:PAST_DATE":
+        await message.answer("❌ Не используй даты в прошлом, мне нужны будущие события")
+        return
     if not ai_date:
         await message.answer("❌ Не удалось распознать дату. Попробуй иначе: 25.1.2026 или 25 января 2026 в 14:30")
         return
@@ -3498,6 +3504,9 @@ async def scheduled_event_existing_process_date(message: Message, state: FSMCont
         await msg_status.delete()
     except Exception:
         pass
+    if ai_date == "ERROR:PAST_DATE":
+        await message.answer("❌ Не используй даты в прошлом, мне нужны будущие события")
+        return
     if not ai_date:
         await message.answer(
             "❌ Не удалось распознать дату. Попробуй иначе: 25.1.2026 или 25 января 2026 в 14:30"

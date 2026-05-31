@@ -887,9 +887,15 @@ def parse_date_with_ai(user_input: str, datetime_context: str, allow_future: boo
                 return normalized
             else:
                 logger.error("parse_date_with_ai: Attempt 2 validation failed for input=%r. Response=%r", user_input, normalized or result)
+                if normalized and datetime_context and allow_future and _is_past_datetime(normalized, datetime_context):
+                    is_past_err = True
+                elif first_response and datetime_context and allow_future and _is_past_datetime(first_response, datetime_context):
+                    is_past_err = True
     except Exception as e:
         logger.exception("parse_date_with_ai: AI parse failed on attempt 2 for input=%r: %s", user_input, e)
 
+    if is_past_err:
+        return "ERROR:PAST_DATE"
     return ""
 
 def parse_timezone_with_ai_details(user_input: str) -> Dict[str, str]:

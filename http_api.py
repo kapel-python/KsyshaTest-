@@ -6695,6 +6695,9 @@ async def site_parse_date_ai(request: web.Request) -> web.Response:
         import asyncio as _asyncio
         ai_date = await _asyncio.to_thread(parse_date_with_ai, raw_date, ctx, True)
 
+        if ai_date == "ERROR:PAST_DATE":
+            return _add_cors_headers(web.json_response({"ok": False, "error": "❌ Не используй даты в прошлом, мне нужны будущие события"}))
+
         if not ai_date:
             return _add_cors_headers(web.json_response({"ok": False, "error": "could not parse"}))
 

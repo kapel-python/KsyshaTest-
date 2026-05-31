@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.94'
-description = 'Фикс расчета времени в событиях на дату'
+version = '1.0.95'
+description = 'Возможный фикс того что уведомления на события приходят рандомно а не в срок'
 
 
 def get_version_metadata() -> tuple[str, str]:

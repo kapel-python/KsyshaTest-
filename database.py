@@ -943,7 +943,9 @@ class Database:
                     couple_id   INTEGER,
                     name        TEXT NOT NULL,
                     description TEXT,
-                    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    color       TEXT,
+                    emoji       TEXT
                 )
             ''')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_custom_categories_couple ON custom_categories(couple_id)')
@@ -952,6 +954,11 @@ class Database:
                 conn.execute("ALTER TABLE custom_categories ADD COLUMN color TEXT")
             except Exception as e:
                 logger.debug("Migration skipped for custom_categories.color: %s", e)
+            # Миграция: добавляем emoji если таблица уже существовала без него
+            try:
+                conn.execute("ALTER TABLE custom_categories ADD COLUMN emoji TEXT")
+            except Exception as e:
+                logger.debug("Migration skipped for custom_categories.emoji: %s", e)
 
             # Таблица уведомлений о событиях (динамическая: хранит user_id вместо фиксированных ролей)
             conn.execute('''
@@ -4330,13 +4337,14 @@ class Database:
 
     def create_custom_category(self, couple_id: Optional[int], name: str,
                                description: Optional[str] = None,
-                               color: Optional[str] = None) -> int:
+                               color: Optional[str] = None,
+                               emoji: Optional[str] = None) -> int:
         """Создаёт пользовательскую категорию. Возвращает id новой категории или -1 при ошибке."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute(
-                    'INSERT INTO custom_categories (couple_id, name, description, color) VALUES (?, ?, ?, ?)',
-                    (couple_id, name.strip(), (description or "").strip() or None, color)
+                    'INSERT INTO custom_categories (couple_id, name, description, color, emoji) VALUES (?, ?, ?, ?, ?)',
+                    (couple_id, name.strip(), (description or "").strip() or None, color, emoji)
                 )
                 conn.commit()
                 return cursor.lastrowid

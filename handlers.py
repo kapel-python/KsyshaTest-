@@ -9186,6 +9186,33 @@ _CATEGORY_COLORS = [
     "mediumslateblue", "dodgerblue", "darkcyan", "darkmagenta", "firebrick",
 ]
 
+def _extract_emoji(text: str) -> str:
+    text = (text or "").strip()
+    if not text:
+        return "📁"
+    import re
+    # Поиск стандартных эмодзи в диапазонах Юникода
+    match = re.search(r'[\U0001f300-\U0001f9ff\U0001fa00-\U0001faff\u2600-\u27bf]', text)
+    if match:
+        idx = match.start()
+        emoji_seq = text[idx:idx+4]
+        res = ""
+        for char in emoji_seq:
+            cp = ord(char)
+            if (0x1F300 <= cp <= 0x1F9FF) or (0x1F600 <= cp <= 0x1F64F) or \
+               (0x1F680 <= cp <= 0x1F6FF) or (0x2600 <= cp <= 0x27BF) or \
+               (0x1FA70 <= cp <= 0x1FAFF) or (0x1F000 <= cp <= 0x1F0FF) or \
+               (cp == 0x200D) or (cp == 0xFE0F) or (0x1F3FB <= cp <= 0x1F3FF):
+                res += char
+            else:
+                break
+        if res:
+            return res
+    for char in text:
+        if not char.isalnum() and char not in " \t\n\r.,!?;:\"'-()[]{}<>":
+            return char
+    return "📁"
+
 async def _finish_add_category(
     message_or_msg,
     user_id: int,
@@ -9198,10 +9225,24 @@ async def _finish_add_category(
     name = data.get("category_name", "Без названия")
     await state.clear()
 
+    # Генерация эмодзи с помощью ИИ
+    emoji = "📁"
+    try:
+        from api import send_prompt
+        prompt = (
+            f"You are a helpful assistant. You must return EXACTLY ONE emoji that best represents "
+            f"the following category title: \"{name}\". Do not output any other characters, text, "
+            f"explanation, or whitespace. Just one single emoji."
+        )
+        ai_res = send_prompt(prompt, timeout_seconds=10)
+        emoji = _extract_emoji(ai_res)
+    except Exception as e:
+        logger.exception(f"Ошибка при автоматической генерации эмодзи: {e}")
+
     couple = db.get_couple_by_user(user_id)
     couple_id = couple['id'] if couple else None
     color = _random.choice(_CATEGORY_COLORS)
-    cat_id = db.create_custom_category(couple_id=couple_id, name=name, description=description, color=color)
+    cat_id = db.create_custom_category(couple_id=couple_id, name=name, description=description, color=color, emoji=emoji)
     if cat_id == -1:
         await message_or_msg.answer("❌ Не удалось создать категорию. Попробуй позже.")
         return
@@ -9209,7 +9250,7 @@ async def _finish_add_category(
     desc_line = f"\n<i>{description}</i>" if description else ""
     await message_or_msg.answer(
         f"✅ <b>Категория создана!</b>\n\n"
-        f"📁 <b>{name}</b>{desc_line}\n\n"
+        f"{emoji} <b>{name}</b>{desc_line}\n\n"
         "Теперь ты можешь добавлять в неё воспоминания.",
         reply_markup=create_categories_keyboard(user_id=user_id),
         parse_mode=ParseMode.HTML,

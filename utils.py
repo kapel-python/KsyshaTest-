@@ -1107,10 +1107,11 @@ def get_all_categories(couple_id: Optional[int] = None) -> dict:
         custom = db.get_custom_categories(couple_id)
         for cat in custom:
             key = f"custom_{cat['id']}"
+            emoji = cat.get("emoji") or "📁"
             result[key] = {
-                "title": cat["name"],
+                "title": f"{emoji} {cat['name']}",
                 "description": cat.get("description") or "",
-                "emoji": "📁",
+                "emoji": emoji,
                 "is_custom": True,
                 "id": cat["id"],
             }
@@ -1134,7 +1135,8 @@ def create_categories_keyboard(user_id: Optional[int] = None) -> InlineKeyboardM
             custom_cats = db.get_custom_categories(couple_id)
             for cat in custom_cats:
                 key = f"custom_{cat['id']}"
-                rows.append([InlineKeyboardButton(text=cat["name"], callback_data=f"category_{key}")])
+                emoji = cat.get("emoji") or "📁"
+                rows.append([InlineKeyboardButton(text=f"{emoji} {cat['name']}", callback_data=f"category_{key}")])
         except Exception:
             pass
     rows.append([InlineKeyboardButton(text="🎯 События на дату", callback_data="scheduled_events_menu")])

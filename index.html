@@ -9518,7 +9518,7 @@
             if (typeof ADD_CATEGORIES !== 'undefined' && !ADD_CATEGORIES[key]) {
               ADD_CATEGORIES[key] = {
                 title: cat.name,
-                icon: '📁',
+                icon: cat.emoji || '📁',
                 steps: ['title', 'date', 'content', 'preview']
               };
             }
@@ -10220,9 +10220,62 @@
             // Чистим ранее сгенерированные пользовательские секции перед новым рендером.
             Array.from(anchor.querySelectorAll('[data-custom-generated="1"]')).forEach(el => el.remove());
           }
+          function getGradientForColor(colorStr) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = colorStr;
+            const computed = ctx.fillStyle;
+            let r = 100, g = 100, b = 200;
+            const match = computed.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+            if (match) {
+              r = parseInt(match[1]);
+              g = parseInt(match[2]);
+              b = parseInt(match[3]);
+            } else if (computed.startsWith('#')) {
+              const hex = computed.slice(1);
+              if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+              } else if (hex.length === 6) {
+                r = parseInt(hex.slice(0, 2), 16);
+                g = parseInt(hex.slice(2, 4), 16);
+                b = parseInt(hex.slice(4, 6), 16);
+              }
+            }
+            let rNormal = r / 255;
+            let gNormal = g / 255;
+            let bNormal = b / 255;
+            let max = Math.max(rNormal, gNormal, bNormal);
+            let min = Math.min(rNormal, gNormal, bNormal);
+            let h, s, l = (max + min) / 2;
+            if (max === min) {
+              h = s = 0;
+            } else {
+              let d = max - min;
+              s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+              switch (max) {
+                case rNormal: h = (gNormal - bNormal) / d + (gNormal < bNormal ? 6 : 0); break;
+                case gNormal: h = (bNormal - rNormal) / d + 2; break;
+                case bNormal: h = (rNormal - gNormal) / d + 4; break;
+              }
+              h /= 6;
+            }
+            h = Math.round(h * 360);
+            s = Math.round(s * 100);
+            l = Math.round(l * 100);
+            const h2 = (h + 20) % 360;
+            const s2 = Math.max(0, Math.min(100, s - 5));
+            const l2 = Math.max(10, Math.min(90, l - 12));
+            return `linear-gradient(135deg, hsl(${h}, ${s}%, ${l}%), hsl(${h2}, ${s2}%, ${l2}%))`;
+          }
+
           customCategories.forEach(cat => {
             const key = 'custom_' + cat.id;
-            categoriesMap[key] = { title: cat.name, emoji: '📁', description: cat.description || '' };
+            const catEmoji = cat.emoji || '📁';
+            categoriesMap[key] = { title: cat.name, emoji: catEmoji, description: cat.description || '' };
             const catColor = (typeof cat.color === 'string' && cat.color.trim()) ? cat.color.trim() : 'slateblue';
             const catName = (cat && cat.name ? String(cat.name) : 'Категория').trim() || 'Категория';
             if (!anchor) return;
@@ -10233,9 +10286,9 @@
             const contId = 'custom_cat_container_' + cat.id;
             hdr.setAttribute('data-target', contId);
             hdr.setAttribute('data-custom-generated', '1');
-            hdr.style.background = catColor;
+            hdr.style.background = getGradientForColor(catColor);
             const hdrTitle = document.createElement('span');
-            hdrTitle.textContent = '📁 ' + catName;
+            hdrTitle.textContent = catEmoji + ' ' + catName;
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'toggle-btn';
             toggleBtn.type = 'button';
@@ -10266,8 +10319,8 @@
               btn.className = 'add-btn-pill';
               btn.dataset.cat = key;
               btn.style.marginBottom = '18px';
-              btn.style.background = catColor;
-              btn.innerHTML = '<span class="add-icon">📁</span> Добавить в ' + catName;
+              btn.style.background = getGradientForColor(catColor);
+              btn.innerHTML = '<span class="add-icon">' + catEmoji + '</span> Добавить в ' + catName;
               btn.onclick = () => openAddModal(key);
               cont.prepend(btn);
             }
@@ -13926,7 +13979,7 @@
             if (typeof ADD_CATEGORIES !== 'undefined') {
               Object.keys(ADD_CATEGORIES).forEach(k => {
                 if (k.startsWith('custom_')) {
-                  categoriesMap[k] = { title: ADD_CATEGORIES[k].title, emoji: '📁' };
+                  categoriesMap[k] = { title: ADD_CATEGORIES[k].title, emoji: ADD_CATEGORIES[k].icon || '📁' };
                 }
               });
             }

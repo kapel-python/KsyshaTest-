@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.118'
-description = 'Удачное внедрение нижней панели в главную страницу + в статистику'
+version = '1.0.119'
+description = 'Фикс статистики с навигационном меню'
 
 
 def get_version_metadata() -> tuple[str, str]:

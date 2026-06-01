@@ -1937,7 +1937,7 @@ def format_admin_details(admin: Dict, user_stats: Optional[Dict[str, int]] = Non
     last_seen = admin.get('last_seen', 'неизвестно')
 
     if db.is_creator(user_id):
-        role = "👑 Создатель"
+        role = "👑 Разработчик"
         can_delete = False
     elif db.is_in_couple(user_id) and not db.is_creator(user_id):
         role = "💖 Партнёр"
@@ -2394,7 +2394,7 @@ def format_stats_message(stats: Dict[str, Any], user_stats: Dict[str, int]) -> s
 
     my_mem = user_stats.get('total_memories', 0)
     my_pct = (my_mem / total_safe) * 100
-    lines.append("🙋 <b>Ты (создатель)</b>")
+    lines.append("🙋 <b>Ты (разработчик)</b>")
     lines.append(f"  • Воспоминаний: <b>{my_mem}</b>  ({my_pct:.1f}% от всех)")
     lines.append(f"  • Категорий: <b>{user_stats.get('categories_count', 0)}</b>")
 

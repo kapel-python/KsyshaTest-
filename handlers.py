@@ -7219,7 +7219,7 @@ async def admin_device_detail(callback: CallbackQuery):
     ref = (dev.get("referrer") or "—")[:80]
     theme = "тёмная" if dev.get("theme") == "dark" else ("светлая" if dev.get("theme") == "light" else (dev.get("theme") or "—"))
     role_raw = (dev.get("role") or "").lower()
-    role_display = "Партнёр" if role_raw in ("ksyusha", "partner") else ("Создатель" if role_raw == "creator" else None)
+    role_display = "Партнёр" if role_raw in ("ksyusha", "partner") else ("Разработчик" if role_raw == "creator" else None)
     lines = [
         f"📱 Устройство: {ua}",
         f"🔢 Визитов: {visits}",

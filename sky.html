@@ -2036,7 +2036,7 @@ function _getOtherPanel(panel) {
 
 function _getPartnerName(panel) {
   // Возвращает имя человека на противоположной панели (для кнопки переключения)
-  const leftName  = _skyCfg.leftName  || (_skyCfg.moscow  || {}).cityLabel || 'Создатель';
+  const leftName  = _skyCfg.leftName  || (_skyCfg.moscow  || {}).cityLabel || 'Разработчик';
   const rightName = _skyCfg.rightName || (_skyCfg.bishkek || {}).cityLabel || 'Партнёр';
   return panel === 'moscow' ? rightName : leftName;
 }

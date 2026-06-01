@@ -2179,10 +2179,10 @@ def _collect_site_data(
     users_info = {
         "creator": {
             "user_id": creator_id,
-            "first_name": creator_user.get("first_name") or "Создатель",
+            "first_name": creator_user.get("first_name") or "Разработчик",
             "last_name":  creator_user.get("last_name")  or "",
             "username":   creator_user.get("username")   or "",
-            "display":    db.get_display_name(creator_id, "Создатель"),
+            "display":    db.get_display_name(creator_id, "Разработчик"),
         },
         "ksyusha": {
             "user_id": partner_id,
@@ -3242,7 +3242,7 @@ async def log_visit(request: web.Request) -> web.Response:
 
     elif role_raw == "creator":
 
-        role_label = "Создатель"
+        role_label = "Разработчик"
 
     else:
 
@@ -4194,7 +4194,7 @@ def _build_sky_cfg(request: web.Request) -> dict:
     def _default(has_couple=False):
         left  = _tz_to_city_info("UTC")
         right = _tz_to_city_info("UTC")
-        cfg = _sky_cfg_from_cities(left, right, left_name="Создатель", right_name="Партнёр")
+        cfg = _sky_cfg_from_cities(left, right, left_name="Разработчик", right_name="Партнёр")
         cfg["hasCouple"] = has_couple
         cfg["sameCity"] = True
         return cfg
@@ -4211,7 +4211,7 @@ def _build_sky_cfg(request: web.Request) -> dict:
     def _default(has_couple=False):
         left  = _tz_to_city_info("UTC", lang)
         right = _tz_to_city_info("UTC", lang)
-        cfg = _sky_cfg_from_cities(left, right, left_name="Создатель", right_name="Партнёр")
+        cfg = _sky_cfg_from_cities(left, right, left_name="Разработчик", right_name="Партнёр")
         cfg["hasCouple"] = has_couple
         cfg["sameCity"] = True
         return cfg
@@ -4238,7 +4238,7 @@ def _build_sky_cfg(request: web.Request) -> dict:
     partner_city = _tz_to_city_info(partner_tz, lang)
 
     # Имена пользователей (первое имя / username)
-    u1_name = (_db.get_display_name(u1) or "Создатель").split()[0]
+    u1_name = (_db.get_display_name(u1) or "Разработчик").split()[0]
     u2_name = (_db.get_display_name(u2) or "Партнёр").split()[0]
 
     # Левая панель (ключ 'moscow') = creator/user1, правая (ключ 'bishkek') = partner/user2
@@ -4253,7 +4253,7 @@ def _build_sky_cfg(request: web.Request) -> dict:
 
 
 def _sky_cfg_from_cities(left: dict, right: dict,
-                          left_name: str = "Создатель",
+                          left_name: str = "Разработчик",
                           right_name: str = "Партнёр") -> dict:
     """Финальный SKY_CFG из двух городов (левый = creator, правый = partner)."""
     left_real = (left.get("tzId") or "").strip().upper() not in {"UTC", "ETC/UTC"}
@@ -6899,7 +6899,10 @@ async def site_create_memory(request: web.Request) -> web.Response:
         if not cat_label:
             cat_label = "момент"
         other_id = _visitor_partner_id(visitor_id)
-        actor = "Создатель" if visitor_id == "creator" else "Партнёр"
+        actor_name = db.get_display_name(user_id)
+        if not actor_name:
+            actor_name = "Разработчик" if visitor_id == "creator" else "Партнёр"
+        actor = actor_name
         notify_text = f"✨ <b>{actor} добавил(а) {cat_label}</b>\n\n<b>{title}</b>\n{date}"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{mem_id}")]
@@ -7045,7 +7048,10 @@ async def site_create_event(request: web.Request) -> web.Response:
 
     try:
         other_id = _visitor_partner_id(visitor_id)
-        actor = "Создатель" if visitor_id == "creator" else "Партнёр"
+        actor_name = db.get_display_name(user_id)
+        if not actor_name:
+            actor_name = "Разработчик" if visitor_id == "creator" else "Партнёр"
+        actor = actor_name
         notify_text = f"🎯 <b>{actor} добавил(а) событие</b>\n\n<b>{title}</b>"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"scheduled_event_{event_id}")]

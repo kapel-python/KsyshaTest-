@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.148'
-description = 'Отображение времени ближайшего события на сайте'
+version = '1.0.149'
+description = 'Мультиязычность кнопки закрыть в раздел что это'
 
 
 def get_version_metadata() -> tuple[str, str]:

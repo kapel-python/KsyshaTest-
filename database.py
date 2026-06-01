@@ -2892,8 +2892,8 @@ class Database:
                     if old_id is not None and old_id != user_id:
                         logger.info(f"Переносим данные пользователя с old_id={old_id} на new_id={user_id}")
                         
-                        # user_profiles is explicitly NOT migrated, because we want to preserve the new user's name/profile.
-                        for table in ["user_settings", "favorites", "admins"]:
+                        # Переносим профиль, настройки и прочее
+                        for table in ["user_profiles", "user_settings", "favorites", "admins", "user_tokens", "user_login_tokens"]:
                             conn.execute(
                                 f"UPDATE OR REPLACE {table} SET user_id = ? WHERE user_id = ?",
                                 (user_id, old_id)
@@ -2913,11 +2913,6 @@ class Database:
                             "UPDATE devices SET visitor_id = REPLACE(visitor_id, ?, ?) WHERE visitor_id LIKE ?",
                             (f"{old_id}_", f"{user_id}_", f"{old_id}_%")
                         )
-                        
-                        # Удаляем старые записи профиля и токенов, чтобы не засорять БД
-                        conn.execute("DELETE FROM user_profiles WHERE user_id = ?", (old_id,))
-                        conn.execute("DELETE FROM user_tokens WHERE user_id = ?", (old_id,))
-                        conn.execute("DELETE FROM user_login_tokens WHERE user_id = ?", (old_id,))
                     
                     conn.commit()
                     return True
@@ -5432,6 +5427,15 @@ class Database:
                 return dict(row) if row else None
         except Exception as e:
             logger.exception("Ошибка get_unlink_request: %s", e)
+            return None
+
+    def get_unlink_request_by_transfer_code(self, code: str) -> Optional[dict]:
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute("SELECT * FROM unlink_requests WHERE transfer_invite_code = ?", (code,)).fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.exception("Ошибка get_unlink_request_by_transfer_code: %s", e)
             return None
 
     def set_unlink_status(self, token: str, status: str, transfer_invite_code: str = None) -> bool:

@@ -1226,6 +1226,31 @@ async def cmd_start(message: Message, state: FSMContext):
             )
             return
 
+        # Проверка на токен перепривязки (transfer_invite_code)
+        unlink_req = db.get_unlink_request_by_transfer_code(invite_code)
+        if unlink_req:
+            used_couple_id = db.use_invite_code(invite_code, user_id)
+            if used_couple_id and db.join_couple(used_couple_id, user_id):
+                db.add_admin(user_id, added_by=user_id)
+                site_url = (getattr(config, "BOT_SITE_URL", "") or getattr(config, "SITE_DIRECT_URL", "")).strip().rstrip("/")
+                site_kb_rows = []
+                if site_url:
+                    cpl = db.get_couple_by_id(used_couple_id)
+                    assigned_role = "creator" if cpl and cpl.get("user1_id") == user_id else "partner"
+                    token = db.get_or_create_user_token(user_id, role=assigned_role)
+                    site_link = f"{site_url}?token={token}&rebind=1"
+                    site_kb_rows.append([InlineKeyboardButton(text="🌐 Перейти на сайт", url=site_link)])
+                
+                await message.answer(
+                    "✅ <b>Аккаунт на сайте перепривязан к этому Telegram аккаунту</b>, "
+                    "но чтобы изменения вступили в силу перейди по ссылке",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=site_kb_rows) if site_kb_rows else None,
+                    parse_mode=ParseMode.HTML
+                )
+            else:
+                await message.answer("❌ Произошла ошибка при перепривязке аккаунта.")
+            return
+
         # Всё ок — начинаем онбординг для вступления
         inviter_name = db.get_display_name(creator_id) if creator_id else "твой партнёр"
         await state.update_data(

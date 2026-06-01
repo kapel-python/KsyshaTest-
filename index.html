@@ -13122,7 +13122,9 @@
             });
           } catch(e) {}
 
-          // Убираем токен из URL без перезагрузки страницы
+          // Убираем токен и rebind из URL без перезагрузки страницы
+          const isRebind = _urlParams.get('rebind') === '1';
+          if (isRebind) _urlParams.delete('rebind');
           _urlParams.delete('token');
           const _newSearch = _urlParams.toString();
           const _newUrl = window.location.pathname + (_newSearch ? '?' + _newSearch : '') + window.location.hash;
@@ -13136,6 +13138,34 @@
             localStorage.removeItem(AI_VISITOR_SIG_STORAGE_KEY);
             showStartupError(new Error(tokenValidationErrorMsg || 'token_invalid'));
             return;
+          } else if (isRebind) {
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0'; overlay.style.left = '0';
+            overlay.style.width = '100vw'; overlay.style.height = '100vh';
+            overlay.style.backgroundColor = 'rgba(0,0,0,0.85)';
+            overlay.style.display = 'flex';
+            overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+            overlay.style.zIndex = '999999';
+            overlay.style.fontFamily = 'sans-serif';
+            
+            const modal = document.createElement('div');
+            modal.style.backgroundColor = 'var(--card-bg, #ffffff)';
+            modal.style.color = 'var(--text-color, #333333)';
+            modal.style.padding = '32px';
+            modal.style.borderRadius = '16px';
+            modal.style.maxWidth = '400px';
+            modal.style.textAlign = 'center';
+            modal.style.boxShadow = 'var(--card-shadow, 0 10px 30px rgba(0,0,0,0.5))';
+            
+            modal.innerHTML = `
+              <h2 style="margin-top:0; font-size:22px; margin-bottom: 24px;">✅ Привязка завершена</h2>
+              <p style="margin-bottom:24px; font-size:15px; color:var(--muted-text, #666);">Привязка на этот аккаунт завершена.</p>
+              <button id="closeRebindModal" style="padding:12px 20px; border-radius:10px; border:none; background:var(--accent-color, #007bff); color:#fff; font-weight:bold; cursor:pointer; font-size:15px; width:100%; transition:0.2s;">Отлично</button>
+            `;
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            document.getElementById('closeRebindModal').onclick = () => document.body.removeChild(overlay);
           }
         }
 

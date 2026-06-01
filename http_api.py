@@ -5266,7 +5266,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
         tz_id = (request.rel_url.query.get("tz") or "").strip() or None
 
     lang = (request.rel_url.query.get("lang") or "").strip()[:5] or "ru"
-    if lang not in ("ru", "ky", "de"):
+    if lang not in ("ru", "ky", "de", "en"):
         lang = "ru"
 
     # Переводы для всех строк генерируемых сервером
@@ -7174,7 +7174,7 @@ async def api_heatmap_endpoint(request: web.Request) -> web.Response:
     if not visitor_id:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
     hm_lang = (request.rel_url.query.get("lang") or "ru").strip()[:5]
-    if hm_lang not in ("ru", "ky", "de"):
+    if hm_lang not in ("ru", "ky", "de", "en"):
         hm_lang = "ru"
     try:
         year  = int(request.rel_url.query.get("year",  0))
@@ -7195,8 +7195,10 @@ async def api_heatmap_endpoint(request: web.Request) -> web.Response:
             else:
                 q = cnt / max_v
                 lc = " d1" if q <= 0.2 else " d2" if q <= 0.4 else " d3" if q <= 0.6 else " d4" if q <= 0.8 else " d5"
+            _v = {"ru":("визит","визита","визитов"), "de":("Besuch","Besuche","Besuche"), "en":("visit","visits","visits"), "ky":("кириш","кириш","кириш")}
+            _vw = _v.get(hm_lang, _v["ru"])
             tip = (str(day) + ": " + str(cnt) + " " +
-                   ("визит" if cnt == 1 else "визита" if 2 <= cnt <= 4 else "визитов")) if cnt else str(day)
+                   (_vw[0] if cnt == 1 else _vw[1] if 2 <= cnt <= 4 else _vw[2])) if cnt else str(day)
             parts.append('<div class="hm-day' + lc + '" title="' + tip + '">' + str(day) + '</div>')
         html_out = "\n      ".join(parts)
         return _add_cors_headers(web.json_response({"ok": True, "html": html_out}))

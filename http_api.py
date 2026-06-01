@@ -481,6 +481,10 @@ def _get_trusted_visitor_id(
     if allow_header_fallback:
         session_vid = session_vid or (request.headers.get("X-Visitor-Id") or "").strip()
         session_sig = session_sig or (request.headers.get("X-Visitor-Signature") or "").strip()
+    
+    # Query fallback
+    session_vid = session_vid or (request.rel_url.query.get(query_key) or "").strip() or (request.rel_url.query.get("visitor_id") or "").strip()
+    session_sig = session_sig or (request.rel_url.query.get("sig") or "").strip() or (request.rel_url.query.get("visitor_sig") or "").strip()
 
     if not session_vid or not session_sig:
         return None
@@ -2045,9 +2049,6 @@ def _collect_site_data(
     base = (getattr(config, "SITE_DIRECT_URL", None) or "").strip().rstrip("/")
 
     stats_url = (base + "/stats") if base else "/stats"
-    if visitor_id:
-        _stats_sig = _sign_payload(f"visitor:{visitor_id}")
-        stats_url += ("&" if "?" in stats_url else "?") + "v=" + visitor_id + "&sig=" + _stats_sig
 
     last_added = None
 
@@ -5220,9 +5221,9 @@ async def profile_page(request: web.Request) -> web.Response:
     которые проверяют visitor_sig через _get_trusted_visitor_id().
     Паттерн идентичен stats_page.
     """
-    visitor_id = (request.cookies.get("visitor_id") or "").strip()
+    visitor_id = _get_trusted_visitor_id(request)
     if not visitor_id:
-        logger.warning(f"SERVER REDIRECT: profile_page missing visitor_id cookie! Headers: {request.headers}")
+        logger.warning(f"SERVER REDIRECT: profile_page invalid visitor_id! Headers: {request.headers}")
         raise web.HTTPFound("/")
 
     project_root = Path(__file__).resolve().parent
@@ -5477,14 +5478,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     # Для /stats доверяем подписанной cookie-сессии или query-параметрам v+sig
     # (query-параметры нужны для Telegram WebView, где cookies недоступны).
-    session_vid = (request.cookies.get("visitor_id") or "").strip() or (request.headers.get("X-Visitor-Id") or "").strip()
-    session_sig = (request.cookies.get("visitor_sig") or "").strip() or (request.headers.get("X-Visitor-Signature") or "").strip()
-    if not session_vid or not session_sig or not _verify_visitor_signature(session_vid, session_sig):
-        # Fallback: принимаем v+sig из query (для Telegram WebView без cookies)
-        session_vid = (request.rel_url.query.get("v") or "").strip()
-        session_sig = (request.rel_url.query.get("sig") or "").strip()
-        if not session_vid or not session_sig or not _verify_visitor_signature(session_vid, session_sig):
-            raise web.HTTPFound("/404")
+    session_vid = _get_trusted_visitor_id(request)
+    if not session_vid:
+        raise web.HTTPFound("/404")
     _stats_uid = _visitor_to_user_id(session_vid)
     if not _stats_uid or not db.get_couple_by_user(_stats_uid):
         raise web.HTTPFound("/404")

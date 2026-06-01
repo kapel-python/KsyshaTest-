@@ -5,7 +5,7 @@
 <head>
     <meta charset="utf-8">
 
-    <title id="pageTitle">Наши воспоминания ❤️</title>
+    <title id="pageTitle">Наши воспоминания</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
@@ -4760,7 +4760,7 @@
 
         <h1>
 
-            <span class="h1-main" id="pageHeadingEl">Наши <span>воспоминания</span> ❤️</span>
+            <span class="h1-main" id="pageHeadingEl">Наши <span>воспоминания</span></span>
 
         </h1>
 
@@ -4792,8 +4792,6 @@
     <div class="page-content" id="pageContent">
 
         <div class="welcome-card">
-
-            <span class="welcome-card-emoji">❤️</span>
 
             <div class="welcome-card-title" data-i18n="welcomeTitle">Привет!</div>
 
@@ -14402,7 +14400,7 @@
       loadingSub:  'Это займёт секунду',
       welcomeTitle:'Привет!',
       welcomeText: 'Ваше пространство на двоих\nСовместные моменты, события и желания в одном месте',
-      pageHeading: 'Наши воспоминания ❤️',
+      pageHeading: 'Наши воспоминания',
       searchPlaceholder: 'Поиск по воспоминаниям…',
       filterAll:     'Все',
       filterMoments: '💫 Важные',
@@ -14486,7 +14484,7 @@
       wishNumSecond: 'второе',
       wishNumThird:  'третье',
       addWishFull:   (n) => 'Добавить ' + ['','первое','второе','третье'][n] + ' желание',
-      pageH1:        'Наши <span>воспоминания</span> ❤️',
+      pageH1:        'Наши <span>воспоминания</span>',
       secImportantMoments: '💫 Важные моменты',
       secMemories:         '📖 Воспоминания',
       secDates:            '📅 Важные даты',
@@ -14526,7 +14524,7 @@
       loadingSub:  'Das dauert nur einen Moment',
       welcomeTitle:'Hallo!',
       welcomeText: 'Euer gemeinsamer Raum\nGemeinsame Momente, Ereignisse und Wünsche an einem Ort',
-      pageHeading: 'Unsere Erinnerungen ❤️',
+      pageHeading: 'Unsere Erinnerungen',
       searchPlaceholder: 'Erinnerungen suchen…',
       filterAll:     'Alle',
       filterMoments: '💫 Wichtige',
@@ -14610,7 +14608,7 @@
       wishNumSecond: 'zweiten',
       wishNumThird:  'dritten',
       addWishFull:   (n) => 'Hinzufügen ' + ['','ersten','zweiten','dritten'][n] + ' Wunsch',
-      pageH1:        'Unsere <span>Erinnerungen</span> ❤️',
+      pageH1:        'Unsere <span>Erinnerungen</span>',
       secImportantMoments: '💫 Wichtige Momente',
       secMemories:         '📖 Erinnerungen',
       secDates:            '📅 Wichtige Daten',
@@ -14650,7 +14648,7 @@
       loadingSub:  'This will take a second',
       welcomeTitle:'Hi!',
       welcomeText: 'Your shared space\nShared moments, events, and wishes in one place',
-      pageHeading: 'Our memories ❤️',
+      pageHeading: 'Our memories',
       searchPlaceholder: 'Search memories…',
       filterAll:     'All',
       filterMoments: '💫 Important',
@@ -14734,7 +14732,7 @@
       wishNumSecond: 'second',
       wishNumThird:  'third',
       addWishFull:   (n) => 'Add ' + ['','first','second','third'][n] + ' wish',
-      pageH1:        'Our <span>memories</span> ❤️',
+      pageH1:        'Our <span>memories</span>',
       secImportantMoments: '💫 Important moments',
       secMemories:         '📖 Memories',
       secDates:            '📅 Important dates',
@@ -15682,7 +15680,7 @@
     });
 
     // Page title
-    if (tr.pageHeading) document.title = tr.pageHeading.replace(' ❤️','') + ' ❤️';
+    if (tr.pageHeading) document.title = tr.pageHeading;
 
     const settingsBtn = document.getElementById('settingsGearBtn');
     if (settingsBtn && _ui('settingsAria')) settingsBtn.setAttribute('aria-label', _ui('settingsAria'));

@@ -1080,7 +1080,7 @@ function renderActiveSessions(sessions) {
           </div>
           <div class="item-body">
             <div class="item-title">${current.ua_pretty || _t('profUnknownDevice')}</div>
-            <div class="item-sub">${geo} • ${current.ip || '—'}</div>
+            <div class="item-sub">${geo} • ${current.ip_server || current.ip_webrtc || current.ip || '—'}</div>
           </div>
           <div class="item-right"><span class="badge-success">Онлайн</span></div>
         </div>
@@ -1136,7 +1136,7 @@ function openDeviceModal(s) {
   
   const geo = [s.city, s.country].filter(Boolean).join(', ') || '—';
   document.getElementById('modalDeviceLocation').textContent = geo;
-  document.getElementById('modalDeviceIp').textContent = s.ip || '—';
+  document.getElementById('modalDeviceIp').textContent = s.ip_server || s.ip_webrtc || s.ip || '—';
   
   const timeStr = s.last_seen_utc ? _formatActivityTime(s.last_seen_utc) : '—';
   document.getElementById('modalDeviceActivity').textContent = timeStr;
@@ -1172,28 +1172,26 @@ function _formatActivityTime(utcStr) {
 }
 
 function confirmRevokeSession(id) {
-  if (confirm(_t('profRevokeConfirm'))) {
-    const vid = _getCookie('visitor_id') || '';
-    fetch('/api/sessions/revoke', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: id, visitor_id: vid })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.ok) {
-        showToast(_t('profRevokeSuccess'));
-        closeModals();
-        loadSessions();
-      } else {
-        showToast(_t('profRevokeError'));
-      }
-    })
-    .catch(() => {
+  const vid = _getCookie('visitor_id') || '';
+  fetch('/api/sessions/revoke', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_id: id, visitor_id: vid })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data && data.ok) {
+      showToast(_t('profRevokeSuccess'));
+      closeModals();
+      loadSessions();
+    } else {
       showToast(_t('profRevokeError'));
-    });
-  }
+    }
+  })
+  .catch(() => {
+    showToast(_t('profRevokeError'));
+  });
 }
 
 // ── Logout ───────────────────────────────────────────────────────────────

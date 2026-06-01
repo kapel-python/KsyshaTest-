@@ -13050,19 +13050,32 @@
                 } else {
                   console.warn('[auth] Token check returned invalid');
                   console.log(`[auth-debug:${authDebugId}] checkData.ok is false, shouldConsumeToken remains false`);
-                  tokenValidationFailed = true;
-                  tokenValidationErrorMsg = 'token_invalid';
+                  if (hasValidSession) {
+                    console.log(`[auth-debug:${authDebugId}] Ignoring invalid token because user has a valid session`);
+                    tokenValidationFailed = false;
+                  } else {
+                    tokenValidationFailed = true;
+                    tokenValidationErrorMsg = 'token_invalid';
+                  }
                 }
               } else {
                 console.error('[auth] Token check HTTP error', checkResp.status);
-                tokenValidationFailed = true;
-                tokenValidationErrorMsg = 'HTTP ' + checkResp.status;
+                if (hasValidSession) {
+                  tokenValidationFailed = false;
+                } else {
+                  tokenValidationFailed = true;
+                  tokenValidationErrorMsg = 'HTTP ' + checkResp.status;
+                }
               }
             } catch(e) {
               console.error('[auth] Failed to check token', e);
               console.log(`[auth-debug:${authDebugId}] Caught exception during token_check, shouldConsumeToken remains false`);
-              tokenValidationFailed = true;
-              tokenValidationErrorMsg = e.message || 'token_invalid';
+              if (hasValidSession) {
+                tokenValidationFailed = false;
+              } else {
+                tokenValidationFailed = true;
+                tokenValidationErrorMsg = e.message || 'token_invalid';
+              }
             }
           } else {
             console.log(`[auth-debug:${authDebugId}] Missing cookies (entered logged out branch), setting shouldConsumeToken = true`);
@@ -13100,15 +13113,23 @@
               } else {
                 console.log(`[auth-debug:${authDebugId}] token_auth returned ok=false`);
                 debugState.token_auth_result = 'failed';
-                tokenValidationFailed = true;
-                tokenValidationErrorMsg = 'token_invalid';
+                if (hasValidSession) {
+                  tokenValidationFailed = false;
+                } else {
+                  tokenValidationFailed = true;
+                  tokenValidationErrorMsg = 'token_invalid';
+                }
               }
             } catch (e) {
               console.warn('[auth] Не удалось войти по токену:', e);
               console.log(`[auth-debug:${authDebugId}] Exception during token_auth`);
               debugState.token_auth_result = 'exception';
-              tokenValidationFailed = true;
-              tokenValidationErrorMsg = e.message || 'token_invalid';
+              if (hasValidSession) {
+                tokenValidationFailed = false;
+              } else {
+                tokenValidationFailed = true;
+                tokenValidationErrorMsg = e.message || 'token_invalid';
+              }
             }
           }
 

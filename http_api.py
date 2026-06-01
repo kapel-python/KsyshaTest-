@@ -1759,6 +1759,7 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
     mem_start = (page - 1) * limit
     evt_limit = max(10, min(40, limit // 2 or 10))
     bootstrap_payload = {
+        "ok": True,
         "creator_id": data.get("creator_id"),
         "ksusha_id": data.get("ksusha_id"),
         "partner_id": data.get("partner_id"),

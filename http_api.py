@@ -2394,7 +2394,7 @@ async def ai_companion(request: web.Request) -> web.Response:
         cleaned = []
         if not isinstance(raw_history, list):
             return cleaned
-        for item in raw_history[-12:]:
+        for item in raw_history[-100:]:
             if not isinstance(item, dict):
                 continue
             role = (item.get("role") or "").strip()
@@ -2731,7 +2731,7 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
         cleaned = []
         if not isinstance(raw_history, list):
             return cleaned
-        for item in raw_history[-12:]:
+        for item in raw_history[-100:]:
             if not isinstance(item, dict):
                 continue
             role = (item.get("role") or "").strip()

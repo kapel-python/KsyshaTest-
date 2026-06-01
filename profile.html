@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Профиль</title>
+<meta name="description" content="Страница профиля и настроек аккаунта">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<script>
+(function() {
+  try {
+    var theme = localStorage.getItem('memories_theme');
+    if (!theme && typeof window.matchMedia === 'function') {
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    if (theme === 'dark') document.documentElement.classList.add('theme-dark');
+    document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
+    window.__initialTheme = theme === 'dark' ? 'dark' : 'light';
+  } catch(e) {}
+})();
+</script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --pink:      #d43f8d;
+    --violet:    #7c3aed;
+    --indigo:    #4158d0;
+    --bg:        #f4f3f1;
+    --surface:   #ffffff;
+    --surface-2: #faf9f8;
+    --border:    rgba(0,0,0,0.07);
+    --text:      #1a1a1a;
+    --text-2:    #6b6b6b;
+    --text-3:    #9e9e9e;
+    --danger:    #e11d48;
+    --danger-bg: rgba(225,29,72,0.08);
+    --grad:      linear-gradient(135deg, var(--pink), var(--violet), var(--indigo));
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04);
+    --shadow-md: 0 10px 40px rgba(0,0,0,0.12);
+    --r:    22px;
+    --r-sm: 14px;
+    --nav-h: 84px;
+  }
+
+  html.theme-dark {
+    --bg:        #111118;
+    --surface:   #1c1c26;
+    --surface-2: #22222e;
+    --border:    rgba(255,255,255,0.07);
+    --text:      #eeeef4;
+    --text-2:    #9898b0;
+    --text-3:    #5e5e78;
+    --danger-bg: rgba(225,29,72,0.14);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.3), 0 2px 12px rgba(0,0,0,0.2);
+    --shadow-md: 0 10px 40px rgba(0,0,0,0.5);
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px 0 calc(var(--nav-h) + 16px);
+    overflow-y: scroll;
+    transition: background 0.28s, color 0.28s;
+  }
+
+  @media (min-width: 600px) { body { padding-top: 40px; } }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 10px; }
+  html.theme-dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+
+  /* ── SPA screens ── */
+  .screen { display: none; animation: fadeScale 0.25s cubic-bezier(0.16,1,0.3,1) forwards; }
+  .screen.active { display: block; }
+  @keyframes fadeScale {
+    from { opacity:0; transform:translateY(10px) scale(0.99); }
+    to   { opacity:1; transform:translateY(0)   scale(1);    }
+  }
+
+  /* ── Layout ── */
+  .content {
+    padding: 0 16px;
+    max-width: 540px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ── Inner screen header ── */
+  .top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 4px 20px;
+  }
+  .back-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+    transition: 0.15s;
+  }
+  .back-btn:hover { background: var(--surface-2); transform: translateX(-2px); }
+  .screen-title { font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .nav-spacer { width: 36px; }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-sm);
+    padding: 40px 20px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+    margin-bottom: 10px;
+    transition: background 0.28s, border-color 0.28s;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: 50%;
+    transform: translateX(-50%);
+    width: 420px; height: 280px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(212,63,141,0.12) 0%, rgba(76,88,208,0.07) 50%, transparent 80%);
+    pointer-events: none;
+  }
+
+  .avatar-wrap {
+    position: relative;
+    width: 140px; height: 92px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .hero-name-row { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+  .hero-name {
+    font-family: 'Instrument Serif', serif;
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px 3px 7px;
+    border-radius: 50px;
+    background: var(--grad);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .premium-badge::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, rgba(255,255,255,0.18) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .hero-status {
+    font-size: 13.5px;
+    color: var(--text-2);
+    font-weight: 400;
+    margin-bottom: 10px;
+    text-align: center;
+    max-width: 260px;
+    line-height: 1.5;
+  }
+
+  .hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 0;
+  }
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text-3);
+    font-weight: 400;
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 7px; padding: 9px 20px;
+    border-radius: 50px;
+    background: var(--grad);
+    color: #fff; font-size: 13.5px; font-weight: 500;
+    font-family: inherit; border: none; cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    text-decoration: none; white-space: nowrap;
+  }
+  .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 7px; padding: 9px 18px;
+    border-radius: 50px;
+    background: var(--surface-2);
+    color: var(--text); font-size: 13.5px; font-weight: 500;
+    font-family: inherit; border: 1px solid var(--border); cursor: pointer;
+    transition: 0.15s; text-decoration: none; width: 100%;
+  }
+  .btn-secondary:hover { background: var(--bg); }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border: none; }
+  .btn-danger:hover { background: rgba(225,29,72,0.15); }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-3); padding: 6px 4px 4px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: background 0.28s, border-color 0.28s;
+  }
+
+  .card-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 15px 18px; cursor: pointer;
+    transition: background 0.12s; position: relative;
+    min-height: 58px; text-decoration: none;
+    color: inherit; border: none; width: 100%;
+    text-align: left; background: transparent;
+    font-family: inherit;
+  }
+  .card-item:not(:last-child)::after {
+    content: ''; position: absolute;
+    bottom: 0; left: 50px; right: 0;
+    height: 1px; background: var(--border);
+  }
+  .card-item:hover { background: var(--surface-2); }
+  .card-item.static { cursor: default; }
+  .card-item.static:hover { background: transparent; }
+
+  /* Disabled card items */
+  .card-item.disabled {
+    cursor: default;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .item-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .item-icon svg { width: 18px; height: 18px; }
+
+  .icon-violet { background: rgba(124,58,237,0.09); color: var(--violet); }
+  .icon-indigo { background: rgba(65,88,208,0.09);  color: var(--indigo); }
+  .icon-slate  { background: rgba(100,116,139,0.09); color: #64748b; }
+  .icon-amber  { background: rgba(245,158,11,0.09);  color: #d97706; }
+  .icon-blue   { background: rgba(56,189,248,0.09);  color: #0284c7; }
+  .icon-green  { background: rgba(34,197,94,0.09);   color: #16a34a; }
+
+  html.theme-dark .icon-violet { background: rgba(124,58,237,0.18); }
+  html.theme-dark .icon-indigo { background: rgba(65,88,208,0.18);  }
+  html.theme-dark .icon-slate  { background: rgba(100,116,139,0.18); }
+  html.theme-dark .icon-amber  { background: rgba(245,158,11,0.18);  }
+  html.theme-dark .icon-blue   { background: rgba(56,189,248,0.18);  }
+  html.theme-dark .icon-green  { background: rgba(34,197,94,0.18);   }
+
+  .item-body { flex: 1; min-width: 0; }
+  .item-title { font-size: 14.5px; font-weight: 500; color: var(--text); line-height: 1.3; }
+  .item-sub   { font-size: 12px; color: var(--text-3); margin-top: 1px; font-weight: 400;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  .badge-neutral {
+    background: var(--bg); color: var(--text-3);
+    font-size: 11px; font-weight: 500;
+    padding: 2px 8px; border-radius: 50px;
+    border: 1px solid var(--border);
+  }
+  .badge-success {
+    background: rgba(34,197,94,0.1); color: #16a34a;
+    font-size: 11px; font-weight: 500;
+    padding: 2px 8px; border-radius: 50px;
+  }
+  html.theme-dark .badge-success { background: rgba(34,197,94,0.18); color: #4ade80; }
+  .badge-soon {
+    background: rgba(245,158,11,0.1); color: #d97706;
+    font-size: 11px; font-weight: 500;
+    padding: 2px 8px; border-radius: 50px;
+  }
+  html.theme-dark .badge-soon { background: rgba(245,158,11,0.18); color: #fbbf24; }
+
+  .chevron { color: #c8c6c3; flex-shrink: 0; }
+  html.theme-dark .chevron { color: #444458; }
+
+  /* ── Loading skeleton ── */
+  .skel {
+    height: 14px; border-radius: 7px;
+    background: linear-gradient(90deg, var(--border) 25%, var(--surface-2) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  /* ── Modals ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease;
+    padding: 20px;
+  }
+  .modal-overlay.active { opacity: 1; pointer-events: auto; }
+  .modal-card {
+    background: var(--surface);
+    border-radius: 28px; width: 100%; max-width: 340px;
+    padding: 28px 24px 24px;
+    box-shadow: var(--shadow-md);
+    transform: translateY(20px) scale(0.97);
+    transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    border: 1px solid var(--border);
+  }
+  .modal-overlay.active .modal-card { transform: translateY(0) scale(1); }
+  .modal-icon {
+    width: 56px; height: 56px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .modal-icon svg { width: 28px; height: 28px; }
+  .modal-title { font-size: 20px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
+  .modal-desc { font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 24px; }
+  .modal-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+  /* ── Bottom navigation ── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    font-family: 'DM Sans', sans-serif;
+  }
+  .nav-inner {
+    margin: 0 16px 12px;
+    background: rgba(252,248,254,0.88);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    border-radius: 28px;
+    border: 1px solid rgba(124,58,237,0.09);
+    box-shadow: 0 6px 28px rgba(124,58,237,0.09), 0 1px 6px rgba(212,63,141,0.05), inset 0 1px 0 rgba(255,255,255,0.75);
+    padding: 6px 8px;
+    display: flex; align-items: center;
+    transition: background 0.28s, border-color 0.28s;
+  }
+  html.theme-dark .nav-inner {
+    background: rgba(28,28,38,0.92);
+    border-color: rgba(124,58,237,0.15);
+    box-shadow: 0 6px 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px; padding: 9px 4px 8px;
+    border-radius: 22px; cursor: pointer; position: relative;
+    transition: background 0.28s ease, transform 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none; color: #9898b0;
+  }
+  .nav-item:active { transform: scale(0.93); }
+  .nav-item.active {
+    background: linear-gradient(135deg, rgba(212,63,141,0.09), rgba(124,58,237,0.09), rgba(65,88,208,0.09));
+  }
+  .nav-item.active::after {
+    content: ''; position: absolute; inset: 0;
+    border-radius: 22px;
+    background: linear-gradient(135deg, var(--pink), var(--violet), var(--indigo));
+    opacity: 0.06; pointer-events: none;
+  }
+  .nav-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transition: transform 0.28s cubic-bezier(.25,.8,.25,1); }
+  .nav-item.active .nav-icon { transform: translateY(-1px); }
+  .nav-icon svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.28s ease, filter 0.28s ease; }
+  .nav-item.active .nav-icon svg { stroke: var(--violet); filter: drop-shadow(0 0 3px rgba(124,58,237,0.30)); }
+  .nav-label { font-size: 10px; font-weight: 500; color: inherit; letter-spacing: 0.02em; transition: color 0.28s ease; white-space: nowrap; }
+  .nav-item.active .nav-label {
+    background: linear-gradient(135deg, var(--pink), var(--violet), var(--indigo));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 600;
+  }
+  @media (hover: hover) {
+    .nav-item:not(.active):hover { background: rgba(124,58,237,0.05); }
+    .nav-item:not(.active):hover .nav-icon svg { stroke: rgba(124,58,237,0.5); }
+    .nav-item:not(.active):hover .nav-label { color: rgba(124,58,237,0.5); }
+  }
+
+  /* ── Stagger animation ── */
+  .animate-stack > * { animation: fadeUp 0.38s ease both; }
+  .animate-stack > *:nth-child(1) { animation-delay: 0.05s; }
+  .animate-stack > *:nth-child(2) { animation-delay: 0.10s; }
+  .animate-stack > *:nth-child(3) { animation-delay: 0.15s; }
+  .animate-stack > *:nth-child(4) { animation-delay: 0.20s; }
+  .animate-stack > *:nth-child(5) { animation-delay: 0.25s; }
+  .animate-stack > *:nth-child(6) { animation-delay: 0.30s; }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(14px); }
+    to   { opacity:1; transform:translateY(0);    }
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: calc(var(--nav-h) + 12px); left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--surface);
+    font-size: 13px; font-weight: 500;
+    padding: 10px 18px; border-radius: 50px;
+    white-space: nowrap; z-index: 300;
+    opacity: 0; transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Info note ── */
+  .info-note {
+    font-size: 13px; color: var(--text-3);
+    text-align: center; padding: 0 20px;
+    line-height: 1.5;
+  }
+
+  /* ── Spinner (logout) ── */
+  .spinner {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid rgba(225,29,72,0.3);
+    border-top-color: var(--danger);
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ── MAIN SCREEN ── -->
+<div id="screen-main" class="screen active">
+  <div class="content animate-stack">
+
+    <div class="hero" id="heroCard">
+      <div class="avatar-wrap">
+        <svg id="avatarSvg" width="140" height="92" viewBox="0 0 180 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="gLeft" cx="38%" cy="35%" r="65%"><stop offset="0%" stop-color="#e05aaa"/><stop offset="100%" stop-color="#9b38d4"/></radialGradient>
+            <radialGradient id="gRight" cx="62%" cy="35%" r="65%"><stop offset="0%" stop-color="#8b45e0"/><stop offset="100%" stop-color="#4158d0"/></radialGradient>
+            <clipPath id="cutLeft"><rect x="0" y="0" width="90" height="120"/></clipPath>
+            <clipPath id="cutRight"><rect x="90" y="0" width="90" height="120"/></clipPath>
+            <radialGradient id="gHighlight" cx="50%" cy="20%" r="50%"><stop offset="0%" stop-color="rgba(255,255,255,0.22)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/></radialGradient>
+            <mask id="maskMerged"><path d="M 62 10 A 46 46 0 0 0 62 102 L 118 102 A 46 46 0 0 0 118 10 Z" fill="white"/></mask>
+            <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="rgba(100,40,180,0.22)"/></filter>
+          </defs>
+          <g filter="url(#shadow)"><path d="M 62 10 A 46 46 0 0 0 62 102 L 118 102 A 46 46 0 0 0 118 10 Z" fill="#9b38d4" opacity="0.01"/></g>
+          <circle cx="62"  cy="56" r="46" fill="url(#gLeft)"  clip-path="url(#cutLeft)"/>
+          <circle cx="118" cy="56" r="46" fill="url(#gRight)" clip-path="url(#cutRight)"/>
+          <rect x="16" y="10" width="148" height="92" rx="46" fill="url(#gHighlight)" mask="url(#maskMerged)"/>
+          <text id="avatarInitialLeft"  x="54"  y="63" font-family="'Instrument Serif', Georgia, serif" font-size="28" fill="rgba(255,255,255,0.95)" text-anchor="middle" dominant-baseline="middle">?</text>
+          <text id="avatarInitialRight" x="126" y="63" font-family="'Instrument Serif', Georgia, serif" font-size="28" fill="rgba(255,255,255,0.82)" text-anchor="middle" dominant-baseline="middle">?</text>
+        </svg>
+      </div>
+      <div class="hero-name-row">
+        <div class="hero-name" id="heroName"><span class="skel" style="width:140px;height:20px"></span></div>
+      </div>
+      <div class="hero-status" id="heroStatus"><span class="skel" style="width:180px"></span></div>
+      <div class="hero-meta">
+        <span class="meta-item" id="heroMeta">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm8-3.5a.75.75 0 01.75.75v3.19l2.28 1.3a.75.75 0 01-.75 1.3L7.5 9.56V5.25A.75.75 0 018 4.5z" fill="currentColor"/></svg>
+          <span class="skel" style="width:100px"></span>
+        </span>
+      </div>
+    </div>
+
+    <div class="section-label" data-i18n="profSecSpace">Пространство</div>
+    <div class="card">
+      <div class="card-item static">
+        <div class="item-icon icon-amber">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M8 1l1.25 3.82H13l-3.09 2.24 1.18 3.63L8 8.45l-3.09 2.24 1.18-3.63L3 4.82h3.75z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/></svg>
+        </div>
+        <div class="item-body">
+          <div class="item-title" data-i18n="profSubscription">Подписка</div>
+          <div class="item-sub" id="subscriptionSub">…</div>
+        </div>
+        <div class="item-right"><span class="badge-neutral" id="subscriptionBadge">…</span></div>
+      </div>
+    </div>
+
+    <div class="section-label" data-i18n="profSecSecurity">Безопасность</div>
+    <div class="card">
+      <button class="card-item" id="btnAccess" onclick="navTo('screen-access')">
+        <div class="item-icon icon-violet">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M8 1L2 3.5v4C2 11.09 4.73 13.9 8 15c3.27-1.1 6-3.91 6-7.5v-4L8 1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 8l2 2 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="item-body">
+          <div class="item-title" data-i18n="profAccessSettings">Настройки доступа</div>
+          <div class="item-sub" id="accessSub">Telegram: …</div>
+        </div>
+        <div class="item-right"><svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </button>
+      <!-- Sessions: disabled until backend support -->
+      <div class="card-item disabled" title="Скоро будет доступно">
+        <div class="item-icon icon-slate">
+          <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="7" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <div class="item-body">
+          <div class="item-title" data-i18n="profSessions">Сессии и устройства</div>
+          <div class="item-sub" data-i18n="profSessionsSub">Управление активными сессиями</div>
+        </div>
+        <div class="item-right"><span class="badge-soon" data-i18n="profSoon">Скоро</span></div>
+      </div>
+    </div>
+
+    <div class="section-label" data-i18n="profSecData">Данные</div>
+    <div class="card">
+      <!-- Export: disabled until backend support -->
+      <div class="card-item disabled" title="Скоро будет доступно">
+        <div class="item-icon icon-indigo">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <div class="item-body">
+          <div class="item-title" data-i18n="profExport">Экспорт данных</div>
+          <div class="item-sub" data-i18n="profExportSub">Скачать архив аккаунта</div>
+        </div>
+        <div class="item-right"><span class="badge-soon" data-i18n="profSoon">Скоро</span></div>
+      </div>
+      <button class="card-item" id="btnLogout" onclick="openModal('modal-logout')">
+        <div class="item-icon icon-slate">
+          <svg viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="item-body">
+          <div class="item-title" style="color:var(--danger);" data-i18n="profLogout">Выйти из аккаунта</div>
+          <div class="item-sub" data-i18n="profLogoutSub">Завершить текущую сессию</div>
+        </div>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── ACCESS SCREEN ── -->
+<div id="screen-access" class="screen">
+  <div class="content animate-stack">
+    <div class="top-nav">
+      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+      <div class="screen-title" data-i18n="profAccessSettings">Настройки доступа</div>
+      <div class="nav-spacer"></div>
+    </div>
+
+    <div class="section-label" data-i18n="profLinkedAccounts">Связанные аккаунты</div>
+    <div class="card">
+      <div class="card-item static">
+        <div class="item-icon icon-blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        </div>
+        <div class="item-body">
+          <div class="item-title">Telegram</div>
+          <div class="item-sub" id="telegramUsername">@…</div>
+        </div>
+        <div class="item-right"><span class="badge-success" data-i18n="profConnected">Подключен</span></div>
+      </div>
+      <!-- Unlink disabled: requires backend session invalidation logic -->
+      <div style="padding: 16px; border-top: 1px solid var(--border);">
+        <button class="btn-secondary" disabled style="opacity:0.45;cursor:not-allowed;" title="Скоро будет доступно" data-i18n="profUnlink">Отвязать аккаунт</button>
+      </div>
+    </div>
+    <p class="info-note" data-i18n="profUnlinkNote">
+      Вход на сайт осуществляется через привязанный аккаунт Telegram. Управление связкой доступно в боте.
+    </p>
+  </div>
+</div>
+
+<!-- ── LOGOUT MODAL ── -->
+<div id="modal-logout" class="modal-overlay" onclick="closeModals(event)">
+  <div class="modal-card">
+    <div class="modal-icon" style="background:var(--danger-bg);color:var(--danger);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    </div>
+    <div class="modal-title" data-i18n="profLogoutTitle">Выход из аккаунта</div>
+    <div class="modal-desc" data-i18n="profLogoutConfirm">Вы уверены, что хотите завершить текущую сессию?</div>
+    <div class="modal-actions">
+      <button class="btn-secondary btn-danger" id="btnConfirmLogout" onclick="doLogout()">
+        <span class="spinner" id="logoutSpinner"></span>
+        <span id="logoutBtnText" data-i18n="profLogoutConfirmBtn">Да, выйти</span>
+      </button>
+      <button class="btn-secondary" onclick="closeModals()" data-i18n="profCancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toastEl"></div>
+
+<!-- ── BOTTOM NAVIGATION ── -->
+<nav class="bottom-nav" role="navigation" aria-label="Главное меню">
+  <div class="nav-inner">
+    <div class="nav-item" data-tab="home" role="button" tabindex="0" aria-label="Главная" onclick="window.location.href='/'">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+      </div>
+      <span class="nav-label" data-i18n="navHome">Главная</span>
+    </div>
+    <div class="nav-item" data-tab="stats" role="button" tabindex="0" aria-label="Статистика" onclick="goToStats()">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6"  y1="20" x2="6"  y2="14"/></svg>
+      </div>
+      <span class="nav-label" data-i18n="navStats">Статистика</span>
+    </div>
+    <div class="nav-item active" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" aria-current="page">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <span class="nav-label" data-i18n="navProfile">Профиль</span>
+    </div>
+  </div>
+</nav>
+
+<script>
+'use strict';
+
+// ── i18n ──────────────────────────────────────────────────────────────────
+const PROF_I18N = {
+  ru: {
+    navHome: 'Главная', navStats: 'Статистика', navProfile: 'Профиль',
+    profSecSpace: 'Пространство', profSecSecurity: 'Безопасность', profSecData: 'Данные',
+    profSubscription: 'Подписка', profAccessSettings: 'Настройки доступа',
+    profSessions: 'Сессии и устройства', profSessionsSub: 'Управление активными сессиями',
+    profExport: 'Экспорт данных', profExportSub: 'Скачать архив аккаунта',
+    profLogout: 'Выйти из аккаунта', profLogoutSub: 'Завершить текущую сессию',
+    profLogoutTitle: 'Выход из аккаунта', profLogoutConfirm: 'Вы уверены, что хотите завершить текущую сессию?',
+    profLogoutConfirmBtn: 'Да, выйти', profCancel: 'Отмена',
+    profLinkedAccounts: 'Связанные аккаунты', profConnected: 'Подключен',
+    profUnlink: 'Отвязать аккаунт',
+    profUnlinkNote: 'Вход на сайт осуществляется через привязанный аккаунт Telegram. Управление связкой доступно в боте.',
+    profSoon: 'Скоро',
+    profSincePrefix: 'С нами с',
+    profSubFree: 'Бесплатный план',
+    profSubPremium: 'Premium',
+    profLogoutError: 'Ошибка при выходе. Попробуйте ещё раз.',
+    profRole_creator: 'Создатель',
+    profRole_partner: 'Партнёр',
+  },
+  en: {
+    navHome: 'Home', navStats: 'Stats', navProfile: 'Profile',
+    profSecSpace: 'Workspace', profSecSecurity: 'Security', profSecData: 'Data',
+    profSubscription: 'Subscription', profAccessSettings: 'Access Settings',
+    profSessions: 'Sessions & Devices', profSessionsSub: 'Manage active sessions',
+    profExport: 'Export Data', profExportSub: 'Download account archive',
+    profLogout: 'Sign Out', profLogoutSub: 'End current session',
+    profLogoutTitle: 'Sign Out', profLogoutConfirm: 'Are you sure you want to end the current session?',
+    profLogoutConfirmBtn: 'Yes, sign out', profCancel: 'Cancel',
+    profLinkedAccounts: 'Linked Accounts', profConnected: 'Connected',
+    profUnlink: 'Unlink Account',
+    profUnlinkNote: 'Login is done via linked Telegram account. Account linking is managed in the bot.',
+    profSoon: 'Soon',
+    profSincePrefix: 'With us since',
+    profSubFree: 'Free Plan',
+    profSubPremium: 'Premium',
+    profLogoutError: 'Logout failed. Please try again.',
+    profRole_creator: 'Creator',
+    profRole_partner: 'Partner',
+  },
+  de: {
+    navHome: 'Startseite', navStats: 'Statistiken', navProfile: 'Profil',
+    profSecSpace: 'Arbeitsbereich', profSecSecurity: 'Sicherheit', profSecData: 'Daten',
+    profSubscription: 'Abonnement', profAccessSettings: 'Zugriffseinstellungen',
+    profSessions: 'Sitzungen & Geräte', profSessionsSub: 'Aktive Sitzungen verwalten',
+    profExport: 'Daten exportieren', profExportSub: 'Archiv herunterladen',
+    profLogout: 'Abmelden', profLogoutSub: 'Aktuelle Sitzung beenden',
+    profLogoutTitle: 'Abmelden', profLogoutConfirm: 'Möchten Sie sich wirklich abmelden?',
+    profLogoutConfirmBtn: 'Ja, abmelden', profCancel: 'Abbrechen',
+    profLinkedAccounts: 'Verknüpfte Konten', profConnected: 'Verbunden',
+    profUnlink: 'Konto trennen',
+    profUnlinkNote: 'Der Login erfolgt über das verknüpfte Telegram-Konto. Die Verwaltung erfolgt im Bot.',
+    profSoon: 'Bald',
+    profSincePrefix: 'Dabei seit',
+    profSubFree: 'Kostenloser Plan',
+    profSubPremium: 'Premium',
+    profLogoutError: 'Fehler beim Abmelden. Bitte erneut versuchen.',
+    profRole_creator: 'Ersteller',
+    profRole_partner: 'Partner',
+  },
+};
+
+function _getLang() {
+  return localStorage.getItem('memories_lang') || 'ru';
+}
+function _t(key) {
+  const lang = _getLang();
+  return (PROF_I18N[lang] || PROF_I18N.ru)[key] || (PROF_I18N.ru[key] || key);
+}
+function _applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = _t(key);
+    if (val) el.textContent = val;
+  });
+  document.documentElement.lang = _getLang() === 'de' ? 'de' : (_getLang() === 'en' ? 'en' : 'ru');
+  document.title = _t('navProfile');
+}
+
+// ── Cookie helpers ──────────────────────────────────────────────────────
+function _getCookie(name) {
+  const m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+// ── SPA navigation ──────────────────────────────────────────────────────
+function navTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Modal helpers ───────────────────────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id).classList.add('active');
+}
+function closeModals(event) {
+  if (!event) {
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    return;
+  }
+  if (event.target.classList.contains('modal-overlay')) {
+    event.target.classList.remove('active');
+  }
+}
+
+// ── Toast ───────────────────────────────────────────────────────────────
+function showToast(msg, ms) {
+  const el = document.getElementById('toastEl');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), ms || 2800);
+}
+
+// ── Keyboard nav ─────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.click(); }
+  });
+});
+
+// ── Navigate to Stats ────────────────────────────────────────────────────
+function goToStats() {
+  const v = _getCookie('visitor_id') || '';
+  const lang = _getLang();
+  window.location.href = '/stats?v=' + encodeURIComponent(v) + '&lang=' + encodeURIComponent(lang);
+}
+
+// ── Month formatting ─────────────────────────────────────────────────────
+function _formatDateMet(isoStr) {
+  if (!isoStr) return '';
+  const lang = _getLang();
+  const d = new Date(isoStr + 'T00:00:00Z');
+  const months = {
+    ru: ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'],
+    en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    de: ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+  };
+  const m = (months[lang] || months.ru)[d.getUTCMonth()];
+  return _t('profSincePrefix') + ' ' + m + ' ' + d.getUTCFullYear();
+}
+
+// ── Get initials ─────────────────────────────────────────────────────────
+function _initial(name) {
+  if (!name) return '?';
+  return name.trim().charAt(0).toUpperCase();
+}
+
+// ── Populate UI from bootstrap data ─────────────────────────────────────
+function _populateProfile(data) {
+  const vid = _getCookie('visitor_id');
+  const isCreator = vid && String(data.creator_id) === vid;
+  const isPartner = vid && String(data.partner_id) === vid;
+
+  const users = data.users || {};
+  const creator = users.creator || {};
+  const partner = users.ksyusha || users.partner || {};
+
+  const myInfo     = isCreator ? creator : (isPartner ? partner : creator);
+  const otherInfo  = isCreator ? partner : (isPartner ? creator : partner);
+
+  const myName    = myInfo.display    || myInfo.first_name    || '—';
+  const otherName = otherInfo.display || otherInfo.first_name || '—';
+  const myUN      = myInfo.username ? '@' + myInfo.username : '';
+
+  // Avatar initials
+  document.getElementById('avatarInitialLeft').textContent  = _initial(myName);
+  document.getElementById('avatarInitialRight').textContent = _initial(otherName);
+
+  // Hero name
+  const heroNameEl = document.getElementById('heroName');
+  heroNameEl.textContent = myName + ' & ' + otherName;
+
+  // Role label as status
+  const roleKey = isCreator ? 'profRole_creator' : (isPartner ? 'profRole_partner' : '');
+  const heroStatusEl = document.getElementById('heroStatus');
+  heroStatusEl.textContent = roleKey ? _t(roleKey) : '';
+
+  // Since date
+  const heroMetaEl = document.getElementById('heroMeta');
+  const sinceText = _formatDateMet(data.date_met);
+  heroMetaEl.innerHTML = sinceText
+    ? `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm8-3.5a.75.75 0 01.75.75v3.19l2.28 1.3a.75.75 0 01-.75 1.3L7.5 9.56V5.25A.75.75 0 018 4.5z" fill="currentColor"/></svg>${sinceText}`
+    : '';
+
+  // Subscription: show role as plan (real subscription data not in API yet)
+  const isAdmin = data.is_open !== undefined;
+  const subBadge = document.getElementById('subscriptionBadge');
+  const subSub   = document.getElementById('subscriptionSub');
+  if (isCreator) {
+    subBadge.textContent = _t('profSubPremium');
+    subBadge.className = 'premium-badge';
+    subBadge.style.fontSize = '10.5px';
+    subSub.textContent = _t('profSubPremium');
+  } else {
+    subBadge.textContent = _t('profSubFree');
+    subSub.textContent = _t('profSubFree');
+  }
+
+  // Access screen: Telegram username
+  const tgEl = document.getElementById('telegramUsername');
+  tgEl.textContent = myUN || (myInfo.first_name || '—');
+
+  // Access button subtitle
+  const accessSubEl = document.getElementById('accessSub');
+  accessSubEl.textContent = myUN ? 'Telegram: ' + myUN : 'Telegram';
+}
+
+// ── Auth guard (client-side, belt-and-suspenders) ─────────────────────
+function _checkAuthAndLoad() {
+  const vid = _getCookie('visitor_id');
+  const sig = _getCookie('visitor_sig');
+
+  // If no session cookies at all — go home (server is the real guard)
+  if (!vid || !sig) {
+    window.location.replace('/');
+    return;
+  }
+
+  // Fetch bootstrap data (server validates signature — real auth gate)
+  fetch('/api/site_bootstrap?v=' + encodeURIComponent(vid), {
+    credentials: 'include',
+  })
+  .then(r => {
+    if (r.status === 403 || r.status === 401) {
+      window.location.replace('/');
+      return null;
+    }
+    return r.json();
+  })
+  .then(data => {
+    if (!data) return;
+    if (!data.ok) {
+      window.location.replace('/');
+      return;
+    }
+    _populateProfile(data);
+  })
+  .catch(() => {
+    // Network error: don't redirect, show what we can
+  });
+}
+
+// ── Logout ───────────────────────────────────────────────────────────────
+async function doLogout() {
+  const btn      = document.getElementById('btnConfirmLogout');
+  const spinner  = document.getElementById('logoutSpinner');
+  const btnText  = document.getElementById('logoutBtnText');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.style.opacity = '0.6';
+
+  try {
+    const r = await fetch('/api/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (r.ok || r.status === 200) {
+      window.location.replace('/');
+    } else {
+      throw new Error('server_error');
+    }
+  } catch(e) {
+    spinner.style.display = 'none';
+    btnText.style.opacity = '1';
+    btn.disabled = false;
+    closeModals();
+    showToast(_t('profLogoutError'));
+  }
+}
+
+// ── Init ────────────────────────────────────────────────────────────────
+(function init() {
+  _applyI18n();
+  _checkAuthAndLoad();
+})();
+</script>
+
+</body>
+</html>

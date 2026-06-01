@@ -5069,6 +5069,52 @@ async def not_found_page(request: web.Request) -> web.Response:
     return web.Response(text=html, content_type="text/html", charset="utf-8", status=200)
 
 
+async def profile_page(request: web.Request) -> web.Response:
+    """Отдаёт страницу профиля (/profile).
+
+    Защита: требует валидных cookie visitor_id + visitor_sig.
+    Без авторизации — редирект на главную страницу.
+    """
+    visitor_id = _get_trusted_visitor_id(request, payload=None, allow_header_fallback=False)
+    if not visitor_id:
+        raise web.HTTPFound("/")
+
+    project_root = Path(__file__).resolve().parent
+    page_path = project_root / "profile.html"
+    if not page_path.exists():
+        return web.Response(text="profile.html not found", status=404)
+
+    try:
+        html = page_path.read_text(encoding="utf-8")
+    except Exception:
+        logger.exception("Cannot read profile.html")
+        return web.Response(text="cannot read profile.html", status=500)
+
+    return web.Response(text=html, content_type="text/html", charset="utf-8")
+
+
+async def logout(request: web.Request) -> web.Response:
+    """Завершает текущую сессию пользователя, удаляя все авторизационные cookie.
+
+    POST /api/logout
+    Требует валидных cookie visitor_id + visitor_sig (fail-closed).
+    Возвращает: { ok: true } и удаляет 4 cookie.
+    """
+    visitor_id = _get_trusted_visitor_id(request, payload=None, allow_header_fallback=False)
+    if not visitor_id:
+        return _add_cors_headers(
+            web.json_response({"ok": False, "error": "forbidden"}, status=403)
+        )
+
+    logger.info("logout: visitor_id=%r terminated session", visitor_id)
+
+    response = _add_cors_headers(web.json_response({"ok": True}))
+    for name in ("visitor_id", "visitor_sig", "ai_session", "admin_session"):
+        response.del_cookie(name, path="/")
+
+    return response
+
+
 def _stats_loader_html() -> str:
 
     """HTML-страница загрузки /stats: анимация и редирект с определением tz и visitor_id."""
@@ -7645,6 +7691,9 @@ def create_app() -> web.Application:
     app.router.add_get("/admin", admin_page)
     app.router.add_get("/sky", sky_page)
     app.router.add_get("/api/sky_cfg", api_sky_cfg)
+    app.router.add_get("/profile", profile_page)
+    app.router.add_route("OPTIONS", "/api/logout", handle_options)
+    app.router.add_post("/api/logout", logout)
 
     app.router.add_get("/ws/maintenance", ws_maintenance)
     app.router.add_get("/ws/site", ws_site)

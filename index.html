@@ -8238,6 +8238,10 @@
         window.location.href = '/stats?v=' + encodeURIComponent(v) + '&lang=' + encodeURIComponent(lang);
       }
 
+      function openProfilePage() {
+        window.location.href = '/profile';
+      }
+
       // ── Sky card: canvas preview + погода ───────────────────────────
       (function() {
         // Смещения — могут быть обновлены через window._skyPreviewUpdate(cfg)
@@ -16446,7 +16450,7 @@
         </div>
         <span class="nav-label" data-i18n="navStats">Статистика</span>
       </div>
-      <div class="nav-item" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" onclick="openSettingsModal()">
+      <div class="nav-item" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" onclick="openProfilePage()">
         <div class="nav-icon">
           <svg viewBox="0 0 24 24">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>

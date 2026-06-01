@@ -5055,7 +5055,16 @@ async def index(request: web.Request) -> web.StreamResponse:
     # Не пробрасываем серверный API-ключ в клиентский HTML.
     html = html.replace("{{API_SECRET_KEY}}", "")
 
-    return web.Response(text=html, content_type="text/html", charset="utf-8")
+    return web.Response(
+        text=html,
+        content_type="text/html",
+        charset="utf-8",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
 
 
 async def not_found_page(request: web.Request) -> web.Response:
@@ -5080,6 +5089,7 @@ async def profile_page(request: web.Request) -> web.Response:
     """
     visitor_id = (request.cookies.get("visitor_id") or "").strip()
     if not visitor_id:
+        logger.warning(f"SERVER REDIRECT: profile_page missing visitor_id cookie! Headers: {request.headers}")
         raise web.HTTPFound("/")
 
     project_root = Path(__file__).resolve().parent
@@ -5093,7 +5103,16 @@ async def profile_page(request: web.Request) -> web.Response:
         logger.exception("Cannot read profile.html")
         return web.Response(text="cannot read profile.html", status=500)
 
-    return web.Response(text=html, content_type="text/html", charset="utf-8")
+    return web.Response(
+        text=html,
+        content_type="text/html",
+        charset="utf-8",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
 
 
 async def logout(request: web.Request) -> web.Response:

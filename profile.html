@@ -1111,7 +1111,7 @@ function renderActiveSessions(sessions) {
               </div>
               <div class="item-body">
                 <div class="item-title">${s.ua_pretty || _t('profUnknownDevice')}</div>
-                <div class="item-sub">${s.browser || '—'} • ${geo}</div>
+                <div class="item-sub">${geo} • ${s.ip_server || s.ip_webrtc || s.ip || '—'}</div>
               </div>
               <div class="item-right">
                 <span style="font-size: 11.2px; color: var(--text-3); font-weight: 400;">${timeStr}</span>

@@ -567,7 +567,7 @@
         </div>
         <div class="item-right"><svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       </button>
-      <button class="card-item" id="btnSessions" onclick="navTo('screen-sessions'); loadSessions();">
+      <button class="card-item" id="btnSessions" onclick="navTo('screen-sessions')">
         <div class="item-icon icon-slate">
           <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="7" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
         </div>
@@ -868,7 +868,15 @@ function _applyI18n() {
     if (val) el.textContent = val;
   });
   document.documentElement.lang = _getLang() === 'de' ? 'de' : (_getLang() === 'en' ? 'en' : 'ru');
-  document.title = _t('navProfile');
+  
+  const hash = location.hash.replace('#', '');
+  if (hash === 'access') {
+    document.title = '#access';
+  } else if (hash === 'sessions' || hash === 'session') {
+    document.title = '#session';
+  } else {
+    document.title = _t('navProfile');
+  }
 }
 
 // ── Cookie helpers ──────────────────────────────────────────────────────
@@ -878,11 +886,45 @@ function _getCookie(name) {
 }
 
 // ── SPA navigation ──────────────────────────────────────────────────────
-function navTo(screenId) {
+function navTo(screenId, updateHash = true) {
+  if (updateHash) {
+    let hash = '';
+    if (screenId === 'screen-access') hash = '#access';
+    else if (screenId === 'screen-sessions') hash = '#session';
+    location.hash = hash;
+    return;
+  }
+
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(screenId).classList.add('active');
+  const targetScreen = document.getElementById(screenId);
+  if (targetScreen) {
+    targetScreen.classList.add('active');
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  const hash = location.hash.replace('#', '');
+  if (hash === 'access') {
+    document.title = '#access';
+  } else if (hash === 'sessions' || hash === 'session') {
+    document.title = '#session';
+  } else {
+    document.title = _t('navProfile');
+  }
 }
+
+function handleHashChange() {
+  const hash = location.hash.replace('#', '');
+  if (hash === 'access') {
+    navTo('screen-access', false);
+  } else if (hash === 'sessions' || hash === 'session') {
+    navTo('screen-sessions', false);
+    loadSessions();
+  } else {
+    navTo('screen-main', false);
+  }
+}
+
+window.addEventListener('hashchange', handleHashChange);
 
 // ── Modal helpers ───────────────────────────────────────────────────────
 function openModal(id) {
@@ -1228,6 +1270,7 @@ async function doLogout() {
 (function init() {
   _applyI18n();
   _checkAuthAndLoad();
+  handleHashChange();
 })();
 </script>
 

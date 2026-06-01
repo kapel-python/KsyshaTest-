@@ -877,7 +877,7 @@ function _checkAuthAndLoad() {
   const vid = _getCookie('visitor_id');
 
   if (!vid) {
-    document.body.innerHTML = '<div style="color:red;padding:20px;font-size:20px;background:white">DEBUG: no vid. Cookies: ' + document.cookie + '</div>';
+    window.location.replace('/');
     return;
   }
 
@@ -886,17 +886,14 @@ function _checkAuthAndLoad() {
   })
   .then(r => {
     if (r.status === 403 || r.status === 401) {
-      document.body.innerHTML = '<div style="color:red;padding:20px;font-size:20px;background:white">DEBUG: fetch returned ' + r.status + '</div>';
+      window.location.replace('/');
       return null;
     }
     return r.json();
   })
   .then(data => {
     if (!data || typeof data !== 'object' || data.error) {
-      const el = document.createElement('div');
-      el.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:red;color:white;z-index:99999;padding:20px;font-size:24px;word-wrap:break-word;';
-      el.textContent = 'DEBUG DATA: ' + JSON.stringify(data);
-      document.body.appendChild(el);
+      window.location.replace('/');
       return;
     }
     _populateProfile(data);

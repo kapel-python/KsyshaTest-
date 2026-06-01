@@ -281,6 +281,33 @@ class BotActivityMiddleware(BaseMiddleware):
             except Exception as e:
                 logger.debug("Не удалось обновить last_active user_id=%s: %s", user_id, e)
 
+            if isinstance(event, Update):
+                message_or_call = event.message or getattr(event, 'callback_query', None)
+                if message_or_call and getattr(message_or_call, "data", "") != "rebound_create_new":
+                    rebound_info = db.get_rebound_account(user_id)
+                    if rebound_info:
+                        new_user_id = rebound_info["user_id"]
+                        new_first_name = rebound_info.get("first_name") or "нового аккаунта"
+                        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                        from aiogram.enums import ParseMode
+                        import html
+                        
+                        safe_name = html.escape(new_first_name)
+                        text = (
+                            f"🔐 Этот аккаунт перепривязан к <a href='tg://user?id={new_user_id}'>{safe_name}</a>. "
+                            f"Хочешь создать новый аккаунт?"
+                        )
+                        kb = InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="🫪 Создать", callback_data="rebound_create_new")]
+                        ])
+                        
+                        if event.message:
+                            await event.message.answer(text, reply_markup=kb, parse_mode=ParseMode.HTML)
+                        elif event.callback_query:
+                            await event.callback_query.message.answer(text, reply_markup=kb, parse_mode=ParseMode.HTML)
+                            await event.callback_query.answer()
+                        return
+
         # Жесткий gate: если пользователь не авторизован, блокируем любой доступ
         # к функционалу кроме /start (вход/привязка пары).
         if isinstance(event, Update):
@@ -9393,4 +9420,35 @@ async def unlink_final(callback: CallbackQuery):
         [InlineKeyboardButton(text="🔗 Ссылка для нового аккаунта", url=bot_link)]
     ])
     await callback.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data == "rebound_create_new")
+async def rebound_create_new(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    db.clear_rebound_status(user_id)
+    
+    first_name = callback.from_user.first_name or "друг"
+    skip_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Пропустить", callback_data="onboarding_skip_name")]
+    ])
+    
+    try:
+        db.add_or_update_user(
+            user_id,
+            callback.from_user.username,
+            callback.from_user.first_name,
+            callback.from_user.last_name,
+        )
+        await state.update_data(creating_couple=True)
+        await state.set_state(CoupleOnboardingStates.waiting_for_name)
+    except Exception as e:
+        logger.error("Error clearing rebound and starting onboarding: %s", e)
+        
+    await callback.message.edit_text(
+        f"👋 Привет, <b>{first_name}</b>!\n\n"
+        "❤️ Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
+        "Для начала — как тебя зовут?",
+        reply_markup=skip_kb,
+        parse_mode=ParseMode.HTML,
+    )
     await callback.answer()

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.172'
-description = 'Визуальное улучшение шагов смены аккаунта'
+version = '1.0.173'
+description = 'Сообщение "этот аккаунт уже привязан к другому пользователю"'
 
 
 def get_version_metadata() -> tuple[str, str]:

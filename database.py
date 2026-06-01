@@ -5438,6 +5438,38 @@ class Database:
             logger.exception("Ошибка get_unlink_request_by_transfer_code: %s", e)
             return None
 
+    def get_rebound_account(self, old_user_id: int) -> Optional[dict]:
+        """Проверяет, был ли этот аккаунт перепривязан, и возвращает данные нового аккаунта."""
+        try:
+            with self._get_connection() as conn:
+                query = '''
+                    SELECT u.user_id, u.first_name 
+                    FROM unlink_requests ur
+                    JOIN invite_codes i ON ur.transfer_invite_code = i.code
+                    JOIN users u ON i.used_by = u.user_id
+                    WHERE ur.user_id = ? AND i.used = 1
+                    ORDER BY ur.created_at DESC LIMIT 1
+                '''
+                row = conn.execute(query, (old_user_id,)).fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.exception("Ошибка get_rebound_account: %s", e)
+            return None
+
+    def clear_rebound_status(self, old_user_id: int) -> bool:
+        """Скрывает старую запись о переносе, чтобы пользователь мог начать с чистого листа."""
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "UPDATE unlink_requests SET user_id = -abs(user_id) WHERE user_id = ?",
+                    (old_user_id,)
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("Ошибка clear_rebound_status: %s", e)
+            return False
+
     def set_unlink_status(self, token: str, status: str, transfer_invite_code: str = None) -> bool:
         from datetime import datetime, timezone
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")

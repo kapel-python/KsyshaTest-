@@ -627,10 +627,10 @@
           <div class="item-title">Telegram</div>
           <div class="item-sub" id="telegramUsername">@…</div>
         </div>
-        <div class="item-right"><span class="badge-success" data-i18n="profConnected">Подключен</span></div>
+        <div class="item-right"><span class="badge-success" id="telegramStatus" data-i18n="profConnected">Подключен</span></div>
       </div>
       <!-- Unlink account action -->
-      <div style="padding: 16px; border-top: 1px solid var(--border);">
+      <div id="unlinkActionContainer" style="padding: 16px; border-top: 1px solid var(--border);">
         <button class="btn-secondary" onclick="startUnlink()" data-i18n="profUnlink">Отвязать аккаунт</button>
       </div>
     </div>
@@ -1081,10 +1081,9 @@ function _populateProfile(data) {
   const heroNameEl = document.getElementById('heroName');
   heroNameEl.textContent = myName;
 
-  // Role label as status
-  const roleKey = isCreator ? 'profRole_creator' : (isPartner ? 'profRole_partner' : '');
+  // Profile description instead of fallbacks
   const heroStatusEl = document.getElementById('heroStatus');
-  heroStatusEl.textContent = roleKey ? _t(roleKey) : '';
+  heroStatusEl.textContent = myInfo.description || '';
 
   // Since date
   const heroMetaEl = document.getElementById('heroMeta');
@@ -1107,13 +1106,45 @@ function _populateProfile(data) {
     subSub.textContent = _t('profSubFree');
   }
 
-  // Access screen: Telegram username
+  // Access screen & Telegram status
   const tgEl = document.getElementById('telegramUsername');
-  tgEl.textContent = myUN || (myInfo.first_name || '—');
+  const tgStatusBadge = document.getElementById('telegramStatus');
+  const unlinkContainer = document.getElementById('unlinkActionContainer');
+  const myUserId = myInfo.user_id;
+  const isUnlinked = !myUserId || myUserId < 0;
 
-  // Access button subtitle
-  const accessSubEl = document.getElementById('accessSub');
-  accessSubEl.textContent = myUN ? 'Telegram: ' + myUN : 'Telegram';
+  if (isUnlinked) {
+    if (tgStatusBadge) {
+      tgStatusBadge.textContent = 'Отвязано';
+      tgStatusBadge.className = 'badge-neutral';
+    }
+    if (tgEl) {
+      tgEl.style.display = 'none';
+    }
+    if (unlinkContainer) {
+      unlinkContainer.style.display = 'none';
+    }
+    const accessSubEl = document.getElementById('accessSub');
+    if (accessSubEl) {
+      accessSubEl.textContent = 'Telegram: Отвязано';
+    }
+  } else {
+    if (tgStatusBadge) {
+      tgStatusBadge.textContent = 'Подключен';
+      tgStatusBadge.className = 'badge-success';
+    }
+    if (tgEl) {
+      tgEl.style.display = '';
+      tgEl.textContent = myUN || (myInfo.first_name || '—');
+    }
+    if (unlinkContainer) {
+      unlinkContainer.style.display = '';
+    }
+    const accessSubEl = document.getElementById('accessSub');
+    if (accessSubEl) {
+      accessSubEl.textContent = myUN ? 'Telegram: ' + myUN : 'Telegram';
+    }
+  }
 }
 
 // ── Auth guard (client-side, belt-and-suspenders) ─────────────────────
@@ -1335,7 +1366,7 @@ async function startUnlink() {
       try {
         const msg = JSON.parse(e.data);
         if (msg.status === 'awaiting_final') showUnlinkState('awaiting-final');
-        else if (msg.status === 'confirmed') window.location.replace('/404');
+        else if (msg.status === 'confirmed') showUnlinkState('confirmed', msg.bot_link);
         else if (msg.status === 'denied') window.location.replace('/');
         else if (msg.status === 'expired') window.location.replace('/');
       } catch(err) {}

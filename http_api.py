@@ -2168,6 +2168,8 @@ def _collect_site_data(
     # User display info from DB (first_name, last_name, username)
     creator_user = db.get_user(creator_id) or {} if creator_id else {}
     partner_user  = db.get_user(partner_id)  or {} if partner_id  else {}
+    creator_prof = db.get_user_profile(creator_id) if creator_id else None
+    partner_prof = db.get_user_profile(partner_id) if partner_id else None
 
     def _user_display(u: dict, fallback: str) -> str:
         fn = u.get("first_name") or ""
@@ -2183,6 +2185,7 @@ def _collect_site_data(
             "last_name":  creator_user.get("last_name")  or "",
             "username":   creator_user.get("username")   or "",
             "display":    db.get_display_name(creator_id, "Разработчик"),
+            "description": creator_prof.get("description") if creator_prof else "",
         },
         "ksyusha": {
             "user_id": partner_id,
@@ -2190,6 +2193,7 @@ def _collect_site_data(
             "last_name":  partner_user.get("last_name")  or "",
             "username":   partner_user.get("username")   or "",
             "display":    db.get_display_name(partner_id, "Партнёр"),
+            "description": partner_prof.get("description") if partner_prof else "",
         },
         "partner": {
             "user_id": partner_id,
@@ -2197,6 +2201,7 @@ def _collect_site_data(
             "last_name":  partner_user.get("last_name")  or "",
             "username":   partner_user.get("username")   or "",
             "display":    db.get_display_name(partner_id, "Партнёр"),
+            "description": partner_prof.get("description") if partner_prof else "",
         },
     }
 

@@ -252,11 +252,21 @@ class BotActivityMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict,
     ) -> TypingAny:
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        from aiogram.enums import ParseMode
         user_id = None
         action = ""
 
         if isinstance(event, Update):
-            if event.message and event.message.from_user:
+            if event.callback_query and event.callback_query.from_user:
+                user_id = event.callback_query.from_user.id
+                cb_data = event.callback_query.data or ""
+                action = "нажал кнопку"
+                for prefix, label in BotActivityMiddleware._ACTION_MAP.items():
+                    if cb_data.startswith(prefix) or cb_data == prefix:
+                        action = label
+                        break
+            elif event.message and event.message.from_user:
                 user_id = event.message.from_user.id
                 text = (event.message.text or "").strip()
                 if text.startswith("/"):
@@ -265,14 +275,33 @@ class BotActivityMiddleware(BaseMiddleware):
                     action = "отправил сообщение"
                 else:
                     action = "прислал медиафайл"
-            elif event.callback_query and event.callback_query.from_user:
-                user_id = event.callback_query.from_user.id
-                cb_data = event.callback_query.data or ""
-                action = "нажал кнопку"
-                for prefix, label in BotActivityMiddleware._ACTION_MAP.items():
-                    if cb_data.startswith(prefix) or cb_data == prefix:
-                        action = label
-                        break
+            elif event.edited_message and event.edited_message.from_user:
+                user_id = event.edited_message.from_user.id
+                action = "отредактировал сообщение"
+            elif event.inline_query and event.inline_query.from_user:
+                user_id = event.inline_query.from_user.id
+                action = "использовал инлайн-поиск"
+            elif event.chosen_inline_result and event.chosen_inline_result.from_user:
+                user_id = event.chosen_inline_result.from_user.id
+                action = "выбрал инлайн-результат"
+            elif event.shipping_query and event.shipping_query.from_user:
+                user_id = event.shipping_query.from_user.id
+                action = "оформил доставку"
+            elif event.pre_checkout_query and event.pre_checkout_query.from_user:
+                user_id = event.pre_checkout_query.from_user.id
+                action = "оплачивает"
+            elif event.poll_answer and event.poll_answer.user:
+                user_id = event.poll_answer.user.id
+                action = "ответил в опросе"
+            elif event.my_chat_member and event.my_chat_member.from_user:
+                user_id = event.my_chat_member.from_user.id
+                action = "изменил статус бота"
+            elif event.chat_member and event.chat_member.from_user:
+                user_id = event.chat_member.from_user.id
+                action = "изменил статус в чате"
+            elif event.chat_join_request and event.chat_join_request.from_user:
+                user_id = event.chat_join_request.from_user.id
+                action = "запрос на вступление"
 
         if user_id:
             try:
@@ -1888,8 +1917,7 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
 
     def _status_line(uid):
         try:
-            raw = db.get_bot_last_active(uid) or {}
-            ts = (raw.get("last_active_utc") or "").strip()
+            ts = (db.get_user_last_seen(uid) or "").strip()
             if not ts:
                 return "⚪ давно не заходил(а)"
             ts_dt = datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)

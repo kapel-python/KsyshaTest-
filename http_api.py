@@ -6699,6 +6699,17 @@ async def security_headers_middleware(request: web.Request, handler):
     return response
 
 
+@web.middleware
+async def activity_tracking_middleware(request: web.Request, handler):
+    try:
+        visitor_id = _get_trusted_visitor_id(request)
+        if visitor_id:
+            db.add_or_update_device(visitor_id)
+    except Exception as e:
+        logger.debug("Ошибка обновления активности на сайте: %s", e)
+    return await handler(request)
+
+
 # ─────────────────────────── Error Middleware ─────────────────────────────
 
 @web.middleware
@@ -7897,6 +7908,7 @@ def create_app() -> web.Application:
             security_headers_middleware,
             body_size_middleware,     # ← сначала отклоняем гигантские тела
             rate_limit_middleware,    # ← потом rate limit (не засчитывает 413 в burst)
+            activity_tracking_middleware,
             site_error_middleware,
         ],
         client_max_size=500 * 1024 * 1024,  # 500 MB — для загрузки видео

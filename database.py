@@ -3973,6 +3973,39 @@ class Database:
             logger.exception("Ошибка get_bot_last_active: %s", e)
             return None
 
+    def get_user_last_seen(self, user_id: int) -> Optional[str]:
+        """Возвращает UTC-строку последнего онлайна пользователя (максимум из бота и сайта)."""
+        try:
+            bot_ts = None
+            site_ts = None
+            with self._get_connection() as conn:
+                row_bot = conn.execute(
+                    "SELECT last_active_utc FROM bot_last_active WHERE user_id = ?",
+                    (user_id,)
+                ).fetchone()
+                if row_bot:
+                    bot_ts = row_bot[0]
+                special_ids = [str(user_id)]
+                if user_id == self.get_creator_id():
+                    special_ids.append("creator")
+                if user_id == self.get_ksusha_id():
+                    special_ids.extend(["ksyusha", "ksusha", "partner"])
+                placeholders = ", ".join(["?"] * len(special_ids))
+                query = f"""
+                    SELECT MAX(last_seen_utc) FROM devices
+                    WHERE visitor_id LIKE ? OR visitor_id IN ({placeholders})
+                """
+                params = [f"{user_id}_%"] + special_ids
+                row_site = conn.execute(query, params).fetchone()
+                if row_site and row_site[0]:
+                    site_ts = row_site[0]
+            if bot_ts and site_ts:
+                return max(bot_ts, site_ts)
+            return bot_ts or site_ts
+        except Exception as e:
+            logger.exception("Ошибка get_user_last_seen: %s", e)
+            return None
+
     # ── Admin panel data ─────────────────────────────────────────────────────
 
     def get_admin_stats(self) -> Dict[str, Any]:
@@ -4007,13 +4040,15 @@ class Database:
             real_ksusha_id = self.get_ksusha_id()
             with self._get_connection() as conn:
                 dev = None
-                if ksusha_visitor_id:
-                    row = conn.execute(
-                        "SELECT last_seen_utc, ua_pretty, visit_count FROM devices WHERE visitor_id = ?",
-                        (ksusha_visitor_id,)
-                    ).fetchone()
-                    if row:
-                        dev = {"last_seen_utc": row[0], "ua_pretty": row[1], "visit_count": row[2]}
+                row = conn.execute(
+                    """SELECT last_seen_utc, ua_pretty, visit_count FROM devices
+                       WHERE visitor_id IN ('ksyusha', 'ksusha', 'partner', ?)
+                          OR visitor_id LIKE ?
+                       ORDER BY last_seen_utc DESC LIMIT 1""",
+                    (str(real_ksusha_id), f"{real_ksusha_id}_%")
+                ).fetchone()
+                if row:
+                    dev = {"last_seen_utc": row[0], "ua_pretty": row[1], "visit_count": row[2]}
 
                 bot_row = None
                 if real_ksusha_id:
@@ -4041,14 +4076,18 @@ class Database:
 
                 last_cat_row = conn.execute(
                     """SELECT section_id, opened_at_utc FROM category_opens
-                       WHERE visitor_id = ? ORDER BY opened_at_utc DESC LIMIT 1""",
-                    (ksusha_visitor_id,)
+                       WHERE visitor_id IN ('ksyusha', 'ksusha', 'partner', ?)
+                          OR visitor_id LIKE ?
+                       ORDER BY opened_at_utc DESC LIMIT 1""",
+                    (str(real_ksusha_id), f"{real_ksusha_id}_%")
                 ).fetchone()
 
                 ai_row = conn.execute(
                     """SELECT created_at_utc FROM companion_messages
-                       WHERE visitor_id = ? ORDER BY id DESC LIMIT 1""",
-                    (ksusha_visitor_id,)
+                       WHERE visitor_id IN ('ksyusha', 'ksusha', 'partner', ?)
+                          OR visitor_id LIKE ?
+                       ORDER BY id DESC LIMIT 1""",
+                    (str(real_ksusha_id), f"{real_ksusha_id}_%")
                 ).fetchone()
 
                 visit_count = dev["visit_count"] if dev else 0

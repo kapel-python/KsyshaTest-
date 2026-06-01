@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.130'
-description = 'Кнопка профиль работает только со второго раза (попытка фикса)'
+version = '1.0.131'
+description = 'Фикс не помог'
 
 
 def get_version_metadata() -> tuple[str, str]:

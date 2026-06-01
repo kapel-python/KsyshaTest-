@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.147'
-description = 'Фикс отображения времени в настройках'
+version = '1.0.148'
+description = 'Отображение времени ближайшего события на сайте'
 
 
 def get_version_metadata() -> tuple[str, str]:

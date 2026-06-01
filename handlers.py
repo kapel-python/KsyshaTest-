@@ -9344,6 +9344,7 @@ async def unlink_final(callback: CallbackQuery):
     user_id = req["user_id"]
     visitor_base = f"{user_id}_"
     db.revoke_all_user_sessions(user_id, visitor_base)
+    db.unlink_user_from_couple(req["couple_id"], user_id)
     invite_code = db.create_transfer_invite(req["couple_id"], user_id, pre_bound_user_id=None)
     db.set_unlink_status(token, "confirmed", invite_code)
 

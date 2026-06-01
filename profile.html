@@ -1327,9 +1327,9 @@ async function startUnlink() {
       try {
         const msg = JSON.parse(e.data);
         if (msg.status === 'awaiting_final') showUnlinkState('awaiting-final');
-        else if (msg.status === 'confirmed') showUnlinkState('confirmed', msg.bot_link);
-        else if (msg.status === 'denied') showUnlinkState('denied');
-        else if (msg.status === 'expired') showUnlinkState('denied');
+        else if (msg.status === 'confirmed') window.location.replace('/404');
+        else if (msg.status === 'denied') window.location.replace('/');
+        else if (msg.status === 'expired') window.location.replace('/');
       } catch(err) {}
     };
   } catch(e) {

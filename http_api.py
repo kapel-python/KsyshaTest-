@@ -3325,7 +3325,7 @@ async def log_visit(request: web.Request) -> web.Response:
         if ip
     )
 
-    visitor_id = _pstr(payload.get("visitor_id")).strip() or None
+    visitor_id = _get_trusted_visitor_id(request, payload)
 
     # Сохраняем визит в базу для последующей статистики (с visitor_id для персональной статистики)
 

@@ -4594,9 +4594,12 @@ async def token_check(request: web.Request) -> web.Response:
         un = u.get("username") or ""
         return (fn + " " + ln).strip() or fn or ("@" + un if un else "") or default
 
+    is_session_valid = bool(current_vid and db.get_device_by_visitor_id(current_vid))
+
     return _add_cors_headers(web.json_response({
         "ok": True,
         "match": current_user_id == token_user_id if current_user_id is not None else False,
+        "session_valid": is_session_valid,
         "token_user": {
             "id": token_user_id,
             "name": _format_name(token_user_info, f"User {token_user_id}")

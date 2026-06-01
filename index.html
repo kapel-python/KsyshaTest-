@@ -5422,7 +5422,10 @@
       function _setAIAuth(sessionToken, visitorSig) {
         try {
           if (sessionToken) localStorage.setItem(AI_SESSION_STORAGE_KEY, sessionToken);
-          if (visitorSig) localStorage.setItem(AI_VISITOR_SIG_STORAGE_KEY, visitorSig);
+          if (visitorSig) {
+            localStorage.setItem(AI_VISITOR_SIG_STORAGE_KEY, visitorSig);
+            setCookie('visitor_sig', visitorSig, 365);
+          }
         } catch(e) {}
       }
 
@@ -12979,9 +12982,12 @@
                 console.log(`[auth-debug:${authDebugId}] token_check response:`, checkData);
                 
                 if (checkData.ok) {
-                  if (checkData.match) {
-                    console.log(`[auth-debug:${authDebugId}] token_check returned match=true, keeping current session (shouldConsumeToken = false)`);
+                  if (checkData.match && checkData.session_valid !== false) {
+                    console.log(`[auth-debug:${authDebugId}] token_check returned match=true and session valid, keeping current session (shouldConsumeToken = false)`);
                     shouldConsumeToken = false;
+                  } else if (checkData.match && checkData.session_valid === false) {
+                    console.log(`[auth-debug:${authDebugId}] token_check returned match=true BUT session invalid, consuming token implicitly`);
+                    shouldConsumeToken = true;
                   } else {
                     console.log(`[auth-debug:${authDebugId}] token_check returned match=false, executing modal branch`);
                     shouldConsumeToken = await new Promise((resolve) => {

@@ -390,6 +390,15 @@
   .modal-icon svg { width: 28px; height: 28px; }
   .modal-title { font-size: 20px; font-weight: 500; color: var(--text); margin-bottom: 8px; }
   .modal-desc { font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 24px; }
+  .modal-info-list {
+    width: 100%; text-align: left; background: var(--surface-2);
+    border-radius: 16px; padding: 12px 16px; margin-bottom: 24px;
+    display: flex; flex-direction: column; gap: 8px;
+    border: 1px solid var(--border);
+  }
+  .modal-info-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .modal-info-label { color: var(--text-3); }
+  .modal-info-val { color: var(--text); font-weight: 500; }
   .modal-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 
   /* ── Bottom navigation ── */
@@ -642,10 +651,9 @@
       <div class="nav-spacer"></div>
     </div>
 
-    <div class="section-label" data-i18n="profActiveDevices">Активные устройства</div>
-    <div class="card" id="sessionsList">
+    <div id="sessionsDynamicContainer">
       <!-- Loading indicator -->
-      <div class="card-item static" style="justify-content:center;color:var(--muted);padding:24px;">
+      <div class="card-item static" style="justify-content:center;color:var(--text-3);padding:24px;">
         <span class="spinner show" style="margin-right:8px;"></span>
         <span data-i18n="profLoading">Загрузка...</span>
       </div>
@@ -671,6 +679,41 @@
         <span id="logoutBtnText" data-i18n="profLogoutConfirmBtn">Да, выйти</span>
       </button>
       <button class="btn-secondary" onclick="closeModals()" data-i18n="profCancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DEVICE DETAILS MODAL ── -->
+<div id="modal-device" class="modal-overlay" onclick="closeModals(event)">
+  <div class="modal-card">
+    <div class="modal-icon icon-slate">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+    </div>
+    <div class="modal-title" id="modalDeviceTitle">Сессия</div>
+    <div class="modal-desc" data-i18n="profDeviceDetails">Подробная информация о подключении</div>
+    
+    <div class="modal-info-list">
+      <div class="modal-info-row">
+        <span class="modal-info-label" data-i18n="profDeviceBrowser">Приложение</span>
+        <span class="modal-info-val" id="modalDeviceBrowser">—</span>
+      </div>
+      <div class="modal-info-row">
+        <span class="modal-info-label" data-i18n="profDeviceLocation">Расположение</span>
+        <span class="modal-info-val" id="modalDeviceLocation">—</span>
+      </div>
+      <div class="modal-info-row">
+        <span class="modal-info-label" data-i18n="profDeviceIp">IP-адрес</span>
+        <span class="modal-info-val" id="modalDeviceIp">—</span>
+      </div>
+      <div class="modal-info-row">
+        <span class="modal-info-label" data-i18n="profDeviceActivity">Активность</span>
+        <span class="modal-info-val" id="modalDeviceActivity">—</span>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary btn-danger" id="modalDeviceRevokeBtn" data-i18n="profRevokeSession">Завершить сессию</button>
+      <button class="btn-secondary" onclick="closeModals()" data-i18n="profCancel">Закрыть</button>
     </div>
   </div>
 </div>
@@ -734,6 +777,12 @@ const PROF_I18N = {
     profRevokeSuccess: 'Сессия успешно завершена',
     profRevokeError: 'Ошибка при завершении сессии',
     profUnknownDevice: 'Неизвестное устройство',
+    profDeviceDetails: 'Подробная информация о подключении',
+    profDeviceBrowser: 'Приложение',
+    profDeviceLocation: 'Расположение',
+    profDeviceIp: 'IP-адрес',
+    profDeviceActivity: 'Активность',
+    profRevokeSession: 'Завершить сессию',
   },
   en: {
     navHome: 'Home', navStats: 'Stats', navProfile: 'Profile',
@@ -762,6 +811,12 @@ const PROF_I18N = {
     profRevokeSuccess: 'Session terminated successfully',
     profRevokeError: 'Error terminating session',
     profUnknownDevice: 'Unknown device',
+    profDeviceDetails: 'Detailed connection info',
+    profDeviceBrowser: 'Browser/App',
+    profDeviceLocation: 'Location',
+    profDeviceIp: 'IP Address',
+    profDeviceActivity: 'Activity',
+    profRevokeSession: 'Terminate session',
   },
   de: {
     navHome: 'Startseite', navStats: 'Statistiken', navProfile: 'Profil',
@@ -790,6 +845,12 @@ const PROF_I18N = {
     profRevokeSuccess: 'Sitzung erfolgreich beendet',
     profRevokeError: 'Fehler beim Beenden der Sitzung',
     profUnknownDevice: 'Unbekanntes Gerät',
+    profDeviceDetails: 'Detaillierte Verbindungsinformationen',
+    profDeviceBrowser: 'Anwendung',
+    profDeviceLocation: 'Standort',
+    profDeviceIp: 'IP-Adresse',
+    profDeviceActivity: 'Aktivität',
+    profRevokeSession: 'Sitzung beenden',
   },
 };
 
@@ -971,10 +1032,10 @@ function _checkAuthAndLoad() {
 // ── Active Sessions ──────────────────────────────────────────────────────
 function loadSessions() {
   const vid = _getCookie('visitor_id') || '';
-  const list = document.getElementById('sessionsList');
+  const container = document.getElementById('sessionsDynamicContainer');
   
-  list.innerHTML = `
-    <div class="card-item static" style="justify-content:center;color:var(--muted);padding:24px;">
+  container.innerHTML = `
+    <div class="card-item static" style="justify-content:center;color:var(--text-3);padding:24px;">
       <span class="spinner show" style="margin-right:8px;"></span>
       <span>${_t('profLoading')}</span>
     </div>
@@ -986,63 +1047,106 @@ function loadSessions() {
   .then(r => r.json())
   .then(data => {
     if (!data || !data.ok) {
-      list.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--danger);padding:20px;">${_t('profRevokeError')}</div>`;
+      container.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--danger);padding:20px;">${_t('profRevokeError')}</div>`;
       return;
     }
     renderActiveSessions(data.sessions || []);
   })
   .catch(() => {
-    list.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--danger);padding:20px;">${_t('profRevokeError')}</div>`;
+    container.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--danger);padding:20px;">${_t('profRevokeError')}</div>`;
   });
 }
 
 function renderActiveSessions(sessions) {
-  const list = document.getElementById('sessionsList');
+  const container = document.getElementById('sessionsDynamicContainer');
   if (!sessions.length) {
-    list.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--muted);padding:20px;">${_t('profUnknownDevice')}</div>`;
+    container.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--text-3);padding:20px;">${_t('profUnknownDevice')}</div>`;
     return;
   }
   
-  list.innerHTML = sessions.map(s => {
-    const isCurrent = s.is_current;
-    const badgeHtml = isCurrent ? `<span class="badge-success" style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.2);margin-left:6px;font-weight:600;line-height:1.2;">${_t('profThisDevice')}</span>` : '';
-    
-    // Icon selection
-    const isMobile = s.device_type && s.device_type.toLowerCase().includes('mobile');
-    const iconSvg = isMobile
-      ? `<svg viewBox="0 0 16 16" fill="none"><rect x="4" y="1" width="8" height="14" rx="1.5" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="13" r="0.7" fill="currentColor"/></svg>`
-      : `<svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 14h6M3 11.5h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
-      
-    // Action button
-    const actionHtml = isCurrent
-      ? ''
-      : `<button class="btn-revoke" onclick="confirmRevokeSession(${s.id})" title="${_t('profLogoutSub')}">
-           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-         </button>`;
-         
-    // Pretty location & details
-    const geo = [s.city, s.country].filter(Boolean).join(', ') || '—';
-    const detailParts = [geo, s.last_seen_utc ? _formatActivityTime(s.last_seen_utc) : ''].filter(Boolean);
-    const details = detailParts.join(' · ');
-    
-    return `
-      <div class="card-item static">
-        <div class="item-icon icon-slate">
-          ${iconSvg}
-        </div>
-        <div class="item-body">
-          <div class="item-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
-            <span>${s.ua_pretty || _t('profUnknownDevice')}</span>
-            ${badgeHtml}
+  const current = sessions.find(s => s.is_current);
+  const others = sessions.filter(s => !s.is_current);
+  
+  let html = '';
+  
+  if (current) {
+    const geo = [current.city, current.country].filter(Boolean).join(', ') || '—';
+    html += `
+      <div class="section-label" data-i18n="profThisDevice">Это устройство</div>
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-item static">
+          <div class="item-icon icon-green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/></svg>
           </div>
-          <div class="item-sub">${details}</div>
-        </div>
-        <div class="item-right" style="padding-left:10px;">
-          ${actionHtml}
+          <div class="item-body">
+            <div class="item-title">${current.ua_pretty || _t('profUnknownDevice')}</div>
+            <div class="item-sub">${geo} • ${current.ip || '—'}</div>
+          </div>
+          <div class="item-right"><span class="badge-success">Онлайн</span></div>
         </div>
       </div>
     `;
-  }).join('');
+  }
+  
+  if (others.length > 0) {
+    html += `
+      <div class="section-label" data-i18n="profActiveDevices">Активные сессии</div>
+      <div class="card">
+        ${others.map(s => {
+          const isMobile = s.device_type && s.device_type.toLowerCase().includes('mobile');
+          const iconSvg = isMobile
+            ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`
+            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+          
+          const geo = [s.city, s.country].filter(Boolean).join(', ') || '—';
+          const timeStr = s.last_seen_utc ? _formatActivityTime(s.last_seen_utc) : '';
+          
+          // Escaping device data safely
+          const sJson = JSON.stringify(s).replace(/"/g, '&quot;');
+          
+          return `
+            <button class="card-item" onclick="openDeviceModal(${sJson})">
+              <div class="item-icon icon-slate">
+                ${iconSvg}
+              </div>
+              <div class="item-body">
+                <div class="item-title">${s.ua_pretty || _t('profUnknownDevice')}</div>
+                <div class="item-sub">${s.browser || '—'} • ${geo}</div>
+              </div>
+              <div class="item-right">
+                <span style="font-size: 11.2px; color: var(--text-3); font-weight: 400;">${timeStr}</span>
+                <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+  
+  container.innerHTML = html;
+  
+  // Re-apply I18N to ensure the labels translate
+  _applyI18n();
+}
+
+function openDeviceModal(s) {
+  document.getElementById('modalDeviceTitle').textContent = `Сессия на ${s.device_brand || s.device_model || s.ua_pretty || 'устройстве'}`;
+  document.getElementById('modalDeviceBrowser').textContent = s.browser || s.ua_pretty || '—';
+  
+  const geo = [s.city, s.country].filter(Boolean).join(', ') || '—';
+  document.getElementById('modalDeviceLocation').textContent = geo;
+  document.getElementById('modalDeviceIp').textContent = s.ip || '—';
+  
+  const timeStr = s.last_seen_utc ? _formatActivityTime(s.last_seen_utc) : '—';
+  document.getElementById('modalDeviceActivity').textContent = timeStr;
+  
+  const revokeBtn = document.getElementById('modalDeviceRevokeBtn');
+  revokeBtn.onclick = () => {
+    confirmRevokeSession(s.id);
+  };
+  
+  openModal('modal-device');
 }
 
 function _formatActivityTime(utcStr) {
@@ -1080,6 +1184,7 @@ function confirmRevokeSession(id) {
     .then(data => {
       if (data && data.ok) {
         showToast(_t('profRevokeSuccess'));
+        closeModals();
         loadSessions();
       } else {
         showToast(_t('profRevokeError'));

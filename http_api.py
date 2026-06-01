@@ -809,6 +809,8 @@ def _visitor_to_user_id(visitor_id: str) -> Optional[int]:
     if not visitor_id:
         return None
     norm = str(visitor_id).strip().lower()
+    if "_" in norm:
+        norm = norm.split("_")[0]
     if norm == "creator":
         cid = int(getattr(config, "CREATOR_ID", 0) or 0)
         return cid if cid > 0 else None
@@ -819,7 +821,7 @@ def _visitor_to_user_id(visitor_id: str) -> Optional[int]:
             kid = int(getattr(config, "KSUSHA_ID", 0) or 0)
         return kid if kid > 0 else None
     try:
-        return int(visitor_id)
+        return int(norm)
     except (ValueError, TypeError):
         return None
 
@@ -7011,8 +7013,9 @@ async def diag_auth_status(request: web.Request) -> web.Response:
     visitor_id = _get_trusted_visitor_id(request)
     
     user_info = {}
-    if visitor_id and visitor_id.isdigit():
-        user_info = db.get_user(int(visitor_id)) or {}
+    visitor_id_base = visitor_id.split("_")[0] if visitor_id and "_" in visitor_id else visitor_id
+    if visitor_id_base and visitor_id_base.isdigit():
+        user_info = db.get_user(int(visitor_id_base)) or {}
         
     def _format_name(u: dict, default: str) -> str:
         fn = u.get("first_name") or ""

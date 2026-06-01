@@ -9637,8 +9637,8 @@
           
           const errMsg = String(e.message || e || '');
           if (errMsg.includes('HTTP 403') || errMsg.includes('HTTP 401') || errMsg.includes('token_invalid') || errMsg.includes('token_expired') || errMsg.includes('invalid_token')) {
-            reason = t.errAuthReason;
-            subReason = t.errAuthSub;
+            window.location.replace('/404');
+            return;
           } else if (errMsg.includes('HTTP 502') || errMsg.includes('HTTP 503') || errMsg.includes('HTTP 504')) {
             reason = t.errMaintenanceReason;
             subReason = t.errMaintenanceSub;

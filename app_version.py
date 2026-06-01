@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.160'
-description = 'Фикс авторизации по токеныт'
+version = '1.0.161'
+description = 'Единая система перенаправления всех неавторизованных на 404'
 
 
 def get_version_metadata() -> tuple[str, str]:

@@ -5164,6 +5164,12 @@ async def index(request: web.Request) -> web.StreamResponse:
 
     project_root = Path(__file__).resolve().parent
 
+    has_token = bool(request.rel_url.query.get("token"))
+    if not has_token:
+        visitor_id = _get_trusted_visitor_id(request)
+        if not visitor_id:
+            raise web.HTTPFound("/404")
+
     if db.get_setting("test_version") == "1":
 
         html = _render_maintenance_page()
@@ -5227,7 +5233,7 @@ async def profile_page(request: web.Request) -> web.Response:
     visitor_id = _get_trusted_visitor_id(request)
     if not visitor_id:
         logger.warning(f"SERVER REDIRECT: profile_page invalid visitor_id! Headers: {request.headers}")
-        raise web.HTTPFound("/")
+        raise web.HTTPFound("/404")
 
     project_root = Path(__file__).resolve().parent
     page_path = project_root / "profile.html"

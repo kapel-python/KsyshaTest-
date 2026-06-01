@@ -875,15 +875,12 @@ function _populateProfile(data) {
 // ── Auth guard (client-side, belt-and-suspenders) ─────────────────────
 function _checkAuthAndLoad() {
   const vid = _getCookie('visitor_id');
-  const sig = _getCookie('visitor_sig');
 
-  // If no session cookies at all — go home (server is the real guard)
-  if (!vid || !sig) {
+  if (!vid) {
     window.location.replace('/');
     return;
   }
 
-  // Fetch bootstrap data (server validates signature — real auth gate)
   fetch('/api/site_bootstrap?v=' + encodeURIComponent(vid), {
     credentials: 'include',
   })
@@ -902,9 +899,7 @@ function _checkAuthAndLoad() {
     }
     _populateProfile(data);
   })
-  .catch(() => {
-    // Network error: don't redirect, show what we can
-  });
+  .catch(() => {});
 }
 
 // ── Logout ───────────────────────────────────────────────────────────────

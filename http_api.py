@@ -1785,7 +1785,9 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
     page, limit = _parse_page_limit(request, default_limit=30, max_limit=60)
-    data = _collect_site_data(timezone_id, visitor_id, endpoint="api/site_bootstrap")
+    is_light = request.rel_url.query.get("light") == "true"
+    endpoint = "api/site_bootstrap_light" if is_light else "api/site_bootstrap"
+    data = _collect_site_data(timezone_id, visitor_id, endpoint=endpoint)
     all_memories = data.get("memories") or []
     all_events = data.get("events") or []
     wishes_obj = data.get("wishes") or {}
@@ -1806,17 +1808,17 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
         "last_added": data.get("last_added"),
         "date_met": data.get("date_met"),
         "custom_categories": data.get("custom_categories") or [],
-        "memories": all_memories[mem_start:mem_start + limit],
-        "events": all_events[:evt_limit],
+        "memories": all_memories[mem_start:mem_start + limit] if not is_light else [],
+        "events": all_events[:evt_limit] if not is_light else [],
         "wishes": {
-            "user": wishes_user,
-            "partner": wishes_partner,
+            "user": wishes_user if not is_light else [],
+            "partner": wishes_partner if not is_light else [],
         },
         "user_settings": data.get("user_settings"),
         "deferred": {
-            "memories": {"page": page, "limit": limit, "total": len(all_memories), "has_more": (mem_start + limit) < len(all_memories)},
-            "events": {"page": 1, "limit": evt_limit, "total": len(all_events), "has_more": evt_limit < len(all_events)},
-            "wishes": {"page": 1, "limit": len(wishes_partner), "total": len(wishes_partner), "has_more": False},
+            "memories": {"page": page, "limit": limit, "total": len(all_memories), "has_more": (mem_start + limit) < len(all_memories)} if not is_light else {"page": page, "limit": limit, "total": 0, "has_more": False},
+            "events": {"page": 1, "limit": evt_limit, "total": len(all_events), "has_more": evt_limit < len(all_events)} if not is_light else {"page": 1, "limit": evt_limit, "total": 0, "has_more": False},
+            "wishes": {"page": 1, "limit": len(wishes_partner), "total": len(wishes_partner), "has_more": False} if not is_light else {"page": 1, "limit": 0, "total": 0, "has_more": False},
         },
     }
     return _json_response_with_etag(request, bootstrap_payload)
@@ -2026,11 +2028,11 @@ def _collect_site_data(
         _couple_user_ids = []
 
     endpoint = (endpoint or "api/all").strip().lower()
-    wants_bootstrap = endpoint == "api/site_bootstrap"
+    wants_bootstrap = endpoint in ("api/site_bootstrap", "api/site_bootstrap_light")
     wants_all = endpoint == "api/all"
-    wants_memories = wants_all or wants_bootstrap or endpoint in ("api/memories", "api/memories_recent") or endpoint.startswith("api/memory/")
-    wants_events = wants_all or wants_bootstrap or endpoint in ("api/events", "api/events_recent") or endpoint.startswith("api/event/")
-    wants_wishes = wants_all or wants_bootstrap or endpoint in ("api/wishes", "api/wishes_recent")
+    wants_memories = (wants_all or wants_bootstrap or endpoint in ("api/memories", "api/memories_recent") or endpoint.startswith("api/memory/")) and endpoint != "api/site_bootstrap_light"
+    wants_events = (wants_all or wants_bootstrap or endpoint in ("api/events", "api/events_recent") or endpoint.startswith("api/event/")) and endpoint != "api/site_bootstrap_light"
+    wants_wishes = (wants_all or wants_bootstrap or endpoint in ("api/wishes", "api/wishes_recent")) and endpoint != "api/site_bootstrap_light"
     wants_favorites = wants_all or endpoint == "api/favorites"
     wants_settings = wants_all or wants_bootstrap or endpoint == "api/user_settings"
     wants_stats = wants_all or wants_bootstrap or endpoint == "api/user_stats"

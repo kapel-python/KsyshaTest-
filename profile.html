@@ -1156,7 +1156,7 @@ function _checkAuthAndLoad() {
     return;
   }
 
-  fetch('/api/site_bootstrap?v=' + encodeURIComponent(vid), {
+  fetch('/api/site_bootstrap?v=' + encodeURIComponent(vid) + '&light=true', {
     credentials: 'include',
   })
   .then(r => {

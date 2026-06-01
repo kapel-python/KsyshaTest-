@@ -694,8 +694,9 @@
       </div>
       <div class="modal-title" data-i18n="profUnlinkWaitTitle">Подтвердите в боте</div>
       <div class="modal-desc" data-i18n="profUnlinkWaitDesc">Мы отправили запрос в Telegram. Ответьте в боте.</div>
-      <div class="modal-actions" style="margin-top:20px; justify-content:center;">
-        <button class="btn-secondary" onclick="cancelUnlink()" data-i18n="profUnlinkCancel">Отмена</button>
+      <div class="modal-actions" style="margin-top:20px; justify-content:center; flex-direction:column; gap:10px; width:100%;">
+        <button class="btn-primary" onclick="window.location.reload()" style="width:100%; justify-content:center; text-decoration:none;" data-i18n="profUnlinkRefresh">Обновить</button>
+        <button class="btn-secondary" onclick="cancelUnlink()" data-i18n="profUnlinkCancel" style="width:100%; justify-content:center;">Отмена</button>
       </div>
     </div>
 
@@ -817,7 +818,7 @@ const PROF_I18N = {
     profUnlinkAwaitingTitle: 'Ещё одно подтверждение...',
     profUnlinkConfirmedTitle: 'Аккаунт отвязан', profUnlinkConfirmedDesc: 'Для входа с новым аккаунтом перейди по ссылке',
     profUnlinkDeniedTitle: 'Запрос отклонён', profUnlinkDeniedDesc: 'Данные в безопасности',
-    profUnlinkOpenBot: 'Открыть бота', profUnlinkCancel: 'Отмена',
+    profUnlinkOpenBot: 'Открыть бота', profUnlinkCancel: 'Отмена', profUnlinkRefresh: 'Обновить',
     profUnlinkNote: 'Вход на сайт осуществляется через привязанный аккаунт Telegram. Управление связкой доступно в боте.',
     profSoon: 'Скоро',
     profSincePrefix: 'С нами с',
@@ -856,7 +857,7 @@ const PROF_I18N = {
     profUnlinkAwaitingTitle: 'One more confirmation...',
     profUnlinkConfirmedTitle: 'Account unlinked', profUnlinkConfirmedDesc: 'Use the link below to sign in with a new account',
     profUnlinkDeniedTitle: 'Request denied', profUnlinkDeniedDesc: 'Your data is safe',
-    profUnlinkOpenBot: 'Open bot', profUnlinkCancel: 'Cancel',
+    profUnlinkOpenBot: 'Open bot', profUnlinkCancel: 'Cancel', profUnlinkRefresh: 'Refresh',
     profUnlinkNote: 'Login is done via linked Telegram account. Account linking is managed in the bot.',
     profSoon: 'Soon',
     profSincePrefix: 'With us since',
@@ -895,7 +896,7 @@ const PROF_I18N = {
     profUnlinkAwaitingTitle: 'Noch eine Bestätigung...',
     profUnlinkConfirmedTitle: 'Konto getrennt', profUnlinkConfirmedDesc: 'Nutzen Sie den Link, um sich mit einem neuen Konto anzumelden',
     profUnlinkDeniedTitle: 'Anfrage abgelehnt', profUnlinkDeniedDesc: 'Ihre Daten sind sicher',
-    profUnlinkOpenBot: 'Bot öffnen', profUnlinkCancel: 'Abbrechen',
+    profUnlinkOpenBot: 'Bot öffnen', profUnlinkCancel: 'Abbrechen', profUnlinkRefresh: 'Aktualisieren',
     profUnlinkNote: 'Der Login erfolgt über das verknüpfte Telegram-Konto. Die Verwaltung erfolgt im Bot.',
     profSoon: 'Bald',
     profSincePrefix: 'Dabei seit',
@@ -1321,7 +1322,8 @@ async function startUnlink() {
     if (unlinkWs) unlinkWs.close();
     
     const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    unlinkWs = new WebSocket(`${wsProto}//${location.host}/ws/unlink?token=${data.token}&v=${visitorId}`);
+    const vid = _getCookie('visitor_id') || '';
+    unlinkWs = new WebSocket(`${wsProto}//${location.host}/ws/unlink?token=${data.token}&v=${vid}`);
     
     unlinkWs.onmessage = (e) => {
       try {

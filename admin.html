@@ -323,6 +323,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           <div class="ctrl-btn-label">На сайт</div>
           <div class="ctrl-btn-sub">Перейти на главную страницу</div>
         </button>
+        <button class="ctrl-btn" onclick="doFullReset()" style="border-color:rgba(239,68,68,0.3)">
+          <span class="ctrl-btn-icon">🗑️</span>
+          <div class="ctrl-btn-label" style="color:#ef4444">Полный сброс клиента</div>
+          <div class="ctrl-btn-sub">Очистить абсолютно все куки, сессии и localStorage</div>
+        </button>
       </div>
     </div>
 
@@ -983,6 +988,29 @@ function showActionDone(title, sub){
     setTimeout(()=>wrap.remove(), 400);
   }, 3000);
 }
+
+function doFullReset() {
+  if (!confirm("⚠️ Вы действительно хотите очистить абсолютно все локальные данные (куки, сессии и localStorage)?\nЭто полностью сбросит авторизацию на этом устройстве.")) {
+    return;
+  }
+  
+  localStorage.clear();
+  sessionStorage.clear();
+  
+  const cookies = document.cookie.split(";");
+  for (let i = 0; i < cookies.length; i++) {
+    const cookie = cookies[i];
+    const eqPos = cookie.indexOf("=");
+    const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+    document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
+    document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Strict";
+  }
+  
+  alert("✨ Все куки, сессии и localStorage полностью очищены!");
+  window.location.replace('/');
+}
+window.doFullReset = doFullReset;
 
 // ═══════════════════════════════════════════════════════════════════
 // ИДЕИ ДЛЯ БУДУЩИХ ФУНКЦИЙ АДМИН-ПАНЕЛИ:

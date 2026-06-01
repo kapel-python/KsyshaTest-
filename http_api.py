@@ -2208,7 +2208,7 @@ def _collect_site_data(
     # Дата знакомства пары: берём из пары (если есть поле) или из global config как fallback.
     # Храним как строку ISO (YYYY-MM-DD) или None — чтобы dict был JSON-сериализуем.
     try:
-        _date_met_raw = couple.get("date_met") if couple and couple.get("date_met") else None
+        _date_met_raw = couple.get("met_date") if couple and couple.get("met_date") else None
     except Exception:
         _date_met_raw = None
     if _date_met_raw is None:

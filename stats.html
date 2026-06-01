@@ -1039,7 +1039,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
 <!-- ══ BOTTOM NAVIGATION ══ -->
 <nav class="bottom-nav" role="navigation" aria-label="Главное меню">
   <div class="nav-inner">
-    <div class="nav-item" data-tab="home" role="button" tabindex="0" aria-label="Главная" onclick="window.location.href='/?v=' + encodeURIComponent(new URLSearchParams(window.location.search).get('v') || '')">
+    <div class="nav-item" data-tab="home" role="button" tabindex="0" aria-label="Главная" onclick="window.location.href='/'">
       <div class="nav-icon">
         <svg viewBox="0 0 24 24">
           <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/>
@@ -1058,7 +1058,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       </div>
       <span class="nav-label" data-i18n="navStats">Статистика</span>
     </div>
-    <div class="nav-item" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" onclick="window.location.href='/?v=' + encodeURIComponent(new URLSearchParams(window.location.search).get('v') || '')">
+    <div class="nav-item" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" onclick="window.location.href='/'">
       <div class="nav-icon">
         <svg viewBox="0 0 24 24">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -1160,6 +1160,35 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       navHome:        'Startseite',
       navStats:       'Statistiken',
       navProfile:     'Profil',
+    },
+    en: {
+      statVisits:     'Site Visits',
+      statTimeTotal:  'Total time spent on site',
+      statStreak:     'Streak (like in TikTok)',
+      statMemCount:   'Memories',
+      statMediaOpened:'Photos/videos opened',
+      statFavBadge:   '⭐ Favorite Moment',
+      statFavMeta:    'Spent the most time there',
+      statViewTime:   'View time',
+      statFirstVisit: 'First visit',
+      statFavTime:    'Favorite time',
+      statFavCat:     'Favorite category',
+      statDevice:     'Device',
+      statHeatmapTitle:'📆 Activity by day',
+      statLess:       'Less',
+      statMore:       'More',
+      statNavPrev:    'Prev',
+      statNavNext:    'Next',
+      statTimeOfDay:  '🕐 By time of day',
+      statMorning:    'Morning 6–12',
+      statDay:        'Day 12–18',
+      statEvening:    'Evening 18–23',
+      statNight:      'Night 23–6',
+      statRecords:    '🏆 Your records',
+      statBack:       'Back to memories',
+      navHome:        'Home',
+      navStats:       'Stats',
+      navProfile:     'Profile',
     },
   };
 

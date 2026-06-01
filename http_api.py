@@ -5072,10 +5072,12 @@ async def not_found_page(request: web.Request) -> web.Response:
 async def profile_page(request: web.Request) -> web.Response:
     """Отдаёт страницу профиля (/profile).
 
-    Защита: требует валидных cookie visitor_id + visitor_sig.
-    Без авторизации — редирект на главную страницу.
+    Защита на уровне HTML-страницы: требует наличия visitor_id cookie.
+    Реальная авторизация данных — на уровне API-эндпоинтов (site_bootstrap, profile_stats),
+    которые проверяют visitor_sig через _get_trusted_visitor_id().
+    Паттерн идентичен stats_page.
     """
-    visitor_id = _get_trusted_visitor_id(request, payload=None, allow_header_fallback=False)
+    visitor_id = (request.cookies.get("visitor_id") or "").strip()
     if not visitor_id:
         raise web.HTTPFound("/")
 

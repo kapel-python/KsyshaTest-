@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.163'
-description = 'Улучшение визуального вида'
+version = '1.0.164'
+description = 'Отображение имени в профиле'
 
 
 def get_version_metadata() -> tuple[str, str]:

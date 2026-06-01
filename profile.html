@@ -1053,8 +1053,14 @@ function _initial(name) {
 // ── Populate UI from bootstrap data ─────────────────────────────────────
 function _populateProfile(data) {
   const vid = _getCookie('visitor_id');
-  const isCreator = vid && String(data.creator_id) === vid;
-  const isPartner = vid && String(data.partner_id) === vid;
+  let loggedInUserId = vid ? vid.split('_')[0] : null;
+  if (loggedInUserId === 'ksyusha' || loggedInUserId === 'partner') {
+    loggedInUserId = String(data.partner_id);
+  } else if (loggedInUserId === 'creator') {
+    loggedInUserId = String(data.creator_id);
+  }
+  const isCreator = loggedInUserId && String(data.creator_id) === loggedInUserId;
+  const isPartner = loggedInUserId && String(data.partner_id) === loggedInUserId;
 
   const users = data.users || {};
   const creator = users.creator || {};
@@ -1073,7 +1079,7 @@ function _populateProfile(data) {
 
   // Hero name
   const heroNameEl = document.getElementById('heroName');
-  heroNameEl.textContent = myName + ' & ' + otherName;
+  heroNameEl.textContent = myName;
 
   // Role label as status
   const roleKey = isCreator ? 'profRole_creator' : (isPartner ? 'profRole_partner' : '');

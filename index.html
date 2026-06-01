@@ -9735,6 +9735,8 @@
             const settings = data.user_settings[role] || data.user_settings.partner || data.user_settings.creator || {};
             window._botTimezone = settings.timezone || '';
             window._botTimezoneDisplay = settings.timezone_display || '';
+            _stgSet(STG_LS.botTz, window._botTimezone);
+            _stgSet(STG_LS.botTzDisplay, window._botTimezoneDisplay);
             
             const dbTzMode = settings.website_timezone_mode;
             if (dbTzMode) {
@@ -15606,7 +15608,7 @@
   ];
 
   /* ── Storage ── */
-  const STG_LS = { lang:'memories_lang', tz:'memories_tz_override', hearts:'memories_hearts' };
+  const STG_LS = { lang:'memories_lang', tz:'memories_tz_override', hearts:'memories_hearts', botTz:'memories_bot_tz', botTzDisplay:'memories_bot_tz_display' };
   const THEME_STORAGE_KEY_STG = 'memories_theme'; // same as main code
 
   function _stgGet(k, d) { return localStorage.getItem(k) ?? d; }
@@ -15618,6 +15620,8 @@
     tz:     _stgGet(STG_LS.tz,     '__auto__'),
     hearts: _stgGet(STG_LS.hearts, 'on') !== 'off',
   };
+  window._botTimezone = _stgGet(STG_LS.botTz, '');
+  window._botTimezoneDisplay = _stgGet(STG_LS.botTzDisplay, '');
   let _stgDraft = {};
   let _stgCloseTimer = null;
   let _stgRenderQueued = false;

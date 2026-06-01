@@ -12942,7 +12942,7 @@
               if (_authData && _authData.ok) {
                 console.log(`[auth-debug:${authDebugId}] token_auth success, setting cookies for user_id:`, _authData.user_id);
                 debugState.token_auth_result = 'success';
-                const _vid = String(_authData.user_id);
+                const _vid = String(_authData.visitor_id || _authData.user_id);
                 const _role = String(_authData.role || '');
                 setCookie(ROLE_COOKIE_NAME, _role, 365);
                 setCookie(AUTH_COOKIE_NAME, 'ok', 365);

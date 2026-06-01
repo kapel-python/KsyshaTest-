@@ -9344,8 +9344,6 @@ async def unlink_final(callback: CallbackQuery):
         return
 
     user_id = req["user_id"]
-    visitor_base = f"{user_id}_"
-    db.revoke_all_user_sessions(user_id, visitor_base)
     db.unlink_user_from_couple(req["couple_id"], user_id)
     invite_code = db.create_transfer_invite(req["couple_id"], user_id, pre_bound_user_id=None)
     db.set_unlink_status(token, "confirmed", invite_code)
@@ -9354,9 +9352,8 @@ async def unlink_final(callback: CallbackQuery):
     bot_link = f"https://t.me/{bot_username}?start=invite_{invite_code}" if bot_username else f"https://t.me/bot?start=invite_{invite_code}"
     
     try:
-        from http_api import _notify_unlink_ws, _notify_force_logout
+        from http_api import _notify_unlink_ws
         await _notify_unlink_ws(token, {"status": "confirmed", "bot_link": bot_link})
-        await _notify_force_logout(user_id)
     except Exception:
         pass
 
@@ -9364,7 +9361,6 @@ async def unlink_final(callback: CallbackQuery):
 
     text = (
         f"✅ <b>Аккаунт успешно отвязан</b>\n\n"
-        f"Все твои сессии завершены.\n"
         f"Твой партнёр и ваши общие данные в безопасности.\n\n"
         f"Чтобы привязать новый Telegram-аккаунт, используй эту ссылку:"
     )

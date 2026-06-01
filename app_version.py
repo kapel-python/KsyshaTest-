@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.169'
-description = 'Полный сброс куки'
+version = '1.0.170'
+description = 'Сессия и устройства не сбрасываются при обычном подтверждении перепривязки'
 
 
 def get_version_metadata() -> tuple[str, str]:

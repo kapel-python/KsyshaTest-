@@ -892,8 +892,7 @@ function _checkAuthAndLoad() {
     return r.json();
   })
   .then(data => {
-    if (!data) return;
-    if (!data.ok) {
+    if (!data || typeof data !== 'object' || data.error) {
       window.location.replace('/');
       return;
     }

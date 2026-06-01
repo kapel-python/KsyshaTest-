@@ -80,7 +80,7 @@
 
             margin: 0 auto;
 
-            padding: 16px 16px 32px;
+            padding: 16px 16px 100px;
 
             background: var(--bg-color);
 
@@ -4748,6 +4748,98 @@
         @keyframes celFall {
             0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
             100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+        /* ══ BOTTOM NAVIGATION ══ */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            font-family: inherit;
+        }
+        .nav-inner {
+            margin: 0 16px 16px;
+            background: var(--media-panel-bg);
+            backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5);
+            border-radius: 28px;
+            border: 1px solid var(--media-panel-border);
+            box-shadow: var(--media-panel-shadow);
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+        }
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 9px 4px 8px;
+            border-radius: 22px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.28s ease, transform 0.18s ease;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            color: var(--muted-text);
+        }
+        .nav-item:active { transform: scale(0.93); }
+        .nav-item.active { background: var(--accent-soft); }
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 22px;
+            background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+            opacity: 0.08;
+            pointer-events: none;
+        }
+        .theme-dark .nav-item.active::after { opacity: 0.15; }
+        .nav-icon {
+            width: 24px; height: 24px;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.28s cubic-bezier(.25,.8,.25,1);
+        }
+        .nav-item.active .nav-icon { transform: translateY(-1px); }
+        .nav-icon svg {
+            width: 22px; height: 22px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.75;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.28s ease, filter 0.28s ease;
+        }
+        .nav-item.active .nav-icon svg {
+            stroke: var(--accent-color);
+            filter: drop-shadow(0 0 3px rgba(212,63,141,0.30));
+        }
+        .nav-label {
+            font-size: 10px;
+            font-weight: 500;
+            color: inherit;
+            letter-spacing: 0.02em;
+            transition: color 0.28s ease;
+            white-space: nowrap;
+        }
+        .nav-item.active .nav-label {
+            background: linear-gradient(135deg, var(--accent-color), #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+        @media (hover: hover) {
+            .nav-item:not(.active):hover {
+                background: var(--media-panel-faint-bg);
+            }
+            .nav-item:not(.active):hover .nav-icon svg,
+            .nav-item:not(.active):hover .nav-label {
+                color: var(--accent-color);
+                opacity: 0.8;
+            }
         }
 </style>
 
@@ -14508,6 +14600,9 @@
       customCatDefaultName: 'Категория',
       customDescFallbackWithTitle: 'Это твоя собственная категория. Добавляй сюда всё, что считаешь важным. Единственное ограничение — твоя фантазия',
       customDescFallbackEmpty: 'Это твоя собственная категория. Добавляй сюда всё, что считаешь важным. Единственное ограничение — твоя фантазия',
+      navHome: 'Главная',
+      navStats: 'Статистика',
+      navProfile: 'Профиль',
     },
     de: {
       settingsTitle:  '⚙️ Einstellungen',
@@ -14632,6 +14727,9 @@
       customCatDefaultName: 'Kategorie',
       customDescFallbackWithTitle: 'Das ist deine eigene Kategorie. Füge hier alles hinzu, was dir wichtig erscheint. Die einzige Grenze ist deine Fantasie',
       customDescFallbackEmpty: 'Das ist deine eigene Kategorie. Füge hier alles hinzu, was dir wichtig erscheint. Die einzige Grenze ist deine Fantasie',
+      navHome: 'Startseite',
+      navStats: 'Statistiken',
+      navProfile: 'Profil',
     },
     en: {
       settingsTitle:  '⚙️ Settings',
@@ -14756,6 +14854,9 @@
       customCatDefaultName: 'Category',
       customDescFallbackWithTitle: 'This is your own category. Add whatever you find important here. The only limit is your imagination',
       customDescFallbackEmpty: 'This is your own category. Add whatever you find important here. The only limit is your imagination',
+      navHome: 'Home',
+      navStats: 'Stats',
+      navProfile: 'Profile',
     },
   };
 
@@ -16322,6 +16423,50 @@
     </div>
   </div>
 
-  </body>
+  <!-- ══ BOTTOM NAVIGATION ══ -->
+  <nav class="bottom-nav" role="navigation" aria-label="Главное меню">
+    <div class="nav-inner">
+      <div class="nav-item active" data-tab="home" role="button" tabindex="0" aria-label="Главная" aria-current="page" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/>
+            <path d="M9 21V12h6v9"/>
+          </svg>
+        </div>
+        <span class="nav-label" data-i18n="navHome">Главная</span>
+      </div>
+      <div class="nav-item" data-tab="stats" role="button" tabindex="0" aria-label="Статистика" onclick="openStatsPage()">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6"  y1="20" x2="6"  y2="14"/>
+          </svg>
+        </div>
+        <span class="nav-label" data-i18n="navStats">Статистика</span>
+      </div>
+      <div class="nav-item" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" onclick="openSettingsModal()">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <span class="nav-label" data-i18n="navProfile">Профиль</span>
+      </div>
+    </div>
+  </nav>
 
+  <script>
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { 
+          e.preventDefault(); 
+          item.click(); 
+        }
+      });
+    });
+  </script>
+
+  </body>
 </html>

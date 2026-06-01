@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.150'
-description = 'Второй фикс'
+version = '1.0.151'
+description = 'Фикс пропадания нижнего навигационного меню при перезагрузке'
 
 
 def get_version_metadata() -> tuple[str, str]:

@@ -4558,9 +4558,10 @@ async def token_check(request: web.Request) -> web.Response:
     token_user_info = db.get_user(token_user_id) or {}
     
     current_vid = _pstr(payload.get("current_visitor_id")).strip()
+    current_user_id = _visitor_to_user_id(current_vid)
     current_user_info = {}
-    if current_vid and current_vid.isdigit():
-        current_user_info = db.get_user(int(current_vid)) or {}
+    if current_user_id:
+        current_user_info = db.get_user(current_user_id) or {}
 
     def _format_name(u: dict, default: str) -> str:
         fn = u.get("first_name") or ""
@@ -4570,7 +4571,7 @@ async def token_check(request: web.Request) -> web.Response:
 
     return _add_cors_headers(web.json_response({
         "ok": True,
-        "match": current_vid == str(token_user_id),
+        "match": current_user_id == token_user_id if current_user_id is not None else False,
         "token_user": {
             "id": token_user_id,
             "name": _format_name(token_user_info, f"User {token_user_id}")

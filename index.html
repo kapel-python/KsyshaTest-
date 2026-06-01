@@ -7258,7 +7258,7 @@
 
           if (!target) return;
 
-          const sectionId = (targetId || '').replace(/_container$/, '');
+          const sectionId = (targetId || '').replace(/_container$/, '').replace(/_container_(\d+)$/, '_$1');
 
           const btn = header.querySelector('.toggle-btn');
 

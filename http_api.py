@@ -5155,6 +5155,17 @@ def _stats_loader_html() -> str:
 
             var langParam = (typeof localStorage !== 'undefined' && localStorage.getItem('memories_lang')) || 'ru';
             if (langParam) params.push('lang=' + encodeURIComponent(langParam));
+            
+            var texts = {
+                'en': ['Loading your stats', 'Detecting timezone...'],
+                'de': ['Lade deine Statistiken', 'Ermittle Zeitzone...'],
+                'ru': ['Загружаю твою статистику', 'Определяю часовой пояс…']
+            };
+            var t = texts[langParam] || texts['ru'];
+            var elText = document.querySelector('.loading-text');
+            var elSub = document.querySelector('.loading-sub');
+            if(elText) elText.textContent = t[0];
+            if(elSub) elSub.textContent = t[1];
 
             var q = params.length ? '?' + params.join('&') : '';
 
@@ -5292,6 +5303,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "rec_streak_num":  lambda d: f"{d} дн.",
             "rec_visits_num":  lambda n: f"{n} раз",
             "rec_empty":       "—",
+            "no_fav_mem":      "Пока нет любимого момента",
+            "no_title":        "(без названия)",
+            "of_total_time":   lambda pct: f"{pct} от всего времени",
         },
         "ky": {
             "hero_badge":      "✨ Сен үчүн гана",
@@ -5325,6 +5339,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "rec_streak_num":  lambda d: f"{d} күн",
             "rec_visits_num":  lambda n: f"{n} жолу",
             "rec_empty":       "—",
+            "no_fav_mem":      "Азырынча сүйүктүү учур жок",
+            "no_title":        "(аталышсыз)",
+            "of_total_time":   lambda pct: f"{pct} жалпы убакыттан",
         },
         "de": {
             "hero_badge":      "✨ Nur für dich",
@@ -5358,6 +5375,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "rec_streak_num":  lambda d: f"{d} T.",
             "rec_visits_num":  lambda n: f"{n} mal",
             "rec_empty":       "—",
+            "no_fav_mem":      "Noch kein Lieblingsmoment",
+            "no_title":        "(ohne Titel)",
+            "of_total_time":   lambda pct: f"{pct} der Gesamtzeit",
         },
         "en": {
             "hero_badge":      "✨ Just for you",
@@ -5391,6 +5411,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "rec_streak_num":  lambda d: f"{d} days",
             "rec_visits_num":  lambda n: f"{n} times",
             "rec_empty":       "—",
+            "no_fav_mem":      "No favorite moment yet",
+            "no_title":        "(no title)",
+            "of_total_time":   lambda pct: f"{pct} of total time",
         },
     }[lang]
 
@@ -5486,7 +5509,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
             if m:
 
-                fav_mem_title = (m.title or "(без названия)").strip()
+                fav_mem_title = (m.title or _S["no_title"]).strip()
 
                 cat_conf = config.CATEGORIES.get(m.category, {})
 
@@ -5496,6 +5519,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
                     "ru": {"important_moments":"Важные моменты","memories":"Воспоминания","important_dates":"Важные даты"},
                     "ky": {"important_moments":"Маанилүү учурлар","memories":"Эскеруулер","important_dates":"Маанилүү күндөр"},
                     "de": {"important_moments":"Wichtige Momente","memories":"Erinnerungen","important_dates":"Wichtige Daten"},
+                    "en": {"important_moments":"Important moments","memories":"Memories","important_dates":"Important dates"},
                 }
                 fav_mem_cat_label = _cat_map.get(lang, _cat_map["ru"]).get(m.category, fav_mem_cat_label)
                 if m.category.startswith("custom_"):
@@ -5656,6 +5680,14 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     opens_total = category_opens.get("total") or 0
 
     opens_by_section = category_opens.get("by_section") or {}
+    migrated_opens = {}
+    for k, v in opens_by_section.items():
+        if k.startswith("custom_cat_container_"):
+            new_k = "custom_" + k[21:]
+            migrated_opens[new_k] = migrated_opens.get(new_k, 0) + v
+        else:
+            migrated_opens[k] = migrated_opens.get(k, 0) + v
+    opens_by_section = migrated_opens
 
     fav_category_label = "—"
 
@@ -5877,7 +5909,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     html = html.replace("{{STREAK_DAYS}}", streak_str)
     html = html.replace("{{STREAK_DAYS_NUM}}", str(streak_days))
 
-    html = html.replace("{{FAV_MEMORY_TITLE}}", fav_mem_title or "Пока нет любимого момента")
+    html = html.replace("{{FAV_MEMORY_TITLE}}", fav_mem_title or _S["no_fav_mem"])
 
     html = html.replace("{{FAV_MEMORY_CATEGORY}}", fav_mem_cat_label or "—")
 
@@ -5889,10 +5921,11 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     html = html.replace("{{STATS_LANG}}", lang)
 
     html = html.replace("{{FAV_MEMORY_PERCENT}}", fav_mem_percent)
+    html = html.replace("{{STAT_OF_TOTAL_TIME}}", _S["of_total_time"](fav_mem_percent))
     html = html.replace("{{FAV_MEMORY_VIEWS}}", str(fav_mem_views))
     html = html.replace("{{FAV_MEMORY_TOTAL_VIEWS}}", str(fav_mem_total_views))
 
-    html = html.replace("{{LAST_DEVICE}}", device_str or "Ещё нет данных")
+    html = html.replace("{{LAST_DEVICE}}", device_str or _S["no_data"])
 
     html = html.replace("{{LAST_DEVICE_SUB}}", last_device_sub)
 

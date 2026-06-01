@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.145'
-description = 'Фикс отображения удаленных событий на дату'
+version = '1.0.146'
+description = 'Фикс отображения активной тема'
 
 
 def get_version_metadata() -> tuple[str, str]:

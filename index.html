@@ -15613,7 +15613,7 @@
   function _stgSet(k, v) { localStorage.setItem(k, v); }
 
   const _stgState = {
-    theme:  _stgGet(THEME_STORAGE_KEY_STG, 'light'),
+    theme:  _stgGet(THEME_STORAGE_KEY_STG, window.__initialTheme || 'light'),
     lang:   _stgGet(STG_LS.lang,   'ru'),
     tz:     _stgGet(STG_LS.tz,     '__auto__'),
     hearts: _stgGet(STG_LS.hearts, 'on') !== 'off',

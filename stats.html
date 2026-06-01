@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Твоя статистика ❤️</title>
+<title>{{STATS_PAGE_TITLE}}</title>
 <script>
 (function(){
   var theme = typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme');
@@ -1075,6 +1075,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
   /* ── I18N ── */
   const STATS_I18N = {
     ru: {
+      pageTitle:      'Твоя статистика',
       statVisits:     'Входов на сайт',
       statTimeTotal:  'Всего времени ты была на сайте',
       statStreak:     'Серийчик (как в тт)',
@@ -1104,6 +1105,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       navProfile:     'Профиль',
     },
     ky: {
+      pageTitle:      'Сенин статистикаң',
       statVisits:     'Сайтка кириштер',
       statTimeTotal:  'Жалпы сайтта болгон убакытың',
       statStreak:     'Сериялык (ТТ сыяктуу)',
@@ -1133,6 +1135,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       navProfile:     'Профиль',
     },
     de: {
+      pageTitle:      'Deine Statistik',
       statVisits:     'Besuche',
       statTimeTotal:  'Gesamtzeit auf der Seite',
       statStreak:     'Streakchen (wie TikTok)',
@@ -1162,6 +1165,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       navProfile:     'Profil',
     },
     en: {
+      pageTitle:      'Your statistics',
       statVisits:     'Site Visits',
       statTimeTotal:  'Total time spent on site',
       statStreak:     'Streak (like in TikTok)',
@@ -1199,6 +1203,9 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       const key = el.dataset.i18n;
       if (tr[key] !== undefined) el.textContent = tr[key];
     });
+    if (tr.pageTitle) {
+      document.title = tr.pageTitle;
+    }
     // Hearts toggle
     const heartsOn = localStorage.getItem('memories_hearts') !== 'off';
     window._heartsOn = heartsOn;

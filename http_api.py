@@ -5276,6 +5276,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     # Переводы для всех строк генерируемых сервером
     _S = {
         "ru": {
+            "page_title":      "Твоя статистика",
             "hero_badge":      "✨ Только для тебя",
             "hero_title":      "Твоя<br><em>статистика</em>",
             "hero_sub":        "Тут ты увидишь свою статистику сайта",
@@ -5312,6 +5313,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "of_total_time":   lambda pct: f"{pct} от всего времени",
         },
         "ky": {
+            "page_title":      "Сенин статистикаң",
             "hero_badge":      "✨ Сен үчүн гана",
             "hero_title":      "Сенин<br><em>статистикаң</em>",
             "hero_sub":        "Бул жерде сайттагы статистикаңды көрөсүң",
@@ -5348,6 +5350,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "of_total_time":   lambda pct: f"{pct} жалпы убакыттан",
         },
         "de": {
+            "page_title":      "Deine Statistik",
             "hero_badge":      "✨ Nur für dich",
             "hero_title":      "Deine<br><em>Statistik</em>",
             "hero_sub":        "Hier siehst du deine persönliche Seitenstatistik",
@@ -5384,6 +5387,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "of_total_time":   lambda pct: f"{pct} der Gesamtzeit",
         },
         "en": {
+            "page_title":      "Your statistics",
             "hero_badge":      "✨ Just for you",
             "hero_title":      "Your<br><em>statistics</em>",
             "hero_sub":        "Here you'll see your personal site statistics",
@@ -5919,6 +5923,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     html = html.replace("{{FAV_MEMORY_DURATION}}", fav_mem_duration_str or "0 сек")
     html = html.replace("{{FAV_MEMORY_META}}", _S["fav_mem_meta"](fav_mem_duration_str or "0 сек"))
+    html = html.replace("{{STATS_PAGE_TITLE}}", _S["page_title"])
     html = html.replace("{{STATS_HERO_BADGE}}", _S["hero_badge"])
     html = html.replace("{{STATS_HERO_TITLE}}", _S["hero_title"])
     html = html.replace("{{STATS_HERO_SUB}}", _S["hero_sub"])

@@ -2930,7 +2930,11 @@ class Database:
     def is_in_couple(self, user_id: int) -> bool:
         """Проверяет, состоит ли пользователь в полноценной паре (оба партнёра присоединились)."""
         couple = self.get_couple_by_user(user_id)
-        return bool(couple and couple.get('user2_id'))
+        if not couple:
+            return False
+        u1 = couple.get('user1_id')
+        u2 = couple.get('user2_id')
+        return bool(u1 and u1 > 0 and u2 and u2 > 0)
 
     # === Методы для работы с инвайт-кодами ===
 

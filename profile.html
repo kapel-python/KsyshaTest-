@@ -893,7 +893,10 @@ function _checkAuthAndLoad() {
   })
   .then(data => {
     if (!data || typeof data !== 'object' || data.error) {
-      document.body.innerHTML = '<div style="color:red;padding:20px;font-size:20px;background:white">DEBUG: data invalid. data=' + JSON.stringify(data) + '</div>';
+      const el = document.createElement('div');
+      el.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:red;color:white;z-index:99999;padding:20px;font-size:24px;word-wrap:break-word;';
+      el.textContent = 'DEBUG DATA: ' + JSON.stringify(data);
+      document.body.appendChild(el);
       return;
     }
     _populateProfile(data);

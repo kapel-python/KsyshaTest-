@@ -71,7 +71,7 @@ body::after {
 .page {
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 16px 60px;
+  padding: 0 16px 120px;
   position: relative;
   z-index: 1;
 }
@@ -762,6 +762,104 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
   letter-spacing: .03em;
   transition: opacity .18s;
 }
+/* ══ BOTTOM NAVIGATION ══ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  font-family: inherit;
+}
+.nav-inner {
+  margin: 0 16px 16px;
+  background: var(--surface);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border-radius: 28px;
+  border: 1px solid var(--pink-border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+}
+.theme-dark .nav-inner {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 4px 8px;
+  border-radius: 22px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.28s ease, transform 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  color: var(--muted);
+}
+.nav-item:active { transform: scale(0.93); }
+.nav-item.active { background: var(--pink-soft); }
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  opacity: 0.08;
+  pointer-events: none;
+}
+.theme-dark .nav-item.active::after { opacity: 0.15; }
+.nav-icon {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.28s cubic-bezier(.25,.8,.25,1);
+}
+.nav-item.active .nav-icon { transform: translateY(-1px); }
+.nav-icon svg {
+  width: 22px; height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.28s ease, filter 0.28s ease;
+}
+.nav-item.active .nav-icon svg {
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 3px rgba(212,63,141,0.30));
+}
+.nav-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: inherit;
+  letter-spacing: 0.02em;
+  transition: color 0.28s ease;
+  white-space: nowrap;
+}
+.nav-item.active .nav-label {
+  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .nav-item:not(.active):hover {
+      background: rgba(212,63,141,0.05);
+  }
+  .theme-dark .nav-item:not(.active):hover {
+      background: rgba(212,63,141,0.1);
+  }
+  .nav-item:not(.active):hover .nav-icon svg,
+  .nav-item:not(.active):hover .nav-label {
+      color: var(--accent);
+      opacity: 0.8;
+  }
+}
 </style>
 </head>
 <body>
@@ -966,6 +1064,9 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       statNight:      'Ночь 23–6',
       statRecords:    '🏆 Твои рекорды',
       statBack:       'Вернуться к воспоминаниям',
+      navHome:        'Главная',
+      navStats:       'Статистика',
+      navProfile:     'Профиль',
     },
     ky: {
       statVisits:     'Сайтка кириштер',
@@ -990,8 +1091,11 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       statDay:        'Күн 12–18',
       statEvening:    'Кеч 18–23',
       statNight:      'Түн 23–6',
-      statRecords:    '🏆 Сенин рекорддорун',
+      statRecords:    '🏆 Сенин рекорддоруң',
       statBack:       'Эскеруулерге кайтуу',
+      navHome:        'Негизги',
+      navStats:       'Статистика',
+      navProfile:     'Профиль',
     },
     de: {
       statVisits:     'Besuche',
@@ -1018,6 +1122,9 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       statNight:      'Nacht 23–6',
       statRecords:    '🏆 Deine Rekorde',
       statBack:       'Zurück zu Erinnerungen',
+      navHome:        'Startseite',
+      navStats:       'Statistiken',
+      navProfile:     'Profil',
     },
   };
 
@@ -1124,5 +1231,50 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
   setLabel();
 })();
 </script>
+<!-- ══ BOTTOM NAVIGATION ══ -->
+<nav class="bottom-nav" role="navigation" aria-label="Главное меню">
+  <div class="nav-inner">
+    <div class="nav-item" data-tab="home" role="button" tabindex="0" aria-label="Главная" onclick="window.location.href='/?v=' + encodeURIComponent(new URLSearchParams(window.location.search).get('v') || '')">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/>
+          <path d="M9 21V12h6v9"/>
+        </svg>
+      </div>
+      <span class="nav-label" data-i18n="navHome">Главная</span>
+    </div>
+    <div class="nav-item active" data-tab="stats" role="button" tabindex="0" aria-label="Статистика" aria-current="page" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6"  y1="20" x2="6"  y2="14"/>
+        </svg>
+      </div>
+      <span class="nav-label" data-i18n="navStats">Статистика</span>
+    </div>
+    <div class="nav-item" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" onclick="window.location.href='/?v=' + encodeURIComponent(new URLSearchParams(window.location.search).get('v') || '')">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <span class="nav-label" data-i18n="navProfile">Профиль</span>
+    </div>
+  </div>
+</nav>
+
+<script>
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { 
+        e.preventDefault(); 
+        item.click(); 
+      }
+    });
+  });
+</script>
+
 </body>
 </html>

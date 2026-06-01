@@ -8234,7 +8234,8 @@
 
       function openStatsPage() {
         const v = ensureVisitorIdForRole() || '';
-        window.location.href = '/stats?v=' + encodeURIComponent(v);
+        const lang = (_stgState && _stgState.lang) || localStorage.getItem('memories_lang') || 'ru';
+        window.location.href = '/stats?v=' + encodeURIComponent(v) + '&lang=' + encodeURIComponent(lang);
       }
 
       // ── Sky card: canvas preview + погода ───────────────────────────

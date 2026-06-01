@@ -5265,7 +5265,11 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     if not tz_id:
         tz_id = (request.rel_url.query.get("tz") or "").strip() or None
 
-    lang = (request.rel_url.query.get("lang") or "").strip()[:5] or "ru"
+    lang = (request.rel_url.query.get("lang") or "").strip()[:5]
+    if not lang and visitor_id:
+        _vis_uid2 = _visitor_to_user_id(visitor_id)
+        if _vis_uid2:
+            lang = (db.get_user_setting(_vis_uid2, "lang") or "").strip()[:5]
     if lang not in ("ru", "ky", "de", "en"):
         lang = "ru"
 

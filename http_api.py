@@ -4769,6 +4769,9 @@ async def api_unlink_init(request: web.Request) -> web.Response:
     if db.get_recent_unlink_denied(user_id, 3600):
         return _add_cors_headers(web.json_response({"ok": False, "error": "blocked"}, status=403))
 
+    if db.has_recent_unlink_request(user_id, 60):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "blocked"}, status=403))
+
     ip = request.headers.get("X-Forwarded-For", request.remote or "")
     ua = request.headers.get("User-Agent", "")
     country = request.headers.get("CF-IPCountry", "-")

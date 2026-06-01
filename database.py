@@ -5482,6 +5482,18 @@ class Database:
             logger.exception("Ошибка get_recent_unlink_denied: %s", e)
             return False
 
+    def has_recent_unlink_request(self, user_id: int, within_seconds: int = 60) -> bool:
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    f"SELECT 1 FROM unlink_requests WHERE user_id = ? AND created_at >= datetime('now', '-{within_seconds} seconds') LIMIT 1",
+                    (user_id,)
+                ).fetchone()
+                return bool(row)
+        except Exception as e:
+            logger.exception("Ошибка has_recent_unlink_request: %s", e)
+            return False
+
     def delete_user_data(self, user_id: int) -> Dict[str, int]:
         """Удаляет все данные одного пользователя (воспоминания, события, желания, избранное и т.д.)."""
         result = {}

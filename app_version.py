@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.174'
-description = 'Не перекидывать на 404 при старом токене если пользователь один и тот же'
+version = '1.0.175'
+description = 'Фикс этой хуйни'
 
 
 def get_version_metadata() -> tuple[str, str]:

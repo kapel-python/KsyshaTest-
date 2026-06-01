@@ -12939,6 +12939,7 @@
         if (_urlToken) {
           const existingRoleBeforeToken = getCurrentRole();
           const existingVidBeforeToken = getCookie('visitor_id');
+          const hasValidSession = !!existingRoleBeforeToken;
           let shouldConsumeToken = false;
           let tokenValidationFailed = false;
           let tokenValidationErrorMsg = '';

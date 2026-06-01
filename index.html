@@ -5399,6 +5399,12 @@
         const h = Object.assign({}, headers || {});
         const k = _apiKeyValue();
         if (k) h['X-Api-Key'] = k;
+        
+        const vid = window.__visitorId || getCookie('visitor_id');
+        const sig = _getAIVisitorSig();
+        if (vid) h['X-Visitor-Id'] = vid;
+        if (sig) h['X-Visitor-Signature'] = sig;
+        
         return h;
       }
 
@@ -9579,7 +9585,7 @@
         const _fetchBootstrap = async (useEtag) => {
           const cached = _readBootstrapCache();
           const cachedEtag = useEtag && cached && cached.etag ? String(cached.etag) : "";
-          const headers = {};
+          const headers = withOptionalApiKey({});
           if (cachedEtag) headers["If-None-Match"] = cachedEtag;
           const bustUrl = apiUrl + (apiUrl.indexOf("?") >= 0 ? "&" : "?") + "_ts=" + Date.now();
           return fetch(cachedEtag ? apiUrl : bustUrl, {
@@ -10979,23 +10985,96 @@
           }
 
         } catch (e) {
-
           console.error(e);
-
           const loadingScreen = document.getElementById('loadingScreen');
-
           if (loadingScreen) {
+            const lang = localStorage.getItem('memories_lang') || 'ru';
+            const dict = {
+              ru: {
+                errDefaultReason: 'Произошла непредвиденная ошибка при загрузке',
+                errDefaultSub: 'Попробуй обновить страницу',
+                errAuthReason: 'Сессия не авторизована (ошибка 403)',
+                errAuthSub: 'Срок действия сессии истек, или вход был завершен на другом устройстве. Пожалуйста, запросите новую ссылку в Telegram-боте.',
+                errMaintenanceReason: 'Сервер временно недоступен (ошибка 502/503)',
+                errMaintenanceSub: 'Идет обновление сервера или технические работы. Пожалуйста, подождите пару секунд и обновите страницу.',
+                errServerReason: 'Внутренняя ошибка сервера (ошибка 500)',
+                errServerSub: 'Произошел сбой при генерации данных. Попробуйте обновить страницу позже или обратитесь в поддержку бота.',
+                errConnectionReason: 'Сбой при подключении к серверу',
+                errConnectionSub: 'Пожалуйста, проверьте соединение и обновите страницу.',
+                errOfflineReason: 'Сеть временно недоступна',
+                errOfflineSub: 'Проверьте ваше интернет-соединение или VPN-подключение и обновите страницу.',
+                errFormatReason: 'Некорректный формат данных',
+                errFormatSub: 'Сервер передал несовместимые данные. Попробуйте обновить страницу.',
+                errDetailsPrefix: 'Детали ошибки: '
+              },
+              en: {
+                errDefaultReason: 'An unexpected loading error occurred',
+                errDefaultSub: 'Please try reloading the page',
+                errAuthReason: 'Unauthorized session (error 403)',
+                errAuthSub: 'The session has expired, or you have logged out from another device. Please request a new link from the Telegram bot.',
+                errMaintenanceReason: 'Server temporarily unavailable (error 502/503)',
+                errMaintenanceSub: 'The server is updating or undergoing maintenance. Please wait a few seconds and reload the page.',
+                errServerReason: 'Internal server error (error 500)',
+                errServerSub: 'A server-side failure occurred. Please try reloading the page later or contact the bot support.',
+                errConnectionReason: 'Server connection failed',
+                errConnectionSub: 'Please check your connection and reload the page.',
+                errOfflineReason: 'Network temporarily unavailable',
+                errOfflineSub: 'Please check your internet connection or VPN and reload the page.',
+                errFormatReason: 'Invalid data format',
+                errFormatSub: 'The server sent incompatible data. Please try reloading the page.',
+                errDetailsPrefix: 'Error details: '
+              },
+              de: {
+                errDefaultReason: 'Ein unerwarteter Ladefehler ist aufgetreten',
+                errDefaultSub: 'Bitte versuchen Sie, die Seite neu zu laden',
+                errAuthReason: 'Nicht autorisierte Sitzung (Fehler 403)',
+                errAuthSub: 'Die Sitzung ist abgelaufen oder wurde auf einem anderen Gerät beendet. Bitte fordern Sie einen neuen Link im Telegram-Bot an.',
+                errMaintenanceReason: 'Server vorübergehend nicht verfügbar (Fehler 502/503)',
+                errMaintenanceSub: 'Der Server wird aktualisiert oder gewartet. Bitte warten Sie einige Sekunden und laden Sie die Seite neu.',
+                errServerReason: 'Interner Serverfehler (Fehler 500)',
+                errServerSub: 'Ein serverseitiger Fehler ist aufgetreten. Bitte laden Sie die Seite später neu oder kontaktieren Sie den Bot-Support.',
+                errConnectionReason: 'Verbindung zum Server fehlgeschlagen',
+                errConnectionSub: 'Bitte überprüfen Sie Ihre Verbindung und laden Sie die Seite neu.',
+                errOfflineReason: 'Netzwerk vorübergehend nicht verfügbar',
+                errOfflineSub: 'Bitte überprüfen Sie Ihre Internetverbindung oder VPN und laden Sie die Seite neu.',
+                errFormatReason: 'Ungültiges Datenformat',
+                errFormatSub: 'Der Server hat inkompatible Daten gesendet. Bitte versuchen Sie, die Seite neu zu laden.',
+                errDetailsPrefix: 'Fehlerdetails: '
+              }
+            };
+            const t = dict[lang] || dict.ru;
+            
+            let reason = t.errDefaultReason;
+            let subReason = t.errDefaultSub;
+            
+            const errMsg = String(e.message || e || '');
+            if (errMsg.includes('HTTP 403') || errMsg.includes('HTTP 401')) {
+              reason = t.errAuthReason;
+              subReason = t.errAuthSub;
+            } else if (errMsg.includes('HTTP 502') || errMsg.includes('HTTP 503') || errMsg.includes('HTTP 504')) {
+              reason = t.errMaintenanceReason;
+              subReason = t.errMaintenanceSub;
+            } else if (errMsg.includes('HTTP 500')) {
+              reason = t.errServerReason;
+              subReason = t.errServerSub;
+            } else if (errMsg.startsWith('HTTP ')) {
+              reason = `${t.errConnectionReason} (${errMsg})`;
+              subReason = t.errConnectionSub;
+            } else if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError') || errMsg.includes('network')) {
+              reason = t.errOfflineReason;
+              subReason = t.errOfflineSub;
+            } else if (errMsg.includes('Invalid bootstrap payload')) {
+              reason = t.errFormatReason;
+              subReason = t.errFormatSub;
+            } else {
+              subReason = `${t.errDetailsPrefix}${errMsg}. ${t.errDefaultSub}.`;
+            }
 
             loadingScreen.innerHTML =
-
               '<div class="loading-heart" style="animation:none">💔</div>' +
-
-              '<div class="loading-text" style="color:#ff4d6a">Не удалось загрузить данные</div>' +
-
-              '<div class="loading-sub">Попробуй обновить страницу</div>';
-
+              `<div class="loading-text" style="color:#ff4d6a; font-size:18px; margin-bottom:12px; font-weight:600; padding:0 20px;">${reason}</div>` +
+              `<div class="loading-sub" style="font-size:14px; color:var(--text-3, #9e9e9e); max-width:320px; line-height:1.5; margin:0 auto; padding:0 16px;">${subReason}</div>`;
           }
-
         }
 
       }
@@ -12844,8 +12923,8 @@
                 
                 if (checkData.ok) {
                   if (checkData.match) {
-                    console.log(`[auth-debug:${authDebugId}] token_check returned match=true, setting shouldConsumeToken = true`);
-                    shouldConsumeToken = true;
+                    console.log(`[auth-debug:${authDebugId}] token_check returned match=true, keeping current session (shouldConsumeToken = false)`);
+                    shouldConsumeToken = false;
                   } else {
                     console.log(`[auth-debug:${authDebugId}] token_check returned match=false, executing modal branch`);
                     shouldConsumeToken = await new Promise((resolve) => {

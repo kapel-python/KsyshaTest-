@@ -5168,15 +5168,51 @@ def _stats_loader_html() -> str:
 
 </html>"""
 
-def _fmt_date_ru(iso: str) -> str:
-    _MG = ["января","февраля","марта","апреля","мая","июня",
-           "июля","августа","сентября","октября","ноября","декабря"]
+def _fmt_date_lang(iso: str, lang: str) -> str:
+    if lang == 'de':
+        _M = ["Jan.","Feb.","März","Apr.","Mai","Juni","Juli","Aug.","Sept.","Okt.","Nov.","Dez."]
+    elif lang == 'en':
+        _M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    else:
+        _M = ["января","февраля","марта","апреля","мая","июня",
+              "июля","августа","сентября","октября","ноября","декабря"]
     try:
         from datetime import datetime as _dt
         d = _dt.strptime(iso[:10], "%Y-%m-%d")
-        return f"{d.day} {_MG[d.month-1]} {d.year}"
+        if lang == 'en':
+            return f"{_M[d.month-1]} {d.day}, {d.year}"
+        elif lang == 'de':
+            return f"{d.day}. {_M[d.month-1]} {d.year}"
+        return f"{d.day} {_M[d.month-1]} {d.year}"
     except Exception:
         return iso
+
+def _fmt_datetime_lang(dt_str: str, tz_id: str, lang: str) -> str:
+    if not dt_str: return ""
+    from datetime import datetime, timezone, timedelta
+    from utils import _tz_offset
+    try:
+        if len(dt_str) >= 19 and dt_str[10] in (' ', 'T'):
+            dt_utc = datetime.strptime(dt_str[:19].replace("T", " "), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            offset = _tz_offset(tz_id, 0)
+            dt_loc = dt_utc + timedelta(hours=offset)
+        else:
+            dt_loc = datetime.strptime(dt_str[:10], "%Y-%m-%d")
+        
+        M_ru = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"]
+        M_en = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        M_de = ["Jan.","Feb.","März","Apr.","Mai","Juni","Juli","Aug.","Sept.","Okt.","Nov.","Dez."]
+        
+        d = dt_loc
+        time_part = f" {d.hour:02}:{d.minute:02}" if len(dt_str) >= 19 else ""
+        if lang == 'en':
+            return f"{M_en[d.month-1]} {d.day}, {d.year} at{time_part}" if time_part else f"{M_en[d.month-1]} {d.day}, {d.year}"
+        elif lang == 'de':
+            return f"{d.day}. {M_de[d.month-1]} {d.year} um{time_part}" if time_part else f"{d.day}. {M_de[d.month-1]} {d.year}"
+        else:
+            return f"{d.day} {M_ru[d.month-1]} {d.year} в{time_part}" if time_part else f"{d.day} {M_ru[d.month-1]} {d.year}"
+    except Exception:
+        return dt_str
 
 
 async def stats_page(request: web.Request) -> web.StreamResponse:
@@ -5245,6 +5281,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "fav_mem_meta":    lambda dur: f"Дольше всего здесь — {dur}",
             "dur_min_sec":     lambda m, s: f"{m} мин {s} сек",
             "dur_sec":         lambda s: f"{s} сек",
+            "dur_hm":          lambda h, m: f"{h}ч {m}м",
             "slot_labels":     {"morning":"Утро 6–12","day":"День 12–18","evening":"Вечер 18–23","night":"Ночь 23–6"},
             "month_names":     ("январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"),
             "month_names_cap": ("Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"),
@@ -5277,6 +5314,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "fav_mem_meta":    lambda dur: f"Эң узак убакыт өткөн — {dur}",
             "dur_min_sec":     lambda m, s: f"{m} мин {s} сек",
             "dur_sec":         lambda s: f"{s} сек",
+            "dur_hm":          lambda h, m: f"{h}с {m}м",
             "slot_labels":     {"morning":"Эртең 6–12","day":"Күн 12–18","evening":"Кеч 18–23","night":"Түн 23–6"},
             "month_names":     ("январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"),
             "month_names_cap": ("Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"),
@@ -5309,6 +5347,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "fav_mem_meta":    lambda dur: f"Am längsten dort verbracht — {dur}",
             "dur_min_sec":     lambda m, s: f"{m} Min {s} Sek",
             "dur_sec":         lambda s: f"{s} Sek",
+            "dur_hm":          lambda h, m: f"{h} Std {m} Min",
             "slot_labels":     {"morning":"Morgen 6–12","day":"Tag 12–18","evening":"Abend 18–23","night":"Nacht 23–6"},
             "month_names":     ("Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"),
             "month_names_cap": ("Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"),
@@ -5318,6 +5357,39 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "rec_fav_memory":  "Längste Zeit bei einem Moment",
             "rec_streak_num":  lambda d: f"{d} T.",
             "rec_visits_num":  lambda n: f"{n} mal",
+            "rec_empty":       "—",
+        },
+        "en": {
+            "hero_badge":      "✨ Just for you",
+            "hero_title":      "Your<br><em>statistics</em>",
+            "hero_sub":        "Here you'll see your personal site statistics",
+            "counter_from":    "Since",
+            "counter_days":    lambda d: f"· {d} days",
+            "counter_no_data": "No visits yet",
+            "streak_day1":     "day",
+            "streak_day234":   "days",
+            "streak_days":     "days",
+            "first_visit_sub": "You were really waiting for this moment ❤️",
+            "no_visit_yet":    "Not a single visit yet",
+            "device_sub":      "By last visit ❤️",
+            "no_data":         "No data yet",
+            "fav_time_sub":    lambda pct: f"{pct}% of all visits happened exactly at this time",
+            "fav_cat_opens":   lambda n, total: f"Opened {n} times out of {total}" if total else f"Opened {n} times",
+            "fav_cat_sub":     "Most time spent in this category",
+            "fav_cat_sub_def": "Most viewed by time",
+            "fav_mem_meta":    lambda dur: f"Spent the most time here — {dur}",
+            "dur_min_sec":     lambda m, s: f"{m} min {s} sec",
+            "dur_sec":         lambda s: f"{s} sec",
+            "dur_hm":          lambda h, m: f"{h}h {m}m",
+            "slot_labels":     {"morning":"Morning 6–12","day":"Day 12–18","evening":"Evening 18–23","night":"Night 23–6"},
+            "month_names":     ("January","February","March","April","May","June","July","August","September","October","November","December"),
+            "month_names_cap": ("January","February","March","April","May","June","July","August","September","October","November","December"),
+            "rec_longest":     "Longest visit",
+            "rec_streak":      "Days streak",
+            "rec_most_visits": "Most visits in a day",
+            "rec_fav_memory":  "Longest time on one moment",
+            "rec_streak_num":  lambda d: f"{d} days",
+            "rec_visits_num":  lambda n: f"{n} times",
             "rec_empty":       "—",
         },
     }[lang]
@@ -5360,7 +5432,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
         try:
 
-            human_first = format_datetime_for_user(first_utc, tz_id)
+            human_first = _fmt_datetime_lang(first_utc, tz_id, lang)
 
         except Exception:
 
@@ -5390,7 +5462,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     minutes = (total_sec % 3600) // 60
 
-    total_time_str = f"{hours}ч {minutes}м" if total_sec > 0 else "0ч 0м"
+    total_time_str = _S["dur_hm"](hours, minutes) if total_sec > 0 else _S["dur_hm"](0, 0)
 
     # Любимый момент
 
@@ -5503,7 +5575,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
         try:
 
-            first_visit_date = format_datetime_for_user(first_utc, tz_id)
+            first_visit_date = _fmt_datetime_lang(first_utc, tz_id, lang)
 
             first_visit_sub = _S["first_visit_sub"]
 
@@ -5675,7 +5747,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
         d_iso, dur_sec = longest_day
 
-        date_short = _fmt_date_ru(d_iso)
+        date_short = _fmt_date_lang(d_iso, lang)
         mm = dur_sec // 60
 
         record_rows.append(
@@ -5684,7 +5756,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
             '<div class="record-name">' + _S["rec_longest"] + '</div><div class="record-val">' + date_short + '</div></div>'
 
-            + '<div class="record-num">' + str(mm) + (' мин' if lang == 'ru' else (' мин' if lang == 'ky' else ' Min')) + '</div></div>'
+            + '<div class="record-num">' + str(mm) + (' мин' if lang == 'ru' else (' мин' if lang == 'ky' else (' Min' if lang == 'de' else ' min'))) + '</div></div>'
 
         )
 
@@ -5706,7 +5778,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
         start_iso, end_iso, days = longest_streak
 
-        range_str = _fmt_date_ru(start_iso) + " — " + _fmt_date_ru(end_iso)
+        range_str = _fmt_date_lang(start_iso, lang) + " — " + _fmt_date_lang(end_iso, lang)
 
         record_rows.append(
 
@@ -5736,7 +5808,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
         d_iso, cnt = most_visits
 
-        date_short = _fmt_date_ru(d_iso)
+        date_short = _fmt_date_lang(d_iso, lang)
 
         record_rows.append(
 

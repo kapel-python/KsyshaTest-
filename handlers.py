@@ -1166,13 +1166,19 @@ async def cmd_start(message: Message, state: FSMContext):
     # ── Обрабатываем инвайт-код ──
     if invite_code:
         invite_data = db.get_invite_code(invite_code)
-
         if not invite_data:
             await message.answer(
                 "❌ <b>Ссылка не найдена</b>\n\n"
                 "Возможно, ссылка была удалена или введена неверно.\n"
                 "Попроси партнёра поделиться актуальной ссылкой.",
                 parse_mode=ParseMode.HTML
+            )
+            return
+
+        if invite_data.get("pre_bound_user_id") and invite_data["pre_bound_user_id"] != user_id:
+            await message.answer(
+                "❌ Эта ссылка не предназначена для этого аккаунта.\n\n"
+                "Не передавай эту ссылку другим людям. Она предназначена только для восстановления доступа к твоему аккаунту."
             )
             return
 
@@ -9255,3 +9261,110 @@ async def _finish_add_category(
         reply_markup=create_categories_keyboard(user_id=user_id),
         parse_mode=ParseMode.HTML,
     )
+
+@router.callback_query(F.data.startswith("unlink_deny:"))
+async def unlink_deny(callback: CallbackQuery):
+    token = callback.data.split(":")[1]
+    req = db.get_unlink_request(token)
+    if not req or req["status"] not in ("pending", "awaiting_final"):
+        await callback.answer("Запрос уже обработан или истёк.", show_alert=True)
+        return
+
+    user_id = req["user_id"]
+    db.set_unlink_status(token, "denied")
+    visitor_base = f"{user_id}_"
+    db.revoke_all_user_sessions(user_id, visitor_base)
+    db.log_security_event('unlink_denied', user_id, req['ip'], req['ua'], req['country'], req['city'], f'{{"token": "{token}"}}')
+    
+    try:
+        from http_api import _notify_unlink_ws
+        await _notify_unlink_ws(token, {"status": "denied"})
+    except Exception:
+        pass
+
+    text = (
+        f"🚨 <b>Доступ к отвязке отменён</b>\n\n"
+        f"Зафиксированы данные попытки:\n"
+        f"Устройство: {req['ua']}\n"
+        f"IP: {req['ip']} ({req['country']}, {req['city']})\n\n"
+        f"Все твои текущие сессии на сайте были завершены.\n"
+        f"Если ты подозреваешь компрометацию аккаунта, рекомендуется заново войти в систему."
+    )
+    
+    site_url = (getattr(config, "BOT_SITE_URL", "") or getattr(config, "SITE_DIRECT_URL", "")).strip().rstrip("/")
+    login_token = db.issue_user_login_token(user_id)
+    login_link = f"{site_url}?token={login_token}" if site_url else ""
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔐 Безопасный вход", url=login_link)]
+    ]) if login_link else None
+
+    text += "\n\n<i>Не передавай эту ссылку другим людям. Она предназначена только для восстановления доступа к твоему аккаунту.</i>"
+    
+    await callback.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("unlink_confirm:"))
+async def unlink_confirm(callback: CallbackQuery):
+    token = callback.data.split(":")[1]
+    req = db.get_unlink_request(token)
+    if not req or req["status"] != "pending":
+        await callback.answer("Запрос уже обработан или истёк.", show_alert=True)
+        return
+
+    db.set_unlink_status(token, "awaiting_final")
+    try:
+        from http_api import _notify_unlink_ws
+        await _notify_unlink_ws(token, {"status": "awaiting_final"})
+    except Exception:
+        pass
+
+    text = (
+        f"⚠️ <b>Внимание: Необратимое действие</b>\n\n"
+        f"Ты действительно хочешь отвязать этот Telegram-аккаунт?\n"
+        f"После отвязки ты потеряешь доступ к сайту с этого аккаунта.\n"
+        f"Все твои данные в паре останутся, но для входа потребуется новый аккаунт."
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Подтверждаю отвязку", callback_data=f"unlink_final:{token}")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data=f"unlink_deny:{token}")]
+    ])
+    await callback.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("unlink_final:"))
+async def unlink_final(callback: CallbackQuery):
+    token = callback.data.split(":")[1]
+    req = db.get_unlink_request(token)
+    if not req or req["status"] != "awaiting_final":
+        await callback.answer("Запрос уже обработан или истёк.", show_alert=True)
+        return
+
+    user_id = req["user_id"]
+    visitor_base = f"{user_id}_"
+    db.revoke_all_user_sessions(user_id, visitor_base)
+    invite_code = db.create_transfer_invite(req["couple_id"], user_id, pre_bound_user_id=None)
+    db.set_unlink_status(token, "confirmed", invite_code)
+
+    bot_username = getattr(config, "BOT_USERNAME", "")
+    bot_link = f"https://t.me/{bot_username}?start=invite_{invite_code}" if bot_username else f"https://t.me/bot?start=invite_{invite_code}"
+    
+    try:
+        from http_api import _notify_unlink_ws
+        await _notify_unlink_ws(token, {"status": "confirmed", "bot_link": bot_link})
+    except Exception:
+        pass
+
+    db.log_security_event('unlink_confirmed', user_id, req['ip'], req['ua'], req['country'], req['city'], f'{{"token": "{token}"}}')
+
+    text = (
+        f"✅ <b>Аккаунт успешно отвязан</b>\n\n"
+        f"Все твои сессии завершены.\n"
+        f"Твой партнёр и ваши общие данные в безопасности.\n\n"
+        f"Чтобы привязать новый Telegram-аккаунт, используй эту ссылку:"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔗 Ссылка для нового аккаунта", url=bot_link)]
+    ])
+    await callback.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+    await callback.answer()

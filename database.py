@@ -986,6 +986,46 @@ class Database:
                 )
             ''')
 
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS unlink_requests (
+                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    token               TEXT UNIQUE NOT NULL,
+                    user_id             INTEGER NOT NULL,
+                    couple_id           INTEGER NOT NULL,
+                    status              TEXT NOT NULL DEFAULT 'pending',
+                    ip                  TEXT,
+                    ua                  TEXT,
+                    country             TEXT,
+                    city                TEXT,
+                    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    responded_at        TIMESTAMP,
+                    transfer_invite_code TEXT
+                )
+            ''')
+
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS security_events (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type       TEXT NOT NULL,
+                    user_id    INTEGER,
+                    ip         TEXT,
+                    ua         TEXT,
+                    country    TEXT,
+                    city       TEXT,
+                    detail     TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            # Миграция: добавляем pre_bound_user_id в invite_codes
+            try:
+                cur = conn.execute("PRAGMA table_info(invite_codes)")
+                cols = [r[1] for r in cur.fetchall()]
+                if 'pre_bound_user_id' not in cols:
+                    conn.execute("ALTER TABLE invite_codes ADD COLUMN pre_bound_user_id INTEGER DEFAULT NULL")
+            except Exception as e:
+                logger.debug("Migration skipped for invite_codes.pre_bound_user_id: %s", e)
+
             # Миграция: создаём первую пару из config CREATOR_ID + KSUSHA_ID (если не созданы)
             self._migrate_to_couples(conn)
 
@@ -2880,6 +2920,22 @@ class Database:
             return code
         except Exception as e:
             logger.exception(f"Ошибка при создании инвайт-кода: {e}")
+            return ""
+
+    def create_transfer_invite(self, couple_id: int, creator_id: int, pre_bound_user_id: Optional[int] = None) -> str:
+        """Создаёт инвайт-код для переноса аккаунта."""
+        import secrets
+        code = secrets.token_urlsafe(12)
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    'INSERT INTO invite_codes (code, couple_id, creator_id, pre_bound_user_id) VALUES (?, ?, ?, ?)',
+                    (code, couple_id, creator_id, pre_bound_user_id)
+                )
+                conn.commit()
+            return code
+        except Exception as e:
+            logger.exception(f"Ошибка при создании transfer-инвайт-кода: {e}")
             return ""
 
     def get_invite_code(self, code: str) -> Optional[Dict]:
@@ -5271,6 +5327,76 @@ class Database:
             return True
         except Exception as e:
             logger.exception(f"Ошибка при создании резервной копии: {e}")
+            return False
+
+    def create_unlink_request(self, user_id: int, couple_id: int, token: str, ip: str, ua: str, country: str, city: str) -> str:
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "INSERT INTO unlink_requests (token, user_id, couple_id, ip, ua, country, city) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (token, user_id, couple_id, ip, ua, country, city)
+                )
+                conn.commit()
+            return token
+        except Exception as e:
+            logger.exception("Ошибка create_unlink_request: %s", e)
+            return ""
+
+    def get_unlink_request(self, token: str) -> Optional[Dict]:
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute("SELECT * FROM unlink_requests WHERE token = ?", (token,)).fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.exception("Ошибка get_unlink_request: %s", e)
+            return None
+
+    def set_unlink_status(self, token: str, status: str, transfer_invite_code: str = None) -> bool:
+        from datetime import datetime, timezone
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "UPDATE unlink_requests SET status = ?, responded_at = ?, transfer_invite_code = ? WHERE token = ?",
+                    (status, now_str, transfer_invite_code, token)
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("Ошибка set_unlink_status: %s", e)
+            return False
+
+    def revoke_all_user_sessions(self, user_id: int, visitor_id_base: str) -> None:
+        try:
+            with self._get_connection() as conn:
+                conn.execute("DELETE FROM devices WHERE visitor_id = ? OR visitor_id LIKE ?", (visitor_id_base, f"{visitor_id_base}_%"))
+                conn.execute("UPDATE user_login_tokens SET is_revoked = 1 WHERE user_id = ?", (user_id,))
+                conn.execute("DELETE FROM user_tokens WHERE user_id = ?", (user_id,))
+                conn.commit()
+        except Exception as e:
+            logger.exception("Ошибка revoke_all_user_sessions: %s", e)
+
+    def log_security_event(self, type: str, user_id: Optional[int], ip: str, ua: str, country: str, city: str, detail: str) -> None:
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "INSERT INTO security_events (type, user_id, ip, ua, country, city, detail) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (type, user_id, ip, ua, country, city, detail)
+                )
+                conn.commit()
+        except Exception as e:
+            logger.exception("Ошибка log_security_event: %s", e)
+
+    def get_recent_unlink_denied(self, user_id: int, within_seconds: int = 3600) -> bool:
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    f"SELECT 1 FROM security_events WHERE type = 'unlink_denied' AND user_id = ? AND created_at >= datetime('now', '-{within_seconds} seconds') LIMIT 1",
+                    (user_id,)
+                ).fetchone()
+                return bool(row)
+        except Exception as e:
+            logger.exception("Ошибка get_recent_unlink_denied: %s", e)
             return False
 
     def delete_user_data(self, user_id: int) -> Dict[str, int]:

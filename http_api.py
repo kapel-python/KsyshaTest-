@@ -856,6 +856,16 @@ _maintenance_ws_clients = set()
 # WebSocket-клиенты страницы сайта (для push-уведомлений), строго в рамках пары.
 # Формат: {couple_id: {"creator": set(ws), "partner": set(ws)}}
 _site_ws_clients: dict = {}
+_unlink_ws_clients: dict = {}  # { token: set(ws) }
+
+async def _notify_unlink_ws(token: str, payload: dict) -> None:
+    clients = _unlink_ws_clients.get(token, set())
+    for ws in list(clients):
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            _unlink_ws_clients.get(token, set()).discard(ws)
+
 
 
 def _ws_bucket(couple_id: int) -> dict:
@@ -4722,6 +4732,92 @@ async def token_auth(request: web.Request) -> web.Response:
     return response
 
 
+async def api_unlink_init(request: web.Request) -> web.Response:
+    if request.method == "OPTIONS":
+        return _add_cors_headers(web.Response(status=200))
+        
+    visitor_id = _get_trusted_visitor_id(request)
+    if not visitor_id:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "unauthorized"}, status=401))
+
+    user_id = _visitor_to_user_id(visitor_id)
+    if not user_id:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_user"}, status=401))
+
+    couple = db.get_couple_by_user(user_id)
+    if not couple:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "no_couple"}, status=400))
+
+    if db.get_recent_unlink_denied(user_id, 3600):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "blocked"}, status=403))
+
+    ip = request.headers.get("X-Forwarded-For", request.remote or "")
+    ua = request.headers.get("User-Agent", "")
+    country = request.headers.get("CF-IPCountry", "-")
+    city = request.headers.get("CF-IPCity", "-")
+
+    token = secrets.token_urlsafe(32)
+    db.create_unlink_request(user_id, couple["id"], token, ip, ua, country, city)
+
+    async def _send_bot_msg():
+        from zoneinfo import ZoneInfo
+        now_msk = datetime.now(timezone.utc).astimezone(ZoneInfo("Europe/Moscow"))
+        time_str = now_msk.strftime("%d %B %Y, %H:%M МСК")
+        
+        text = (
+            f"🔓 <b>Запрос на отвязку аккаунта</b>\n\n"
+            f"Устройство: {ua}\n"
+            f"IP: {ip} ({country}, {city})\n"
+            f"Время: {time_str}\n\n"
+            f"Отвязать текущий аккаунт от сайта?\n"
+            f"После отвязки вход с текущим Telegram-аккаунтом будет невозможен.\n"
+            f"Для повторного входа потребуется другой аккаунт и специальная ссылка."
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Да, отвязать", callback_data=f"unlink_confirm:{token}")],
+            [InlineKeyboardButton(text="❌ Нет, это не я!", callback_data=f"unlink_deny:{token}")]
+        ])
+        
+        bot = Bot(token=config.BOT_TOKEN)
+        try:
+            await bot.send_message(chat_id=user_id, text=text, parse_mode=ParseMode.HTML, reply_markup=kb)
+        except Exception as e:
+            logger.exception(f"Failed to send unlink init message to {user_id}: {e}")
+        finally:
+            await bot.session.close()
+
+    asyncio.create_task(_send_bot_msg())
+    return _add_cors_headers(web.json_response({"ok": True, "token": token}))
+
+
+async def ws_unlink(request: web.Request) -> web.Response:
+    token = request.query.get("token")
+    vid = request.query.get("v")
+    if not token or not vid:
+        return web.HTTPBadRequest()
+
+    req = db.get_unlink_request(token)
+    if not req or req["status"] != "pending":
+        return web.HTTPForbidden()
+
+    user_id = _visitor_to_user_id(vid)
+    if not user_id or req["user_id"] != user_id:
+        return web.HTTPForbidden()
+
+    ws = web.WebSocketResponse(heartbeat=30.0)
+    await ws.prepare(request)
+    _unlink_ws_clients.setdefault(token, set()).add(ws)
+
+    try:
+        async for msg in ws:
+            pass
+    finally:
+        _unlink_ws_clients.get(token, set()).discard(ws)
+
+    return ws
+
+
+
 async def site_save_settings(request: web.Request) -> web.Response:
     """Сохраняет настройки сайта (lang, tz) для пользователя в базу данных.
     POST /api/site_save_settings  { "visitor_id": "...", "lang": "ru", "tz": "Europe/Moscow" }
@@ -7936,6 +8032,10 @@ def create_app() -> web.Application:
     app.router.add_post("/api/auth_debug_log", auth_debug_log)
     app.router.add_route("OPTIONS", "/api/site_save_settings", handle_options)
     app.router.add_post("/api/site_save_settings", site_save_settings)
+
+    app.router.add_route("OPTIONS", "/api/unlink/init", handle_options)
+    app.router.add_post("/api/unlink/init", api_unlink_init)
+    app.router.add_get("/ws/unlink", ws_unlink)
     app.router.add_get("/api/admin/check", admin_check)
     app.router.add_get("/api/admin/health_metrics", admin_health_metrics)
     app.router.add_route("OPTIONS", "/api/admin/notification", handle_options)

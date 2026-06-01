@@ -237,6 +237,24 @@
   .btn-secondary:hover { background: var(--bg); }
   .btn-danger { background: var(--danger-bg); color: var(--danger); border: none; }
   .btn-danger:hover { background: rgba(225,29,72,0.15); }
+  .btn-revoke {
+    background: transparent;
+    border: none;
+    color: var(--danger);
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+    opacity: 0.8;
+  }
+  .btn-revoke:hover {
+    background: var(--danger-bg);
+    opacity: 1;
+  }
+  .btn-revoke svg {
+    width: 18px; height: 18px;
+  }
 
   /* ── Section label ── */
   .section-label {
@@ -540,8 +558,7 @@
         </div>
         <div class="item-right"><svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       </button>
-      <!-- Sessions: disabled until backend support -->
-      <div class="card-item disabled" title="Скоро будет доступно">
+      <button class="card-item" id="btnSessions" onclick="navTo('screen-sessions'); loadSessions();">
         <div class="item-icon icon-slate">
           <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="7" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
         </div>
@@ -549,8 +566,8 @@
           <div class="item-title" data-i18n="profSessions">Сессии и устройства</div>
           <div class="item-sub" data-i18n="profSessionsSub">Управление активными сессиями</div>
         </div>
-        <div class="item-right"><span class="badge-soon" data-i18n="profSoon">Скоро</span></div>
-      </div>
+        <div class="item-right"><svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </button>
     </div>
 
     <div class="section-label" data-i18n="profSecData">Данные</div>
@@ -610,6 +627,32 @@
     </div>
     <p class="info-note" data-i18n="profUnlinkNote">
       Вход на сайт осуществляется через привязанный аккаунт Telegram. Управление связкой доступно в боте.
+    </p>
+  </div>
+</div>
+
+<!-- ── SESSIONS SCREEN ── -->
+<div id="screen-sessions" class="screen">
+  <div class="content animate-stack">
+    <div class="top-nav">
+      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+      <div class="screen-title" data-i18n="profSessions">Сессии и устройства</div>
+      <div class="nav-spacer"></div>
+    </div>
+
+    <div class="section-label" data-i18n="profActiveDevices">Активные устройства</div>
+    <div class="card" id="sessionsList">
+      <!-- Loading indicator -->
+      <div class="card-item static" style="justify-content:center;color:var(--muted);padding:24px;">
+        <span class="spinner show" style="margin-right:8px;"></span>
+        <span data-i18n="profLoading">Загрузка...</span>
+      </div>
+    </div>
+    
+    <p class="info-note" data-i18n="profSessionsNote">
+      Здесь показаны устройства, с которых вы вошли в свой аккаунт. Вы можете завершить любую сессию.
     </p>
   </div>
 </div>
@@ -683,6 +726,14 @@ const PROF_I18N = {
     profLogoutError: 'Ошибка при выходе. Попробуйте ещё раз.',
     profRole_creator: 'Создатель',
     profRole_partner: 'Партнёр',
+    profActiveDevices: 'Активные устройства',
+    profSessionsNote: 'Здесь показаны устройства, с которых вы вошли в свой аккаунт. Вы можете завершить любую сессию.',
+    profLoading: 'Загрузка...',
+    profThisDevice: 'Это устройство',
+    profRevokeConfirm: 'Вы действительно хотите завершить эту сессию?',
+    profRevokeSuccess: 'Сессия успешно завершена',
+    profRevokeError: 'Ошибка при завершении сессии',
+    profUnknownDevice: 'Неизвестное устройство',
   },
   en: {
     navHome: 'Home', navStats: 'Stats', navProfile: 'Profile',
@@ -703,6 +754,14 @@ const PROF_I18N = {
     profLogoutError: 'Logout failed. Please try again.',
     profRole_creator: 'Creator',
     profRole_partner: 'Partner',
+    profActiveDevices: 'Active Devices',
+    profSessionsNote: 'These are the devices that have logged into your account. You can log out of any session.',
+    profLoading: 'Loading...',
+    profThisDevice: 'This device',
+    profRevokeConfirm: 'Are you sure you want to end this session?',
+    profRevokeSuccess: 'Session terminated successfully',
+    profRevokeError: 'Error terminating session',
+    profUnknownDevice: 'Unknown device',
   },
   de: {
     navHome: 'Startseite', navStats: 'Statistiken', navProfile: 'Profil',
@@ -723,6 +782,14 @@ const PROF_I18N = {
     profLogoutError: 'Fehler beim Abmelden. Bitte erneut versuchen.',
     profRole_creator: 'Ersteller',
     profRole_partner: 'Partner',
+    profActiveDevices: 'Aktive Geräte',
+    profSessionsNote: 'Dies sind die Geräte, die sich in Ihrem Konto angemeldet haben. Sie können jede Sitzung beenden.',
+    profLoading: 'Laden...',
+    profThisDevice: 'Dieses Gerät',
+    profRevokeConfirm: 'Möchten Sie diese Sitzung wirklich beenden?',
+    profRevokeSuccess: 'Sitzung erfolgreich beendet',
+    profRevokeError: 'Fehler beim Beenden der Sitzung',
+    profUnknownDevice: 'Unbekanntes Gerät',
   },
 };
 
@@ -899,6 +966,129 @@ function _checkAuthAndLoad() {
     _populateProfile(data);
   })
   .catch(() => {});
+}
+
+// ── Active Sessions ──────────────────────────────────────────────────────
+function loadSessions() {
+  const vid = _getCookie('visitor_id') || '';
+  const list = document.getElementById('sessionsList');
+  
+  list.innerHTML = `
+    <div class="card-item static" style="justify-content:center;color:var(--muted);padding:24px;">
+      <span class="spinner show" style="margin-right:8px;"></span>
+      <span>${_t('profLoading')}</span>
+    </div>
+  `;
+  
+  fetch('/api/sessions?v=' + encodeURIComponent(vid), {
+    credentials: 'include'
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data || !data.ok) {
+      list.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--danger);padding:20px;">${_t('profRevokeError')}</div>`;
+      return;
+    }
+    renderActiveSessions(data.sessions || []);
+  })
+  .catch(() => {
+    list.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--danger);padding:20px;">${_t('profRevokeError')}</div>`;
+  });
+}
+
+function renderActiveSessions(sessions) {
+  const list = document.getElementById('sessionsList');
+  if (!sessions.length) {
+    list.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--muted);padding:20px;">${_t('profUnknownDevice')}</div>`;
+    return;
+  }
+  
+  list.innerHTML = sessions.map(s => {
+    const isCurrent = s.is_current;
+    const badgeHtml = isCurrent ? `<span class="badge-success" style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.2);margin-left:6px;font-weight:600;line-height:1.2;">${_t('profThisDevice')}</span>` : '';
+    
+    // Icon selection
+    const isMobile = s.device_type && s.device_type.toLowerCase().includes('mobile');
+    const iconSvg = isMobile
+      ? `<svg viewBox="0 0 16 16" fill="none"><rect x="4" y="1" width="8" height="14" rx="1.5" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="13" r="0.7" fill="currentColor"/></svg>`
+      : `<svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 14h6M3 11.5h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+      
+    // Action button
+    const actionHtml = isCurrent
+      ? ''
+      : `<button class="btn-revoke" onclick="confirmRevokeSession(${s.id})" title="${_t('profLogoutSub')}">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+         </button>`;
+         
+    // Pretty location & details
+    const geo = [s.city, s.country].filter(Boolean).join(', ') || '—';
+    const detailParts = [geo, s.last_seen_utc ? _formatActivityTime(s.last_seen_utc) : ''].filter(Boolean);
+    const details = detailParts.join(' · ');
+    
+    return `
+      <div class="card-item static">
+        <div class="item-icon icon-slate">
+          ${iconSvg}
+        </div>
+        <div class="item-body">
+          <div class="item-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
+            <span>${s.ua_pretty || _t('profUnknownDevice')}</span>
+            ${badgeHtml}
+          </div>
+          <div class="item-sub">${details}</div>
+        </div>
+        <div class="item-right" style="padding-left:10px;">
+          ${actionHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function _formatActivityTime(utcStr) {
+  try {
+    const d = new Date(utcStr.replace(' ', 'T') + 'Z');
+    if (isNaN(d.getTime())) return utcStr;
+    const now = new Date();
+    const diffMs = now - d;
+    if (diffMs < 60000) return 'Активен сейчас';
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 60) return `${diffMins} мин. назад`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} ч. назад`;
+    
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}.${month} ${hours}:${minutes}`;
+  } catch (e) {
+    return utcStr;
+  }
+}
+
+function confirmRevokeSession(id) {
+  if (confirm(_t('profRevokeConfirm'))) {
+    const vid = _getCookie('visitor_id') || '';
+    fetch('/api/sessions/revoke', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: id, visitor_id: vid })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.ok) {
+        showToast(_t('profRevokeSuccess'));
+        loadSessions();
+      } else {
+        showToast(_t('profRevokeError'));
+      }
+    })
+    .catch(() => {
+      showToast(_t('profRevokeError'));
+    });
+  }
 }
 
 // ── Logout ───────────────────────────────────────────────────────────────

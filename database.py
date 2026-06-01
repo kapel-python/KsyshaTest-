@@ -3315,6 +3315,7 @@ class Database:
         }
         if not visitor_id:
             return result
+        base = visitor_id.split("_")[0] if "_" in visitor_id else visitor_id
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute(
@@ -3324,9 +3325,9 @@ class Database:
                         MIN(visited_at_utc) AS first_utc,
                         MAX(visited_at_utc) AS last_utc
                     FROM site_visits
-                    WHERE visitor_id = ?
+                    WHERE visitor_id = ? OR visitor_id LIKE ?
                     ''',
-                    (visitor_id,),
+                    (base, f"{base}_%"),
                 )
                 row = cursor.fetchone()
                 if not row:
@@ -3356,17 +3357,18 @@ class Database:
         """Возвращает информацию о самом последнем визите (для отображения устройства). Без visitor_id — None."""
         if not visitor_id:
             return None
+        base = visitor_id.split("_")[0] if "_" in visitor_id else visitor_id
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute(
                     '''
                     SELECT visited_at_utc, timezone_id, ip, ua_pretty, visitor_id
                     FROM site_visits
-                    WHERE visitor_id = ?
+                    WHERE visitor_id = ? OR visitor_id LIKE ?
                     ORDER BY visited_at_utc DESC
                     LIMIT 1
                     ''',
-                    (visitor_id,),
+                    (base, f"{base}_%"),
                 )
                 row = cursor.fetchone()
                 if not row:
@@ -3436,16 +3438,15 @@ class Database:
         """Возвращает суммарное время на сайте (секунды) для visitor_id. Без visitor_id — 0."""
         if not visitor_id:
             return 0
+        base = visitor_id.split("_")[0] if "_" in visitor_id else visitor_id
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute(
-                    "SELECT total_seconds FROM visitor_site_time WHERE visitor_id = ?",
-                    (visitor_id,),
+                    "SELECT SUM(total_seconds) FROM visitor_site_time WHERE visitor_id = ? OR visitor_id LIKE ?",
+                    (base, f"{base}_%"),
                 )
                 row = cursor.fetchone()
-                if not row:
-                    return 0
-                return int(row[0] or 0)
+                return int(row[0] or 0) if row and row[0] is not None else 0
         except Exception as e:
             logger.exception("Ошибка при получении времени на сайте: %s", e)
             return 0
@@ -3460,6 +3461,8 @@ class Database:
         message: str,
     ) -> Optional[int]:
         """Сохраняет одно сообщение диалога ИИ‑компаньона. Возвращает id новой записи."""
+        if visitor_id and "_" in visitor_id:
+            visitor_id = visitor_id.split("_")[0]
         role = (role or "").strip()
         message = (message or "").strip()
         if not role or not message:
@@ -3482,6 +3485,8 @@ class Database:
 
     def clear_companion_history(self, visitor_id: str) -> int:
         """Удаляет всю историю чата с ИИ для visitor_id. Возвращает кол-во удалённых строк."""
+        if visitor_id and "_" in visitor_id:
+            visitor_id = visitor_id.split("_")[0]
         try:
             with self._get_connection() as conn:
                 cur = conn.execute(
@@ -3507,6 +3512,8 @@ class Database:
         """
         if not visitor_id:
             return []
+        if visitor_id and "_" in visitor_id:
+            visitor_id = visitor_id.split("_")[0]
         try:
             with self._get_connection() as conn:
                 # Добавляем колонки если их нет (на случай старой БД)
@@ -4322,6 +4329,8 @@ class Database:
 
     def add_category_open(self, visitor_id: Optional[str], section_id: str) -> None:
         """Одно открытие секции (нажатие «Показать»). section_id: important_moments, memories, important_dates, events, wishes."""
+        if visitor_id and "_" in visitor_id:
+            visitor_id = visitor_id.split("_")[0]
         try:
             utc_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             with self._get_connection() as conn:
@@ -4341,6 +4350,8 @@ class Database:
         result: Dict[str, Any] = {"total": 0, "by_section": {}}
         if not visitor_id:
             return result
+        if visitor_id and "_" in visitor_id:
+            visitor_id = visitor_id.split("_")[0]
         try:
             with self._get_connection() as conn:
                 if True:
@@ -4428,6 +4439,28 @@ class Database:
             logger.exception(f"Ошибка при получении списка устройств: {e}")
             return []
 
+    def get_user_devices(self, visitor_id: str) -> List[Dict[str, Any]]:
+        """Возвращает список устройств для конкретного пользователя (по префиксу visitor_id)."""
+        if not visitor_id:
+            return []
+        base = visitor_id.split("_")[0] if "_" in visitor_id else visitor_id
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.execute(
+                    '''
+                    SELECT id, visitor_id, ua_pretty, last_seen_utc, visit_count, country, city, ip_server, ip_webrtc, role
+                    FROM devices
+                    WHERE visitor_id = ? OR visitor_id LIKE ?
+                    ORDER BY last_seen_utc DESC
+                    ''',
+                    (base, f"{base}_%")
+                )
+                names = [d[0] for d in cursor.description]
+                return [dict(zip(names, row)) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.exception(f"Ошибка get_user_devices: {e}")
+            return []
+
     def get_device_by_id(self, device_id: int) -> Optional[Dict[str, Any]]:
         """Полная информация об устройстве по id для экрана детали."""
         try:
@@ -4454,6 +4487,17 @@ class Database:
                 return True
         except Exception as e:
             logger.exception("Ошибка при удалении устройства %s: %s", device_id, e)
+            return False
+
+    def delete_device_by_visitor_id(self, visitor_id: str) -> bool:
+        """Удаляет устройство по visitor_id (например при выходе)."""
+        try:
+            with self._get_connection() as conn:
+                cur = conn.execute("DELETE FROM devices WHERE visitor_id = ?", (visitor_id,))
+                conn.commit()
+                return cur.rowcount > 0
+        except Exception as e:
+            logger.exception("Ошибка при удалении устройства по visitor_id %s: %s", visitor_id, e)
             return False
 
     def get_recent_memories(self, limit: int = 10, couple_id: Optional[int] = None) -> List[Memory]:

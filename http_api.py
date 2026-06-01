@@ -458,8 +458,6 @@ def _check_ai_request_auth(request: web.Request, visitor_id: str) -> bool:
     if not _verify_visitor_signature(visitor_id, visitor_sig):
         return False
     return True
-
-
 def _get_trusted_visitor_id(
     request: web.Request,
     payload: Optional[dict] = None,
@@ -491,7 +489,15 @@ def _get_trusted_visitor_id(
     if claimed and claimed != session_vid:
         logger.warning("Tenant isolation block: claimed visitor_id=%r mismatches signed session=%r", claimed, session_vid)
         return None
+
+    # Revocation check
+    if "_" in session_vid:
+        if not db.get_device_by_visitor_id(session_vid):
+            logger.warning("Tenant isolation block: session_vid=%r not found in devices (revoked/logged out)", session_vid)
+            return None
+
     return session_vid
+
 
 def _safe_html(text: str) -> str:
     """Экранирует пользовательский текст для безопасной вставки через innerHTML.
@@ -4650,7 +4656,18 @@ async def token_auth(request: web.Request) -> web.Response:
             pass
 
     user_info = db.get_user(user_id) or {}
-    visitor_id = str(user_id)
+    import uuid
+    visitor_id = f"{user_id}_{uuid.uuid4().hex[:12]}"
+    
+    # Pre-register device to prevent race conditions in subsequent page load calls
+    ua_raw = request.headers.get("User-Agent", "")
+    ua_pretty = _format_device_info(ua_raw, None) or "Неизвестное устройство"
+    db.add_or_update_device(
+        visitor_id,
+        role=role,
+        ua_pretty=ua_pretty,
+    )
+
     ai_session, ai_session_exp = _issue_ai_session(visitor_id)
     visitor_sig = _sign_payload(f"visitor:{visitor_id}")
     response = _add_cors_headers(web.json_response({
@@ -5115,6 +5132,56 @@ async def profile_page(request: web.Request) -> web.Response:
     )
 
 
+async def api_sessions(request: web.Request) -> web.Response:
+    """Возвращает список активных сессий пользователя.
+    GET /api/sessions
+    """
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    if not visitor_id:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    devices = db.get_user_devices(visitor_id)
+    # Mark the current session
+    for dev in devices:
+        dev["is_current"] = (dev.get("visitor_id") == visitor_id)
+
+    return _add_cors_headers(web.json_response({"ok": True, "sessions": devices}))
+
+
+async def api_sessions_revoke(request: web.Request) -> web.Response:
+    """Завершает выбранную сессию пользователя.
+    POST /api/sessions/revoke  { "device_id": 123 }
+    """
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    if not visitor_id:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        payload = await request.json()
+    except Exception:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "bad_json"}))
+
+    device_id = payload.get("device_id")
+    if not device_id:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "missing_device_id"}))
+
+    # Fetch device to make sure it belongs to the user
+    dev = db.get_device_by_id(device_id)
+    if not dev:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "not_found"}))
+
+    dev_vid = dev.get("visitor_id") or ""
+    my_base = visitor_id.split("_")[0] if "_" in visitor_id else visitor_id
+    dev_base = dev_vid.split("_")[0] if "_" in dev_vid else dev_vid
+
+    if my_base != dev_base:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    # Perform revocation
+    success = db.delete_device_by_id(device_id)
+    return _add_cors_headers(web.json_response({"ok": success}))
+
+
 async def logout(request: web.Request) -> web.Response:
     """Завершает текущую сессию пользователя, удаляя все авторизационные cookie.
 
@@ -5129,6 +5196,7 @@ async def logout(request: web.Request) -> web.Response:
         )
 
     logger.info("logout: visitor_id=%r terminated session", visitor_id)
+    db.delete_device_by_visitor_id(visitor_id)
 
     response = _add_cors_headers(web.json_response({"ok": True}))
     for name in ("visitor_id", "visitor_sig", "ai_session", "admin_session"):
@@ -5138,19 +5206,12 @@ async def logout(request: web.Request) -> web.Response:
 
 
 def _stats_loader_html() -> str:
-
     """HTML-страница загрузки /stats: анимация и редирект с определением tz и visitor_id."""
-
     return """<!DOCTYPE html>
-
 <html lang="ru">
-
 <head>
-
     <meta charset="utf-8">
-
     <title>Статистика — загрузка</title>
-
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
@@ -7716,6 +7777,10 @@ def create_app() -> web.Application:
     app.router.add_get("/profile", profile_page)
     app.router.add_route("OPTIONS", "/api/logout", handle_options)
     app.router.add_post("/api/logout", logout)
+    app.router.add_route("OPTIONS", "/api/sessions", handle_options)
+    app.router.add_get("/api/sessions", api_sessions)
+    app.router.add_route("OPTIONS", "/api/sessions/revoke", handle_options)
+    app.router.add_post("/api/sessions/revoke", api_sessions_revoke)
 
     app.router.add_get("/ws/maintenance", ws_maintenance)
     app.router.add_get("/ws/site", ws_site)

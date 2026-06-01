@@ -1742,6 +1742,10 @@ function initSkyWS() {
             _log('WS', 'inbox accumulated: ' + newCount);
           }
         }
+        if (msg.type === 'force_logout') {
+          window.location.replace('/404');
+          return;
+        }
         if (msg.type === 'stars_seen') {
           // Партнёр закрыл inbox — сбрасываем счётчик отправленных
           _log('WS', 'stars_seen → clearing sent counter');

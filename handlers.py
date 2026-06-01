@@ -9277,8 +9277,9 @@ async def unlink_deny(callback: CallbackQuery):
     db.log_security_event('unlink_denied', user_id, req['ip'], req['ua'], req['country'], req['city'], f'{{"token": "{token}"}}')
     
     try:
-        from http_api import _notify_unlink_ws
+        from http_api import _notify_unlink_ws, _notify_force_logout
         await _notify_unlink_ws(token, {"status": "denied"})
+        await _notify_force_logout(user_id)
     except Exception:
         pass
 
@@ -9350,8 +9351,9 @@ async def unlink_final(callback: CallbackQuery):
     bot_link = f"https://t.me/{bot_username}?start=invite_{invite_code}" if bot_username else f"https://t.me/bot?start=invite_{invite_code}"
     
     try:
-        from http_api import _notify_unlink_ws
+        from http_api import _notify_unlink_ws, _notify_force_logout
         await _notify_unlink_ws(token, {"status": "confirmed", "bot_link": bot_link})
+        await _notify_force_logout(user_id)
     except Exception:
         pass
 

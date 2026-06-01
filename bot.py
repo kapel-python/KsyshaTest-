@@ -998,6 +998,13 @@ async def on_startup(bot):
     if tunnel_ok:
         await asyncio.sleep(4)
 
+    # Fetch bot username dynamically
+    try:
+        me = await bot.get_me()
+        config.BOT_USERNAME = me.username
+    except Exception as e:
+        logger.error(f"Failed to fetch bot username dynamically: {e}")
+
     # Уведомление о запуске
     startup_msg_id = None
     try:

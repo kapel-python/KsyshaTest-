@@ -867,6 +867,20 @@ async def _notify_unlink_ws(token: str, payload: dict) -> None:
             _unlink_ws_clients.get(token, set()).discard(ws)
 
 
+async def _notify_force_logout(user_id: int) -> None:
+    couple = db.get_couple_by_user(user_id)
+    if not couple:
+        return
+    couple_id = couple.get("id")
+    if not couple_id:
+        return
+    role = "creator" if couple.get("user1_id") == user_id else "partner"
+    clients = _ws_clients(couple_id, role)
+    for ws in clients:
+        try:
+            await ws.send_json({"type": "force_logout"})
+        except Exception:
+            pass
 
 def _ws_bucket(couple_id: int) -> dict:
     bucket = _site_ws_clients.get(couple_id)
@@ -5170,6 +5184,9 @@ async def index(request: web.Request) -> web.StreamResponse:
 
     # Не пробрасываем серверный API-ключ в клиентский HTML.
     html = html.replace("{{API_SECRET_KEY}}", "")
+    
+    bot_username = (getattr(config, "BOT_USERNAME", "") or "Akimova_Ksysha_love_bot").strip()
+    html = html.replace("{{BOT_USERNAME}}", bot_username)
 
     return web.Response(
         text=html,

@@ -5085,7 +5085,7 @@
 
                 <div class="bot-buttons">
 
-                    <a class="bot-link" href="https://t.me/Akimova_Ksysha_love_bot" target="_blank" rel="noopener">
+                    <a class="bot-link" href="https://t.me/{{BOT_USERNAME}}" target="_blank" rel="noopener">
 
                         <span class="bot-link-icon">✈️</span>
 
@@ -12379,6 +12379,10 @@
             onmessage(e) {
               try {
                 const msg = JSON.parse(e.data);
+                if (msg.type === 'force_logout') {
+                  window.location.replace('/404');
+                  return;
+                }
                 if (msg.type === 'notification' && msg.notification) {
                   showSiteNotification(msg.notification);
                 } else if (msg.type === 'celebration' && msg.celebration) {

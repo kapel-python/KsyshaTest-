@@ -5002,6 +5002,7 @@ class Database:
 
             with self._get_connection() as conn:
                 conn.execute('DELETE FROM event_notifications WHERE event_id = ?', (event_id,))
+                conn.execute('DELETE FROM site_celebrations WHERE event_id = ?', (event_id,))
                 conn.execute('DELETE FROM scheduled_events WHERE id = ?', (event_id,))
                 conn.commit()
 
@@ -5035,8 +5036,11 @@ class Database:
         try:
             with self._get_connection() as conn:
                 cur = conn.execute(
-                    "SELECT id, celebration_type, event_title, event_id, created_at_utc, delivered_to "
-                    "FROM site_celebrations ORDER BY id ASC"
+                    "SELECT c.id, c.celebration_type, c.event_title, c.event_id, c.created_at_utc, c.delivered_to "
+                    "FROM site_celebrations c "
+                    "LEFT JOIN scheduled_events e ON c.event_id = e.id "
+                    "WHERE c.event_id IS NULL OR e.id IS NOT NULL "
+                    "ORDER BY c.id ASC"
                 )
                 for row in cur.fetchall():
                     delivered = (row[5] or "").split(",")

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.144'
-description = 'Токен можно использовать даже если он истек'
+version = '1.0.145'
+description = 'Фикс отображения удаленных событий на дату'
 
 
 def get_version_metadata() -> tuple[str, str]:

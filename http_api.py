@@ -70,6 +70,8 @@ from utils import _event_datetime_to_utc
 
 logger = logging.getLogger(__name__)
 
+_STATS_HTML_CACHE = None
+
 
 def _safe_int(value, default: Optional[int] = None) -> Optional[int]:
     """Безопасно конвертирует value в int, возвращает default при ошибке."""
@@ -5508,9 +5510,15 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     stats_path = project_root / "stats.html"
 
-    if not stats_path.exists():
-
-        return web.Response(text="stats.html not found", status=404)
+    global _STATS_HTML_CACHE
+    if _STATS_HTML_CACHE is None:
+        if not stats_path.exists():
+            return web.Response(text="stats.html not found", status=404)
+        try:
+            _STATS_HTML_CACHE = stats_path.read_text(encoding="utf-8")
+        except Exception:
+            return web.Response(text="cannot read stats.html", status=500)
+    html = _STATS_HTML_CACHE
 
     # Временная зона и идентификатор посетителя (для персональной статистики)
     # Используем только cryptographically trusted visitor_id.
@@ -5532,6 +5540,32 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             lang = (db.get_user_setting(_vis_uid2, "lang") or "").strip()[:5]
     if lang not in ("ru", "ky", "de", "en"):
         lang = "ru"
+
+    # ─── Ускорение: кэширование HTTP ETag ─────────────────────────────────
+    couple = db.get_couple_by_user(_stats_uid)
+    if couple:
+        _couple_id = couple['id']
+        _couple_user_ids = [uid for uid in (couple.get('user1_id'), couple.get('user2_id')) if uid]
+    else:
+        _couple_id = -1
+        _couple_user_ids = []
+
+    # Легковесные быстрые запросы для проверки изменений
+    total_sec = db.get_visitor_total_site_seconds(visitor_id)
+    last_item = db.get_last_added_item(couple_id=_couple_id, user_ids=_couple_user_ids)
+    last_item_str = str(last_item) if last_item else ""
+    
+    # ETag строится на основе: ID пользователя, языка, TZ, общего времени на сайте и последнего элемента
+    etag_raw = f"stats:{visitor_id}:{lang}:{tz_id or 'UTC'}:{total_sec}:{last_item_str}"
+    etag = f'W/"{hashlib.sha256(etag_raw.encode("utf-8")).hexdigest()[:24]}"'
+    
+    # Проверяем If-None-Match
+    inm = (request.headers.get("If-None-Match") or "").strip()
+    if inm and inm == etag:
+        not_modified = web.Response(status=304)
+        not_modified.headers["ETag"] = etag
+        not_modified.headers["Cache-Control"] = "private, no-cache, max-age=0, must-revalidate"
+        return _add_cors_headers(not_modified)
 
     # Переводы для всех строк генерируемых сервером
     _S = {
@@ -6233,7 +6267,10 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     html = html.replace("{{RECORDS_HTML}}", records_html)
 
-    return web.Response(text=html, content_type="text/html", charset="utf-8")
+    resp = web.Response(text=html, content_type="text/html", charset="utf-8")
+    resp.headers["ETag"] = etag
+    resp.headers["Cache-Control"] = "private, no-cache, max-age=0, must-revalidate"
+    return resp
 
 # ═══════════════════════════ DDoS Protection ════════════════════════════
 #

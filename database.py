@@ -2856,22 +2856,67 @@ class Database:
             return -1
 
     def join_couple(self, couple_id: int, user_id: int) -> bool:
-        """Присоединяет пользователя на свободное место в паре."""
+        """Присоединяет пользователя на свободное место в паре, перенося данные при необходимости."""
         try:
             with self._get_connection() as conn:
-                cur = conn.execute(
-                    'UPDATE couples SET user2_id = ? WHERE id = ? AND (user2_id IS NULL OR user2_id < 0)',
-                    (user_id, couple_id)
-                )
-                if cur.rowcount > 0:
+                row = conn.execute(
+                    'SELECT user1_id, user2_id FROM couples WHERE id = ?',
+                    (couple_id,)
+                ).fetchone()
+                if not row:
+                    return False
+                
+                u1 = row['user1_id']
+                u2 = row['user2_id']
+                
+                old_id = None
+                updated = False
+                
+                if u2 is None or u2 < 0:
+                    if u2 is not None and u2 < 0:
+                        old_id = abs(u2)
+                    cur = conn.execute(
+                        'UPDATE couples SET user2_id = ? WHERE id = ? AND (user2_id IS NULL OR user2_id < 0)',
+                        (user_id, couple_id)
+                    )
+                    updated = cur.rowcount > 0
+                elif u1 < 0:
+                    old_id = abs(u1)
+                    cur = conn.execute(
+                        'UPDATE couples SET user1_id = ? WHERE id = ? AND user1_id < 0',
+                        (user_id, couple_id)
+                    )
+                    updated = cur.rowcount > 0
+                
+                if updated:
+                    if old_id is not None and old_id != user_id:
+                        logger.info(f"Переносим данные пользователя с old_id={old_id} на new_id={user_id}")
+                        
+                        for table in ["user_profiles", "user_settings", "favorites", "admins"]:
+                            conn.execute(
+                                f"UPDATE OR REPLACE {table} SET user_id = ? WHERE user_id = ?",
+                                (user_id, old_id)
+                            )
+                        
+                        for table in ["memories", "wishes", "scheduled_events"]:
+                            conn.execute(
+                                f"UPDATE {table} SET user_id = ? WHERE user_id = ?",
+                                (user_id, old_id)
+                            )
+                        
+                        conn.execute(
+                            "UPDATE companion_messages SET visitor_id = REPLACE(visitor_id, ?, ?) WHERE visitor_id LIKE ?",
+                            (f"{old_id}_", f"{user_id}_", f"{old_id}_%")
+                        )
+                        conn.execute(
+                            "UPDATE devices SET visitor_id = REPLACE(visitor_id, ?, ?) WHERE visitor_id LIKE ?",
+                            (f"{old_id}_", f"{user_id}_", f"{old_id}_%")
+                        )
+                    
                     conn.commit()
                     return True
-                cur = conn.execute(
-                    'UPDATE couples SET user1_id = ? WHERE id = ? AND user1_id < 0',
-                    (user_id, couple_id)
-                )
-                conn.commit()
-                return cur.rowcount > 0
+                
+                return False
         except Exception as e:
             logger.exception(f"Ошибка при присоединении к паре {couple_id}: {e}")
             return False

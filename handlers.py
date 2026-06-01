@@ -1215,7 +1215,9 @@ async def cmd_start(message: Message, state: FSMContext):
 
         # Пара уже полная (у создателя уже есть партнёр)
         target_couple = db.get_couple_by_id(couple_id)
-        if target_couple and target_couple.get("user2_id") and target_couple.get("user2_id") > 0:
+        u1 = target_couple.get("user1_id") if target_couple else None
+        u2 = target_couple.get("user2_id") if target_couple else None
+        if target_couple and u1 and u1 > 0 and u2 and u2 > 0:
             await message.answer(
                 "🚫 <b>Пара уже укомплектована</b>\n\n"
                 "У автора этой ссылки уже есть партнёр. Вступить нельзя.\n"

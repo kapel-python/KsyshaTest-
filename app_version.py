@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.143'
-description = 'Фикс двойного браузера'
+version = '1.0.144'
+description = 'Токен можно использовать даже если он истек'
 
 
 def get_version_metadata() -> tuple[str, str]:

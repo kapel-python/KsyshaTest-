@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.183'
-description = 'Фикс длительности видео'
+version = '1.0.184'
+description = 'Улучшение ux загрузки видео'
 
 
 def get_version_metadata() -> tuple[str, str]:

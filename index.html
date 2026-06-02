@@ -10012,6 +10012,7 @@
               addCanAddMore: (n) => 'Можно добавить ещё ' + n + ', лишние пропущены',
               addFileTooBig: (name) => 'Файл ' + name + ' слишком большой (макс. 100 МБ)',
               addUploading: 'Загружаю…',
+              addLargeFileHint: 'Большие видео могут загружаться дольше. Не закрывай страницу до завершения загрузки.',
               addCompressing: 'Сжимаю фото…',
               addRetry: 'Повтор…',
               addDeterminingDate: '⏳ Определить дату',
@@ -10218,6 +10219,7 @@
               addCanAddMore: (n) => 'Du kannst noch ' + n + ' hinzufügen, der Rest wurde übersprungen',
               addFileTooBig: (name) => 'Datei ' + name + ' ist zu groß (max. 100 MB)',
               addUploading: 'Wird hochgeladen…',
+              addLargeFileHint: 'Große Videos können länger dauern. Schließe die Seite nicht vor Abschluss des Uploads.',
               addCompressing: 'Foto wird komprimiert…',
               addRetry: 'Wiederholen…',
               addDeterminingDate: '⏳ Datum bestimmen',
@@ -10424,6 +10426,7 @@
               addCanAddMore: (n) => 'You can add ' + n + ' more, extras were skipped',
               addFileTooBig: (name) => 'File ' + name + ' is too large (max. 100 MB)',
               addUploading: 'Uploading…',
+              addLargeFileHint: 'Large videos may take longer to upload. Do not close the page until the upload is complete.',
               addCompressing: 'Compressing photo…',
               addRetry: 'Retry…',
               addDeterminingDate: '⏳ Determine date',
@@ -13708,29 +13711,88 @@
             }
 
             const loading = _mkEl('div');
-            loading.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;font-size:0.82rem;color:var(--muted-text);';
+            loading.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;width:100%;';
+            
+            const mainRow = _mkEl('div');
+            mainRow.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--muted-text);';
             const spinner = _mkEl('span', 'add-spinner');
             spinner.style.cssText = 'border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;flex-shrink:0;';
             const textSpan = _mkEl('span');
             textSpan.textContent = _ui('addUploading');
             const cancelBtn = _mkEl('button');
             cancelBtn.textContent = '✕';
-            cancelBtn.style.cssText = 'background:none;border:1px solid var(--border-color);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.7rem;color:var(--muted-text);display:flex;align-items:center;justify-content:center;';
+            cancelBtn.style.cssText = 'background:none;border:1px solid var(--border-color);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.7rem;color:var(--muted-text);display:flex;align-items:center;justify-content:center;margin-left:auto;';
             cancelBtn.onclick = () => _abortUpload();
-            loading.appendChild(spinner);
-            loading.appendChild(textSpan);
-            loading.appendChild(cancelBtn);
+            
+            mainRow.appendChild(spinner);
+            mainRow.appendChild(textSpan);
+            mainRow.appendChild(cancelBtn);
+            loading.appendChild(mainRow);
+
+            // Progress bar and details container
+            const progressContainer = _mkEl('div');
+            progressContainer.style.cssText = 'width:100%;display:flex;flex-direction:column;gap:4px;';
+            
+            const progressBg = _mkEl('div');
+            progressBg.style.cssText = 'width:100%;height:6px;background:rgba(0,0,0,0.06);border-radius:3px;overflow:hidden;';
+            const progressFill = _mkEl('div');
+            progressFill.style.cssText = 'width:0%;height:100%;background:var(--accent-color);transition:width 0.2s ease-out;border-radius:3px;';
+            progressBg.appendChild(progressFill);
+            
+            const detailsRow = _mkEl('div');
+            detailsRow.style.cssText = 'display:flex;justify-content:space-between;font-size:0.76rem;color:var(--muted-text);flex-wrap:wrap;gap:4px;';
+            const bytesSpan = _mkEl('span');
+            bytesSpan.textContent = '0 MB / 0 MB';
+            const speedEtaSpan = _mkEl('span');
+            speedEtaSpan.textContent = '';
+            
+            detailsRow.appendChild(bytesSpan);
+            detailsRow.appendChild(speedEtaSpan);
+            
+            const hintDiv = _mkEl('div');
+            hintDiv.style.cssText = 'font-size:0.74rem;color:var(--accent-color);margin-top:2px;opacity:0.85;line-height:1.25;display:none;';
+            
+            progressContainer.appendChild(progressBg);
+            progressContainer.appendChild(detailsRow);
+            progressContainer.appendChild(hintDiv);
+            loading.appendChild(progressContainer);
+
             thumb.appendChild(loading);
             lbl.style.opacity = '0.5';
             lbl.style.pointerEvents = 'none';
 
             const vid = ensureVisitorIdForRole() || '';
-            const result = await _uploadFile(f, vid, pct => {
+            const result = await _uploadFile(f, vid, (pct, loaded, total, speed, eta) => {
               textSpan.textContent = _ui('addUploading') + ' ' + pct + '%';
+              progressFill.style.width = pct + '%';
+              const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+              const totalMB = (total / 1024 / 1024).toFixed(1);
+              bytesSpan.textContent = loadedMB + ' МБ из ' + totalMB + ' МБ';
+              if (speed && speed > 0) {
+                const speedMB = (speed / 1024 / 1024).toFixed(1);
+                let etaText = '';
+                if (eta !== null && isFinite(eta)) {
+                  etaText = ' • ' + (eta <= 0 ? 'готово' : 'Осталось ~' + eta + ' сек');
+                }
+                speedEtaSpan.textContent = 'Скорость: ' + speedMB + ' МБ/с' + etaText;
+                speedEtaSpan.style.display = '';
+              } else {
+                speedEtaSpan.style.display = 'none';
+              }
+              if (total > 20 * 1024 * 1024) {
+                hintDiv.textContent = _ui('addLargeFileHint');
+                hintDiv.style.display = '';
+              }
             }, status => {
-              if (status === 'compress') textSpan.textContent = _ui('addCompressing');
-              else if (status === 'retry') textSpan.textContent = _ui('addRetry');
-              else if (status === 'upload') textSpan.textContent = _ui('addUploading');
+              if (status === 'compress') {
+                textSpan.textContent = _ui('addCompressing');
+                progressContainer.style.display = 'none';
+              } else if (status === 'retry') {
+                textSpan.textContent = _ui('addRetry');
+              } else if (status === 'upload') {
+                textSpan.textContent = _ui('addUploading');
+                progressContainer.style.display = '';
+              }
             });
 
             loading.remove();
@@ -13818,29 +13880,88 @@
               // Show loading
               thumbWrap.innerHTML = '';
               const loading = _mkEl('div');
-              loading.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;font-size:0.82rem;color:var(--muted-text);';
+              loading.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px 0;width:100%;';
+              
+              const mainRow = _mkEl('div');
+              mainRow.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--muted-text);';
               const spinner = _mkEl('span', 'add-spinner');
               spinner.style.cssText = 'border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;flex-shrink:0;';
               const textSpan = _mkEl('span');
               textSpan.textContent = _ui('addUploading');
               const cancelBtn = _mkEl('button');
               cancelBtn.textContent = '✕';
-              cancelBtn.style.cssText = 'background:none;border:1px solid var(--border-color);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.7rem;color:var(--muted-text);display:flex;align-items:center;justify-content:center;';
+              cancelBtn.style.cssText = 'background:none;border:1px solid var(--border-color);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.7rem;color:var(--muted-text);display:flex;align-items:center;justify-content:center;margin-left:auto;';
               cancelBtn.onclick = () => _abortUpload();
-              loading.appendChild(spinner);
-              loading.appendChild(textSpan);
-              loading.appendChild(cancelBtn);
+              
+              mainRow.appendChild(spinner);
+              mainRow.appendChild(textSpan);
+              mainRow.appendChild(cancelBtn);
+              loading.appendChild(mainRow);
+
+              // Progress bar and details container
+              const progressContainer = _mkEl('div');
+              progressContainer.style.cssText = 'width:100%;display:flex;flex-direction:column;gap:4px;';
+              
+              const progressBg = _mkEl('div');
+              progressBg.style.cssText = 'width:100%;height:6px;background:rgba(0,0,0,0.06);border-radius:3px;overflow:hidden;';
+              const progressFill = _mkEl('div');
+              progressFill.style.cssText = 'width:0%;height:100%;background:var(--accent-color);transition:width 0.2s ease-out;border-radius:3px;';
+              progressBg.appendChild(progressFill);
+              
+              const detailsRow = _mkEl('div');
+              detailsRow.style.cssText = 'display:flex;justify-content:space-between;font-size:0.76rem;color:var(--muted-text);flex-wrap:wrap;gap:4px;';
+              const bytesSpan = _mkEl('span');
+              bytesSpan.textContent = '0 MB / 0 MB';
+              const speedEtaSpan = _mkEl('span');
+              speedEtaSpan.textContent = '';
+              
+              detailsRow.appendChild(bytesSpan);
+              detailsRow.appendChild(speedEtaSpan);
+              
+              const hintDiv = _mkEl('div');
+              hintDiv.style.cssText = 'font-size:0.74rem;color:var(--accent-color);margin-top:2px;opacity:0.85;line-height:1.25;display:none;';
+              
+              progressContainer.appendChild(progressBg);
+              progressContainer.appendChild(detailsRow);
+              progressContainer.appendChild(hintDiv);
+              loading.appendChild(progressContainer);
+
               thumbWrap.appendChild(loading);
               attachLabel.style.opacity = '0.5';
               attachLabel.style.pointerEvents = 'none';
 
               const vid = ensureVisitorIdForRole() || '';
-              const result = await _uploadFile(f, vid, pct => {
+              const result = await _uploadFile(f, vid, (pct, loaded, total, speed, eta) => {
                 textSpan.textContent = _ui('addUploading') + ' ' + pct + '%';
+                progressFill.style.width = pct + '%';
+                const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+                const totalMB = (total / 1024 / 1024).toFixed(1);
+                bytesSpan.textContent = loadedMB + ' МБ из ' + totalMB + ' МБ';
+                if (speed && speed > 0) {
+                  const speedMB = (speed / 1024 / 1024).toFixed(1);
+                  let etaText = '';
+                  if (eta !== null && isFinite(eta)) {
+                    etaText = ' • ' + (eta <= 0 ? 'готово' : 'Осталось ~' + eta + ' сек');
+                  }
+                  speedEtaSpan.textContent = 'Скорость: ' + speedMB + ' МБ/с' + etaText;
+                  speedEtaSpan.style.display = '';
+                } else {
+                  speedEtaSpan.style.display = 'none';
+                }
+                if (total > 20 * 1024 * 1024) {
+                  hintDiv.textContent = _ui('addLargeFileHint');
+                  hintDiv.style.display = '';
+                }
               }, status => {
-                if (status === 'compress') textSpan.textContent = _ui('addCompressing');
-                else if (status === 'retry') textSpan.textContent = _ui('addRetry');
-                else if (status === 'upload') textSpan.textContent = _ui('addUploading');
+                if (status === 'compress') {
+                  textSpan.textContent = _ui('addCompressing');
+                  progressContainer.style.display = 'none';
+                } else if (status === 'retry') {
+                  textSpan.textContent = _ui('addRetry');
+                } else if (status === 'upload') {
+                  textSpan.textContent = _ui('addUploading');
+                  progressContainer.style.display = '';
+                }
               });
 
               attachLabel.style.opacity = '';
@@ -14610,8 +14731,42 @@
               const _k = _apiKeyValue();
               if (_k) xhr.setRequestHeader('X-Api-Key', _k);
             }
+            let startTime = null;
+            let lastTime = null;
+            let lastLoaded = 0;
+            let smoothedSpeed = 0;
+
             xhr.upload.onprogress = e => {
-              if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100));
+              if (e.lengthComputable && onProgress) {
+                const now = performance.now();
+                if (startTime === null) {
+                  startTime = now;
+                  lastTime = now;
+                  lastLoaded = e.loaded;
+                }
+                const pct = Math.round(e.loaded / e.total * 100);
+                const elapsedMs = now - lastTime;
+                
+                if (elapsedMs >= 200) {
+                  const chunkLoaded = e.loaded - lastLoaded;
+                  const currentSpeed = chunkLoaded / (elapsedMs / 1000); // bytes/sec
+                  if (smoothedSpeed === 0) {
+                    smoothedSpeed = currentSpeed;
+                  } else {
+                    smoothedSpeed = 0.15 * currentSpeed + 0.85 * smoothedSpeed;
+                  }
+                  lastTime = now;
+                  lastLoaded = e.loaded;
+                }
+                
+                let eta = null;
+                if (smoothedSpeed > 0) {
+                  const remainingBytes = e.total - e.loaded;
+                  eta = Math.round(remainingBytes / smoothedSpeed);
+                }
+                
+                onProgress(pct, e.loaded, e.total, smoothedSpeed, eta);
+              }
             };
             xhr.onload = () => {
               _uploadAbortController = null;
@@ -15299,6 +15454,7 @@
       addCanAddMore: (n) => 'Можно добавить ещё ' + n + ', лишние пропущены',
       addFileTooBig: (name) => 'Файл ' + name + ' слишком большой (макс. 100 МБ)',
       addUploading: 'Загружаю…',
+      addLargeFileHint: 'Большие видео могут загружаться дольше. Не закрывай страницу до завершения загрузки.',
       addCompressing: 'Сжимаю фото…',
       addRetry: 'Повтор…',
       addDeterminingDate: '⏳ Определить дату',
@@ -15505,6 +15661,7 @@
       addCanAddMore: (n) => 'Du kannst noch ' + n + ' hinzufügen, der Rest wurde übersprungen',
       addFileTooBig: (name) => 'Datei ' + name + ' ist zu groß (max. 100 MB)',
       addUploading: 'Wird hochgeladen…',
+      addLargeFileHint: 'Große Videos können länger dauern. Schließe die Seite nicht vor Abschluss des Uploads.',
       addCompressing: 'Foto wird komprimiert…',
       addRetry: 'Wiederholen…',
       addDeterminingDate: '⏳ Datum bestimmen',
@@ -15711,6 +15868,7 @@
       addCanAddMore: (n) => 'You can add ' + n + ' more, extras were skipped',
       addFileTooBig: (name) => 'File ' + name + ' is too large (max. 100 MB)',
       addUploading: 'Uploading…',
+      addLargeFileHint: 'Large videos may take longer to upload. Do not close the page until the upload is complete.',
       addCompressing: 'Compressing photo…',
       addRetry: 'Retry…',
       addDeterminingDate: '⏳ Determine date',

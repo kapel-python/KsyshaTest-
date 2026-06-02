@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.194'
-description = 'Фикс бага отвязки всех устройств при обычном подтверждении об отвязке аккаунта'
+version = '1.0.195'
+description = 'Фикс отображения что аккаунт считается все ещё привязанным'
 
 
 def get_version_metadata() -> tuple[str, str]:

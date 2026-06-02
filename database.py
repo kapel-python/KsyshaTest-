@@ -2948,22 +2948,20 @@ class Database:
             return False
 
     def unlink_user_from_couple(self, couple_id: int, user_id: int) -> bool:
-        """Отвязывает пользователя от пары (освобождает слот), делая ID отрицательным."""
+        """Отвязывает пользователя от пары (освобождает слот), делая ID отрицательным.
+        Применяется ко всем парам, где участвует пользователь, чтобы избежать зависших старых связей."""
         try:
             with self._get_connection() as conn:
-                cur = conn.execute(
-                    'UPDATE couples SET user1_id = -abs(user1_id) WHERE id = ? AND user1_id = ?',
-                    (couple_id, user_id)
+                cur1 = conn.execute(
+                    'UPDATE couples SET user1_id = -abs(user1_id) WHERE user1_id = ?',
+                    (user_id,)
                 )
-                if cur.rowcount > 0:
-                    conn.commit()
-                    return True
-                cur = conn.execute(
-                    'UPDATE couples SET user2_id = -abs(user2_id) WHERE id = ? AND user2_id = ?',
-                    (couple_id, user_id)
+                cur2 = conn.execute(
+                    'UPDATE couples SET user2_id = -abs(user2_id) WHERE user2_id = ?',
+                    (user_id,)
                 )
                 conn.commit()
-                return cur.rowcount > 0
+                return cur1.rowcount > 0 or cur2.rowcount > 0
         except Exception as e:
             logger.exception(f"Ошибка при отвязке пользователя {user_id} от пары {couple_id}: {e}")
             return False

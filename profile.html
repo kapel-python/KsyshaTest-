@@ -841,6 +841,7 @@ const PROF_I18N = {
     profDeviceIp: 'IP-адрес',
     profDeviceActivity: 'Активность',
     profRevokeSession: 'Завершить сессию',
+    profLinkCopied: 'Ссылка скопирована',
   },
   en: {
     navHome: 'Home', navStats: 'Stats', navProfile: 'Profile',
@@ -880,6 +881,7 @@ const PROF_I18N = {
     profDeviceIp: 'IP Address',
     profDeviceActivity: 'Activity',
     profRevokeSession: 'Terminate session',
+    profLinkCopied: 'Link copied',
   },
   de: {
     navHome: 'Startseite', navStats: 'Statistiken', navProfile: 'Profil',
@@ -1366,7 +1368,14 @@ async function startUnlink() {
       try {
         const msg = JSON.parse(e.data);
         if (msg.status === 'awaiting_final') showUnlinkState('awaiting-final');
-        else if (msg.status === 'confirmed') showUnlinkState('confirmed', msg.bot_link);
+        else if (msg.status === 'confirmed') {
+          showUnlinkState('confirmed', msg.bot_link);
+          const v = _getCookie('visitor_id') || '';
+          fetch('/api/site_bootstrap?v=' + encodeURIComponent(v) + '&light=true')
+            .then(r => r.json())
+            .then(d => { if (d && !d.error) _populateProfile(d); })
+            .catch(err => console.error(err));
+        }
         else if (msg.status === 'denied') window.location.replace('/');
         else if (msg.status === 'expired') window.location.replace('/');
         else if (msg.status === 'cancelled') cancelUnlink();
@@ -1429,6 +1438,17 @@ async function doLogout() {
   _applyI18n();
   _checkAuthAndLoad();
   handleHashChange();
+
+  const botLink = document.getElementById('unlinkBotLink');
+  if (botLink) {
+    botLink.addEventListener('click', function(e) {
+      if (this.href && this.href !== '#' && this.href !== window.location.href) {
+        navigator.clipboard.writeText(this.href).then(() => {
+          showToast(_t('profLinkCopied'));
+        }).catch(console.error);
+      }
+    });
+  }
 })();
 </script>
 

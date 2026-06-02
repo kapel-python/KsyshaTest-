@@ -587,6 +587,15 @@ def _media_belongs_to_user_couple(path_part: str, viewer_user_id: int) -> bool:
         owner_uid = _visitor_to_user_id(owner_vid)
         return bool(owner_uid and int(owner_uid) in viewer_members)
 
+    # Fast path: check filename pattern starting with u{user_id}_
+    parts = filename.split("_")
+    if len(parts) >= 2 and parts[0].startswith("u") and parts[0][1:].isdigit():
+        try:
+            owner_uid = int(parts[0][1:])
+            return owner_uid in viewer_members
+        except Exception:
+            pass
+
     def _same_couple_by_user(owner_user_id: Any) -> bool:
         try:
             return int(owner_user_id) in viewer_members
@@ -737,11 +746,11 @@ def _generate_thumbnail(image_path: Path, max_side: int = 400) -> Optional[str]:
                 return None
             scale = min(max_side / w, max_side / h)
             new_size = (max(1, round(w * scale)), max(1, round(h * scale)))
-            thumb = img.resize(new_size, _PILImage.LANCZOS)
+            thumb = img.resize(new_size, _PILImage.BILINEAR)
             if thumb.mode in ("RGBA", "P"):
                 thumb = thumb.convert("RGB")
             thumb_path = image_path.with_stem(image_path.stem + "_thumb").with_suffix(".jpg")
-            thumb.save(thumb_path, "JPEG", quality=75, optimize=True)
+            thumb.save(thumb_path, "JPEG", quality=75, optimize=False)
             return str(thumb_path)
     except Exception:
         return None

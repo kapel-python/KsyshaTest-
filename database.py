@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import logging
+import time
 import hashlib
 import secrets
 import json
@@ -191,6 +192,8 @@ class Database:
         self._write_lock = threading.Lock()
         self._recovery_lock = threading.Lock()
         self._pending_recovery_alert: Optional[str] = None
+        self._backup_event = threading.Event()
+        self._backup_thread = None
         self._initialize_with_self_heal()
     
     def _get_connection(self) -> sqlite3.Connection:
@@ -220,8 +223,23 @@ class Database:
         return conn
 
     def _on_post_commit(self):
-        """Вызывается после каждого успешного commit в рабочей БД."""
-        self._sync_hot_backup(reason="commit")
+        if not self.hot_backup_enabled:
+            return
+        if not self._backup_thread or not self._backup_thread.is_alive():
+            self._backup_thread = threading.Thread(target=self._backup_worker, daemon=True)
+            self._backup_thread.start()
+        self._backup_event.set()
+
+    def _backup_worker(self):
+        while True:
+            self._backup_event.wait()
+            self._backup_event.clear()
+            time.sleep(3.0)
+            self._backup_event.clear()
+            try:
+                self._sync_hot_backup(reason="async_commit")
+            except Exception as e:
+                logger.exception("Async hot backup worker error: %s", e)
 
     def _sync_hot_backup(self, reason: str = "manual") -> None:
         """

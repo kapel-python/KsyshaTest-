@@ -2143,8 +2143,10 @@ def _collect_site_data(
         creator_id = couple['user1_id']
         partner_id = couple['user2_id'] or db.get_ksusha_id()
     else:
-        creator_id = None
-        partner_id = None
+        # Если пара не найдена (например, после отвязки),
+        # отдаём отрицательные ID, чтобы фронтенд корректно определил статус isUnlinked = true.
+        creator_id = -abs(visitor_user_id) if visitor_user_id else -1
+        partner_id = -1
 
     wishes_user = (db.get_user_wishes(visitor_user_id) if visitor_user_id else []) if wants_wishes else []
     wishes_partner = (db.get_user_wishes(partner_id) if partner_id else []) if wants_wishes else []

@@ -6114,35 +6114,22 @@
         const type = String(media && media.type || '').trim().toLowerCase();
         const ext = String(media && media.ext || '').trim().toLowerCase();
 
-        let headerLabel = '';
         let showMeta = false;
         let isArchive = ['zip', 'rar', 'tar', 'gz', '7z', 'bz2', 'xz'].includes(ext);
 
         if (kind === 'photo') {
-          headerLabel = '📷 ' + _ui('mediaPhoto');
-          ui.action.kind.textContent = headerLabel;
-          ui.action.title.textContent = media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaPhoto');
+          ui.action.kind.textContent = '';
+          ui.action.title.textContent = '📷 ' + _ui('mediaPhoto');
         } else if (kind === 'video') {
-          headerLabel = '🎥 ' + _ui('mediaVideo');
-          ui.action.kind.textContent = headerLabel;
-          ui.action.title.textContent = media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaVideo');
+          ui.action.kind.textContent = '';
+          ui.action.title.textContent = '🎥 ' + _ui('mediaVideo');
           showMeta = true;
         } else if (kind === 'audio') {
-          if (type === 'voice') {
-            headerLabel = '🎵 ' + _ui('mediaVoice');
-          } else {
-            headerLabel = '🎵 ' + _ui('mediaAudioLabel');
-          }
-          ui.action.kind.textContent = headerLabel;
-          ui.action.title.textContent = media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaAudioLabel');
+          ui.action.kind.textContent = '';
+          ui.action.title.textContent = type === 'voice' ? '🎵 ' + _ui('mediaVoice') : '🎵 ' + _ui('mediaAudioLabel');
           showMeta = true;
         } else {
-          if (isArchive) {
-            headerLabel = '📦 ' + _ui('mediaArchive');
-          } else {
-            headerLabel = '📄 ' + _ui('mediaDocument');
-          }
-          ui.action.kind.textContent = headerLabel;
+          ui.action.kind.textContent = isArchive ? '📦 ' + _ui('mediaArchive') : '📄 ' + _ui('mediaDocument');
           ui.action.title.textContent = media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaDocument');
           showMeta = true;
         }

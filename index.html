@@ -6403,6 +6403,33 @@
         video.src = videoSrc;
       }
 
+      function _getVideoDuration(videoSrc, callback) {
+        if (_videoDurationCache[videoSrc]) {
+          callback(_videoDurationCache[videoSrc]);
+          return;
+        }
+        var video = document.createElement('video');
+        video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+        video.addEventListener('loadedmetadata', function() {
+          if (video.duration && isFinite(video.duration)) {
+            _videoDurationCache[videoSrc] = video.duration;
+            callback(video.duration);
+          } else {
+            callback(null);
+          }
+          video.removeAttribute('src');
+          video.load();
+        });
+        video.addEventListener('error', function() {
+          callback(null);
+          video.removeAttribute('src');
+          video.load();
+        });
+        video.src = videoSrc;
+      }
+
       function _formatVideoDuration(seconds) {
         const s = Math.round(seconds);
         const h = Math.floor(s / 3600);
@@ -6437,6 +6464,27 @@
 
         if (hasServerPreview) {
           img.src = media.thumb;
+          const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                obs.disconnect();
+                const runDurationFetch = () => {
+                  _getVideoDuration(media.src, function(duration) {
+                    if (duration && isFinite(duration)) {
+                      badge.textContent = _formatVideoDuration(duration);
+                      badge.style.display = '';
+                    }
+                  });
+                };
+                if (window.requestIdleCallback) {
+                  window.requestIdleCallback(runDurationFetch, { timeout: 2000 });
+                } else {
+                  setTimeout(runDurationFetch, 200);
+                }
+              }
+            });
+          }, { rootMargin: '150px' });
+          observer.observe(wrap);
         } else {
           const observer = new IntersectionObserver((entries, obs) => {
             entries.forEach(entry => {
@@ -13661,11 +13709,16 @@
 
             const loading = _mkEl('div');
             loading.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;font-size:0.82rem;color:var(--muted-text);';
-            loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addUploading');
+            const spinner = _mkEl('span', 'add-spinner');
+            spinner.style.cssText = 'border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;flex-shrink:0;';
+            const textSpan = _mkEl('span');
+            textSpan.textContent = _ui('addUploading');
             const cancelBtn = _mkEl('button');
             cancelBtn.textContent = '✕';
             cancelBtn.style.cssText = 'background:none;border:1px solid var(--border-color);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.7rem;color:var(--muted-text);display:flex;align-items:center;justify-content:center;';
             cancelBtn.onclick = () => _abortUpload();
+            loading.appendChild(spinner);
+            loading.appendChild(textSpan);
             loading.appendChild(cancelBtn);
             thumb.appendChild(loading);
             lbl.style.opacity = '0.5';
@@ -13673,12 +13726,11 @@
 
             const vid = ensureVisitorIdForRole() || '';
             const result = await _uploadFile(f, vid, pct => {
-              loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addUploading') + ' ' + pct + '%';
-              loading.appendChild(cancelBtn);
+              textSpan.textContent = _ui('addUploading') + ' ' + pct + '%';
             }, status => {
-              if (status === 'compress') loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addCompressing');
-              else if (status === 'retry') loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addRetry');
-              else if (status === 'upload') { loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addUploading'); loading.appendChild(cancelBtn); }
+              if (status === 'compress') textSpan.textContent = _ui('addCompressing');
+              else if (status === 'retry') textSpan.textContent = _ui('addRetry');
+              else if (status === 'upload') textSpan.textContent = _ui('addUploading');
             });
 
             loading.remove();
@@ -13767,11 +13819,16 @@
               thumbWrap.innerHTML = '';
               const loading = _mkEl('div');
               loading.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;font-size:0.82rem;color:var(--muted-text);';
-              loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addUploading');
+              const spinner = _mkEl('span', 'add-spinner');
+              spinner.style.cssText = 'border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;flex-shrink:0;';
+              const textSpan = _mkEl('span');
+              textSpan.textContent = _ui('addUploading');
               const cancelBtn = _mkEl('button');
               cancelBtn.textContent = '✕';
               cancelBtn.style.cssText = 'background:none;border:1px solid var(--border-color);border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:0.7rem;color:var(--muted-text);display:flex;align-items:center;justify-content:center;';
               cancelBtn.onclick = () => _abortUpload();
+              loading.appendChild(spinner);
+              loading.appendChild(textSpan);
               loading.appendChild(cancelBtn);
               thumbWrap.appendChild(loading);
               attachLabel.style.opacity = '0.5';
@@ -13779,12 +13836,11 @@
 
               const vid = ensureVisitorIdForRole() || '';
               const result = await _uploadFile(f, vid, pct => {
-                loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addUploading') + ' ' + pct + '%';
-                loading.appendChild(cancelBtn);
+                textSpan.textContent = _ui('addUploading') + ' ' + pct + '%';
               }, status => {
-                if (status === 'compress') loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addCompressing');
-                else if (status === 'retry') loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addRetry');
-                else if (status === 'upload') { loading.innerHTML = '<span class="add-spinner" style="border-color:rgba(0,0,0,0.15);border-top-color:var(--accent-color);width:16px;height:16px;"></span> ' + _ui('addUploading'); loading.appendChild(cancelBtn); }
+                if (status === 'compress') textSpan.textContent = _ui('addCompressing');
+                else if (status === 'retry') textSpan.textContent = _ui('addRetry');
+                else if (status === 'upload') textSpan.textContent = _ui('addUploading');
               });
 
               attachLabel.style.opacity = '';

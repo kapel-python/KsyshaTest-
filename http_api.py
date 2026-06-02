@@ -71,6 +71,8 @@ from utils import _event_datetime_to_utc
 logger = logging.getLogger(__name__)
 
 _STATS_HTML_CACHE = None
+_INDEX_HTML_CACHE = None
+_INDEX_HTML_ETAG = None
 
 
 def _safe_int(value, default: Optional[int] = None) -> Optional[int]:
@@ -1789,14 +1791,14 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
     page, limit = _parse_page_limit(request, default_limit=30, max_limit=60)
     is_light = request.rel_url.query.get("light") == "true"
     endpoint = "api/site_bootstrap_light" if is_light else "api/site_bootstrap"
-    data = _collect_site_data(timezone_id, visitor_id, endpoint=endpoint)
+    data = _collect_site_data(timezone_id, visitor_id, endpoint=endpoint, page=page, limit=limit)
     all_memories = data.get("memories") or []
+    total_memories = data.get("total_memories", 0)
     all_events = data.get("events") or []
     wishes_obj = data.get("wishes") or {}
     wishes_user = wishes_obj.get("user") or []
     wishes_partner = wishes_obj.get("partner") or []
 
-    mem_start = (page - 1) * limit
     evt_limit = max(10, min(40, limit // 2 or 10))
     bootstrap_payload = {
         "ok": True,
@@ -1810,7 +1812,7 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
         "last_added": data.get("last_added"),
         "date_met": data.get("date_met"),
         "custom_categories": data.get("custom_categories") or [],
-        "memories": all_memories[mem_start:mem_start + limit] if not is_light else [],
+        "memories": all_memories if not is_light else [],
         "events": all_events[:evt_limit] if not is_light else [],
         "wishes": {
             "user": wishes_user if not is_light else [],
@@ -1818,7 +1820,7 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
         },
         "user_settings": data.get("user_settings"),
         "deferred": {
-            "memories": {"page": page, "limit": limit, "total": len(all_memories), "has_more": (mem_start + limit) < len(all_memories)} if not is_light else {"page": page, "limit": limit, "total": 0, "has_more": False},
+            "memories": {"page": page, "limit": limit, "total": total_memories, "has_more": ((page - 1) * limit + len(all_memories)) < total_memories} if not is_light else {"page": page, "limit": limit, "total": 0, "has_more": False},
             "events": {"page": 1, "limit": evt_limit, "total": len(all_events), "has_more": evt_limit < len(all_events)} if not is_light else {"page": 1, "limit": evt_limit, "total": 0, "has_more": False},
             "wishes": {"page": 1, "limit": len(wishes_partner), "total": len(wishes_partner), "has_more": False} if not is_light else {"page": 1, "limit": 0, "total": 0, "has_more": False},
         },
@@ -1839,15 +1841,15 @@ async def memories_data(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
     page, limit = _parse_page_limit(request, default_limit=50, max_limit=100)
-    data = _collect_site_data(timezone_id, visitor_id, endpoint="api/memories")
+    data = _collect_site_data(timezone_id, visitor_id, endpoint="api/memories", page=page, limit=limit)
     items = data.get("memories") or []
-    start = (page - 1) * limit
+    total_memories = data.get("total_memories", 0)
     payload = {
-        "items": items[start:start + limit],
+        "items": items,
         "page": page,
         "limit": limit,
-        "total": len(items),
-        "has_more": (start + limit) < len(items),
+        "total": total_memories,
+        "has_more": ((page - 1) * limit + len(items)) < total_memories,
     }
     return _json_response_with_etag(request, payload)
 
@@ -1983,6 +1985,8 @@ def _collect_site_data(
     timezone_id: str | None,
     visitor_id: str | None = None,
     endpoint: str | None = None,
+    page: int = 1,
+    limit: int = 500,
 ) -> dict:
 
     """Общий сбор данных для сайта (используется в /api/all и ИИ-компаньоне)."""
@@ -2005,6 +2009,7 @@ def _collect_site_data(
             "date_met": None,
             "profile_stats": {},
             "custom_categories": [],
+            "total_memories": 0,
         }
 
     # Определяем пару по visitor_id (для мульти-тенант)
@@ -2040,7 +2045,8 @@ def _collect_site_data(
     wants_stats = wants_all or wants_bootstrap or endpoint == "api/user_stats"
     wants_profile_stats = endpoint == "api/profile_stats"
 
-    memories = db.get_recent_memories(limit=500, couple_id=_couple_id) if wants_memories else []
+    offset = (page - 1) * limit
+    memories = db.get_recent_memories(limit=limit, couple_id=_couple_id, offset=offset) if wants_memories else []
     events = db.get_scheduled_events(limit=200, user_ids=_couple_user_ids) if wants_events else []
     # Никогда не берём глобальную статистику для ИИ-компаньона:
     # она может включать агрегаты других пар (кросс-тенант утечка).
@@ -2110,7 +2116,7 @@ def _collect_site_data(
         except Exception:
             partner_stats = {}
         stats = {
-            "total_memories": len(memories),
+            "total_memories": db.get_memories_count(couple_id=_couple_id),
             "total_events": len(events),
             "total_wishes": len(wishes_partner),
             "creator": creator_stats,
@@ -2266,6 +2272,7 @@ def _collect_site_data(
         "custom_categories": db.get_custom_categories(
             _couple_id if _couple_id is not None and _couple_id != -1 else None
         ),
+        "total_memories": db.get_memories_count(couple_id=_couple_id) if wants_memories else 0,
 
     }
 
@@ -5188,38 +5195,49 @@ async def index(request: web.Request) -> web.StreamResponse:
 
         return web.Response(text=html, content_type="text/html", charset="utf-8")
 
-    index_path = project_root / "index.html"
+    global _INDEX_HTML_CACHE, _INDEX_HTML_ETAG
 
-    if not index_path.exists():
+    if _INDEX_HTML_CACHE is not None and not has_token:
+        inm = (request.headers.get("If-None-Match") or "").strip()
+        if inm and inm == _INDEX_HTML_ETAG:
+            not_modified = web.Response(status=304)
+            not_modified.headers["ETag"] = _INDEX_HTML_ETAG
+            not_modified.headers["Cache-Control"] = "private, no-cache, max-age=0, must-revalidate"
+            return _add_cors_headers(not_modified)
 
-        return web.Response(text="index.html not found", status=404)
+    if _INDEX_HTML_CACHE is None:
+        index_path = project_root / "index.html"
+        if not index_path.exists():
+            return web.Response(text="index.html not found", status=404)
+        try:
+            html_raw = index_path.read_text(encoding="utf-8")
+        except Exception:
+            logger.exception("Cannot read index.html")
+            return web.Response(text="cannot read index.html", status=500)
 
-    try:
+        html_raw = html_raw.replace("{{API_SECRET_KEY}}", "")
+        bot_username = (getattr(config, "BOT_USERNAME", "") or "Akimova_Ksysha_love_bot").strip()
+        html_raw = html_raw.replace("{{BOT_USERNAME}}", bot_username)
 
-        html = index_path.read_text(encoding="utf-8")
+        _INDEX_HTML_CACHE = html_raw
+        _INDEX_HTML_ETAG = f'W/"{hashlib.sha256(html_raw.encode("utf-8")).hexdigest()[:24]}"'
 
-    except Exception:
+    if has_token:
+        return web.Response(
+            text=_INDEX_HTML_CACHE,
+            content_type="text/html",
+            charset="utf-8",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
 
-        logger.exception("Cannot read index.html")
-
-        return web.Response(text="cannot read index.html", status=500)
-
-    # Не пробрасываем серверный API-ключ в клиентский HTML.
-    html = html.replace("{{API_SECRET_KEY}}", "")
-    
-    bot_username = (getattr(config, "BOT_USERNAME", "") or "Akimova_Ksysha_love_bot").strip()
-    html = html.replace("{{BOT_USERNAME}}", bot_username)
-
-    return web.Response(
-        text=html,
-        content_type="text/html",
-        charset="utf-8",
-        headers={
-            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
-    )
+    resp = web.Response(text=_INDEX_HTML_CACHE, content_type="text/html", charset="utf-8")
+    resp.headers["ETag"] = _INDEX_HTML_ETAG
+    resp.headers["Cache-Control"] = "private, no-cache, max-age=0, must-revalidate"
+    return resp
 
 
 async def not_found_page(request: web.Request) -> web.Response:

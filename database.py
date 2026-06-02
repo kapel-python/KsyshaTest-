@@ -4673,7 +4673,7 @@ class Database:
             logger.exception("Ошибка при удалении устройства по visitor_id %s: %s", visitor_id, e)
             return False
 
-    def get_recent_memories(self, limit: int = 10, couple_id: Optional[int] = None) -> List[Memory]:
+    def get_recent_memories(self, limit: int = 10, couple_id: Optional[int] = None, offset: int = 0) -> List[Memory]:
         """Получает последние добавленные воспоминания, опционально фильтруя по паре."""
         try:
             with self._get_connection() as conn:
@@ -4684,16 +4684,16 @@ class Database:
                         LEFT JOIN users u ON m.user_id = u.user_id
                         WHERE m.couple_id = ?
                         ORDER BY m.created_at ASC
-                        LIMIT ?
-                    ''', (couple_id, limit))
+                        LIMIT ? OFFSET ?
+                    ''', (couple_id, limit, offset))
                 else:
                     cursor = conn.execute('''
                         SELECT m.*, u.username, u.first_name, u.last_name
                         FROM memories m 
                         LEFT JOIN users u ON m.user_id = u.user_id 
                         ORDER BY m.created_at ASC
-                        LIMIT ?
-                    ''', (limit,))
+                        LIMIT ? OFFSET ?
+                    ''', (limit, offset))
                 
                 memories = []
                 for row in cursor.fetchall():
@@ -4723,6 +4723,20 @@ class Database:
         except Exception as e:
             logger.exception(f"Ошибка при получении последних воспоминаний: {e}")
             return []
+
+    def get_memories_count(self, couple_id: Optional[int] = None) -> int:
+        """Получает общее количество воспоминаний, опционально фильтруя по паре."""
+        try:
+            with self._get_connection() as conn:
+                if couple_id is not None:
+                    cursor = conn.execute('SELECT COUNT(*) FROM memories WHERE couple_id = ?', (couple_id,))
+                else:
+                    cursor = conn.execute('SELECT COUNT(*) FROM memories')
+                row = cursor.fetchone()
+                return row[0] if row else 0
+        except Exception:
+            logger.exception("Ошибка при получении количества воспоминаний")
+            return 0
 
     # ── Пользовательские категории ────────────────────────────────────────────
 

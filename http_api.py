@@ -592,7 +592,8 @@ def _media_belongs_to_user_couple(path_part: str, viewer_user_id: int) -> bool:
     if len(parts) >= 2 and parts[0].startswith("u") and parts[0][1:].isdigit():
         try:
             owner_uid = int(parts[0][1:])
-            return owner_uid in viewer_members
+            if owner_uid in viewer_members:
+                return True
         except Exception:
             pass
 

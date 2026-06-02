@@ -6442,7 +6442,9 @@
       }
 
       function _getVideoDuration(videoSrc, callback) {
+        console.log('[DURATION_DEBUG] Start duration fetch for:', videoSrc);
         if (_videoDurationCache[videoSrc]) {
+          console.log('[DURATION_DEBUG] Cache hit:', videoSrc, 'duration:', _videoDurationCache[videoSrc]);
           callback(_videoDurationCache[videoSrc]);
           return;
         }
@@ -6451,16 +6453,19 @@
         video.muted = true;
         video.playsInline = true;
         video.addEventListener('loadedmetadata', function() {
+          console.log('[DURATION_DEBUG] loadedmetadata event fired for:', videoSrc, 'duration:', video.duration);
           if (video.duration && isFinite(video.duration)) {
             _videoDurationCache[videoSrc] = video.duration;
             callback(video.duration);
           } else {
+            console.warn('[DURATION_DEBUG] loadedmetadata but duration is invalid:', video.duration);
             callback(null);
           }
           video.removeAttribute('src');
           video.load();
         });
-        video.addEventListener('error', function() {
+        video.addEventListener('error', function(e) {
+          console.error('[DURATION_DEBUG] error event fired for:', videoSrc, 'error:', video.error);
           callback(null);
           video.removeAttribute('src');
           video.load();
@@ -6509,8 +6514,11 @@
                 const runDurationFetch = () => {
                   _getVideoDuration(media.src, function(duration) {
                     if (duration && isFinite(duration)) {
+                      console.log('[DURATION_DEBUG] Displaying badge for:', media.src, 'duration:', duration);
                       badge.textContent = _formatVideoDuration(duration);
                       badge.style.display = '';
+                    } else {
+                      console.warn('[DURATION_DEBUG] No badge displayed (invalid/missing duration) for:', media.src);
                     }
                   });
                 };
@@ -6533,8 +6541,11 @@
                     if (dataUrl) img.src = dataUrl;
                     else img.style.display = 'none';
                     if (duration && isFinite(duration)) {
+                      console.log('[DURATION_DEBUG] Displaying badge (extracted) for:', media.src, 'duration:', duration);
                       badge.textContent = _formatVideoDuration(duration);
                       badge.style.display = '';
+                    } else {
+                      console.warn('[DURATION_DEBUG] No badge displayed (extracted, invalid/missing duration) for:', media.src);
                     }
                   });
                 };

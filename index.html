@@ -6107,12 +6107,61 @@
         _mediaViewerState.media = media;
         _mediaViewerState.actionOpen = true;
         _mediaViewerState.returnToAction = false;
-        ui.action.kind.textContent = _mediaFileLabel(media);
-        ui.action.title.textContent = (media.kind === 'photo' || media.kind === 'video') ? _mediaFileLabel(media) : (media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaMedia'));
-        const parts = [];
-        parts.push(_ui('mediaType') + ': ' + (media.type || media.kind || 'file'));
-        if (media.ext) parts.push(_ui('mediaExt') + ': .' + media.ext);
-        ui.action.meta.textContent = parts.join(' • ');
+
+        const kind = String(media && media.kind || '').trim();
+        const type = String(media && media.type || '').trim().toLowerCase();
+        const ext = String(media && media.ext || '').trim().toLowerCase();
+
+        let headerLabel = '';
+        let showMeta = false;
+        let isArchive = ['zip', 'rar', 'tar', 'gz', '7z', 'bz2', 'xz'].includes(ext);
+
+        if (kind === 'photo') {
+          headerLabel = '📷 ' + _ui('mediaPhoto');
+          ui.action.kind.textContent = headerLabel;
+          ui.action.title.textContent = media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaPhoto');
+        } else if (kind === 'video') {
+          headerLabel = '🎥 ' + _ui('mediaVideo');
+          ui.action.kind.textContent = headerLabel;
+          ui.action.title.textContent = media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaVideo');
+          showMeta = true;
+        } else if (kind === 'audio') {
+          if (type === 'voice') {
+            headerLabel = '🎵 ' + _ui('mediaVoice');
+          } else {
+            headerLabel = '🎵 ' + _ui('mediaAudioLabel');
+          }
+          ui.action.kind.textContent = headerLabel;
+          ui.action.title.textContent = media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaAudioLabel');
+          showMeta = true;
+        } else {
+          if (isArchive) {
+            headerLabel = '📦 ' + _ui('mediaArchive');
+          } else {
+            headerLabel = '📄 ' + _ui('mediaDocument');
+          }
+          ui.action.kind.textContent = headerLabel;
+          ui.action.title.textContent = media.name || _mediaFileNameFromUrl(media.src) || _ui('mediaDocument');
+          showMeta = true;
+        }
+
+        ui.action.meta.textContent = '';
+        if (showMeta) {
+          const parts = [];
+          if (kind === 'video' || kind === 'audio') {
+            _getVideoDuration(media.src, function(dur) {
+              if (_mediaViewerState.media === media && dur && isFinite(dur)) {
+                ui.action.meta.textContent = _formatVideoDuration(dur);
+              }
+            });
+          } else {
+            if (media.ext) {
+              parts.push('.' + media.ext.toUpperCase());
+            }
+            ui.action.meta.textContent = parts.join(' • ');
+          }
+        }
+
         ui.action.preview.innerHTML = '';
         if (media.kind === 'photo') {
           const img = document.createElement('img');
@@ -9933,6 +9982,12 @@
               mediaAudio: 'Аудиофайл',
               mediaType: 'Тип',
               mediaExt: 'Расширение',
+              mediaPhoto: 'Фото',
+              mediaVideo: 'Видео',
+              mediaAudioLabel: 'Аудио',
+              mediaVoice: 'Голосовое сообщение',
+              mediaDocument: 'Документ',
+              mediaArchive: 'Архив',
               mediaOpenFile: 'Открыть файл',
               mediaOpenMedia: 'Открыть медиа',
               searchEmptyTitle: 'Ничего не найдено по твоему запросу',
@@ -10140,6 +10195,12 @@
               mediaAudio: 'Audiodatei',
               mediaType: 'Typ',
               mediaExt: 'Erweiterung',
+              mediaPhoto: 'Foto',
+              mediaVideo: 'Video',
+              mediaAudioLabel: 'Audio',
+              mediaVoice: 'Sprachnachricht',
+              mediaDocument: 'Dokument',
+              mediaArchive: 'Archiv',
               mediaOpenFile: 'Datei öffnen',
               mediaOpenMedia: 'Medien öffnen',
               searchEmptyTitle: 'Zu deiner Anfrage wurde nichts gefunden',
@@ -10347,6 +10408,12 @@
               mediaAudio: 'Audio file',
               mediaType: 'Type',
               mediaExt: 'Extension',
+              mediaPhoto: 'Photo',
+              mediaVideo: 'Video',
+              mediaAudioLabel: 'Audio',
+              mediaVoice: 'Voice message',
+              mediaDocument: 'Document',
+              mediaArchive: 'Archive',
               mediaOpenFile: 'Open file',
               mediaOpenMedia: 'Open media',
               searchEmptyTitle: 'Nothing was found for your query',
@@ -15501,6 +15568,12 @@
       mediaAudio: 'Аудиофайл',
       mediaType: 'Тип',
       mediaExt: 'Расширение',
+      mediaPhoto: 'Фото',
+      mediaVideo: 'Видео',
+      mediaAudioLabel: 'Аудио',
+      mediaVoice: 'Голосовое сообщение',
+      mediaDocument: 'Документ',
+      mediaArchive: 'Архив',
       mediaOpenFile: 'Открыть файл',
       mediaOpenMedia: 'Открыть медиа',
       searchEmptyTitle: 'Ничего не найдено по твоему запросу',
@@ -15708,6 +15781,12 @@
       mediaAudio: 'Audiodatei',
       mediaType: 'Typ',
       mediaExt: 'Erweiterung',
+      mediaPhoto: 'Foto',
+      mediaVideo: 'Video',
+      mediaAudioLabel: 'Audio',
+      mediaVoice: 'Sprachnachricht',
+      mediaDocument: 'Dokument',
+      mediaArchive: 'Archiv',
       mediaOpenFile: 'Datei öffnen',
       mediaOpenMedia: 'Medien öffnen',
       searchEmptyTitle: 'Für deine Suche wurde nichts gefunden',
@@ -15915,6 +15994,12 @@
       mediaAudio: 'Audio file',
       mediaType: 'Type',
       mediaExt: 'Extension',
+      mediaPhoto: 'Photo',
+      mediaVideo: 'Video',
+      mediaAudioLabel: 'Audio',
+      mediaVoice: 'Voice message',
+      mediaDocument: 'Document',
+      mediaArchive: 'Archive',
       mediaOpenFile: 'Open file',
       mediaOpenMedia: 'Open media',
       searchEmptyTitle: 'Nothing was found for your query',

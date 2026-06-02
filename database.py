@@ -2917,8 +2917,34 @@ class Database:
                     if old_id is not None and old_id != user_id:
                         logger.info(f"Переносим данные пользователя с old_id={old_id} на new_id={user_id}")
                         
-                        # Переносим профиль, настройки и прочее
-                        for table in ["user_profiles", "user_settings", "favorites", "admins", "user_tokens", "user_login_tokens"]:
+                        # Переносим профиль пользователя с учетом сохранения имени нового аккаунта
+                        old_prof = conn.execute("SELECT * FROM user_profiles WHERE user_id = ?", (old_id,)).fetchone()
+                        new_prof = conn.execute("SELECT * FROM user_profiles WHERE user_id = ?", (user_id,)).fetchone()
+                        
+                        if old_prof:
+                            if new_prof:
+                                # У нового аккаунта уже есть профиль (и свое display_name).
+                                # Сохраняем имя нового, дополняем описание и статус онбординга (если нужно)
+                                desc = new_prof['description'] if new_prof['description'] else old_prof['description']
+                                onb = 1 if (new_prof['onboarded'] or old_prof['onboarded']) else 0
+                                conn.execute(
+                                    "UPDATE user_profiles SET description = ?, onboarded = ? WHERE user_id = ?",
+                                    (desc, onb, user_id)
+                                )
+                            else:
+                                # У нового аккаунта профиля нет. 
+                                # Копируем данные старого, но ЯВНО обнуляем display_name (чтобы сработал фолбэк на Telegram first_name)
+                                conn.execute(
+                                    """INSERT INTO user_profiles 
+                                       (user_id, display_name, description, onboarded, created_at, updated_at) 
+                                       VALUES (?, NULL, ?, ?, ?, ?)""",
+                                    (user_id, old_prof['description'], old_prof['onboarded'], old_prof['created_at'], old_prof['updated_at'])
+                                )
+                            # Удаляем профиль старого аккаунта
+                            conn.execute("DELETE FROM user_profiles WHERE user_id = ?", (old_id,))
+                        
+                        # Переносим настройки, токены и прочее
+                        for table in ["user_settings", "favorites", "admins", "user_tokens", "user_login_tokens"]:
                             conn.execute(
                                 f"UPDATE OR REPLACE {table} SET user_id = ? WHERE user_id = ?",
                                 (user_id, old_id)

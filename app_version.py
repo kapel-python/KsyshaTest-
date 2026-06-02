@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.196'
-description = 'Фикс сброса сессий при отвязке аккаунта'
+version = '1.0.197'
+description = 'Фикс отображения имени в профиле после перепривязки аккаунта'
 
 
 def get_version_metadata() -> tuple[str, str]:

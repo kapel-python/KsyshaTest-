@@ -456,6 +456,13 @@ class Database:
                     final_source = recovered_from
 
             init_error = None
+            if not getattr(config, "IS_DEV_MODE", False):
+                if not db_exists and not recovered:
+                    import sys
+                    msg = f"CRITICAL ERROR: Production database file '{self.db_path}' is missing and could not be recovered from backups. Automatic creation of a new empty database is disabled in Production mode to prevent data loss. Exiting."
+                    logger.critical(msg)
+                    print(msg, file=sys.stderr)
+                    sys.exit(1)
             try:
                 self._init_database()
             except Exception as e:

@@ -70,20 +70,46 @@ class Config:
 
         # Standardize single canonical database location based on environment
         import logging
+        import sys
+        
+        ALLOWED_PRODUCTION_PATHS = {
+            "/app/data/memories.db",
+            "/root/KsyshaTest/data/memories.db",
+            "/workspace/data/memories.db"
+        }
+        
+        allow_dev = os.getenv("ALLOW_DEVELOPMENT_DB", "0").strip().lower() in ("1", "true", "yes", "on")
+        app_env = os.getenv("APP_ENV", "").strip().lower()
+        is_dev_mode = allow_dev or (app_env in ("development", "test", "demo"))
+        self.IS_DEV_MODE = is_dev_mode
+        
         is_docker = os.path.exists("/.dockerenv")
         canonical_host_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/memories.db"))
         
-        # If the host path is exactly the container path (unlikely but possible), they match.
-        # Otherwise, if we're in Docker, use /app/data, if on host, use the absolute host path.
-        if is_docker:
-            resolved_path = "/app/data/memories.db"
+        env_db_path = os.getenv("DATABASE_PATH")
+        if env_db_path:
+            resolved_path = env_db_path
         else:
-            resolved_path = canonical_host_path
+            if is_docker:
+                resolved_path = "/app/data/memories.db"
+            else:
+                resolved_path = canonical_host_path
             
         self.DATABASE_PATH = resolved_path
-
-        # Logging output for audit verification
-        print(f"Database path: {self.DATABASE_PATH}")
+        
+        mode_str = "DEVELOPMENT" if is_dev_mode else "PRODUCTION"
+        print(f"ACTIVE DATABASE: {self.DATABASE_PATH}")
+        print(f"DATABASE MODE: {mode_str}")
+        logging.info(f"ACTIVE DATABASE: {self.DATABASE_PATH}")
+        logging.info(f"DATABASE MODE: {mode_str}")
+        
+        if not is_dev_mode:
+            abs_resolved_path = os.path.abspath(self.DATABASE_PATH)
+            if abs_resolved_path not in ALLOWED_PRODUCTION_PATHS:
+                msg = f"CRITICAL ERROR: Active database path '{abs_resolved_path}' is not in the whitelist of allowed production paths. Exiting."
+                print(msg, file=sys.stderr)
+                logging.critical(msg)
+                sys.exit(1)
         
         # Check for ghost databases and issue a warning
         potential_ghosts = [

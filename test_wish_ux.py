@@ -1,4 +1,5 @@
 import os
+os.environ["ALLOW_DEVELOPMENT_DB"] = "1"
 import sys
 import unittest
 from unittest.mock import patch, MagicMock

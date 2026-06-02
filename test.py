@@ -4,6 +4,8 @@
 Запуск: python3 test.py
 """
 
+import os
+os.environ["ALLOW_DEVELOPMENT_DB"] = "1"
 import asyncio
 import aiohttp
 import io

@@ -3,8 +3,9 @@
 Запускаются при старте bot.py, результат отправляется создателю в Telegram.
 """
 
-import asyncio
 import os
+os.environ["ALLOW_DEVELOPMENT_DB"] = "1"
+import asyncio
 import tempfile
 import json
 import re

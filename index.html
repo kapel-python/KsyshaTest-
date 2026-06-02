@@ -13671,10 +13671,49 @@
               img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
               img.src = _mediaPathToUrl(up.media_path || up.original_url || up.url || up.preview_url || up.thumb_path || up.thumb_url);
               t.appendChild(img);
+            } else if (up.media_type === 'video') {
+              const videoSrc = _mediaPathToUrl(up.media_path);
+              const thumbSrc = up.thumb_path ? _mediaPathToUrl(up.thumb_path) : null;
+              
+              const badge = document.createElement('span');
+              badge.className = 'memory-media-video-badge';
+              badge.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:1px 4px;border-radius:3px;font-weight:bold;z-index:2;';
+              badge.style.display = 'none';
+
+              if (thumbSrc) {
+                const img = document.createElement('img');
+                img.alt = '';
+                img.decoding = 'async';
+                img.loading = 'lazy';
+                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                img.src = thumbSrc;
+                t.appendChild(img);
+                
+                _getVideoDuration(videoSrc, function(dur) {
+                  if (dur && isFinite(dur)) {
+                    badge.textContent = _formatVideoDuration(dur);
+                    badge.style.display = '';
+                  }
+                });
+              } else {
+                const v = document.createElement('video');
+                v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                v.muted = true; v.playsInline = true; v.preload = 'metadata';
+                v.src = videoSrc;
+                v.addEventListener('loadedmetadata', function() {
+                  v.currentTime = Math.min(0.1, v.duration || 0);
+                  if (v.duration && isFinite(v.duration)) {
+                    badge.textContent = _formatVideoDuration(v.duration);
+                    badge.style.display = '';
+                  }
+                });
+                t.appendChild(v);
+              }
+              t.appendChild(badge);
             } else {
               const icon = _mkEl('div');
               icon.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:1.5rem;';
-              icon.textContent = up.media_type === 'video' ? '🎬' : '🖼';
+              icon.textContent = '🖼';
               t.appendChild(icon);
             }
             const rm = _mkEl('button','add-attach-rm','×');
@@ -13986,13 +14025,61 @@
             // Restore if already uploaded
             if (_addAttachedFile && _addAttachedFile.media_path) {
               const up = _addAttachedFile;
-              const placeholder = _mkEl('div','add-attach-thumb');
-              const icon = _mkEl('div');
-              icon.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:1.5rem;';
-              icon.textContent = up.media_type === 'video' ? '🎬' : '🖼';
-              const rm = _mkEl('button','add-attach-rm','×');
-              rm.onclick = () => { _addAttachedFile = null; state.data._wishFile = null; thumbWrap.innerHTML = ''; };
-              placeholder.appendChild(icon); placeholder.appendChild(rm);
+              placeholder.style.position = 'relative';
+              if (up.media_type === 'photo') {
+                const img = document.createElement('img');
+                img.alt = '';
+                img.decoding = 'async';
+                img.loading = 'lazy';
+                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                img.src = _mediaPathToUrl(up.media_path || up.thumb_path);
+                placeholder.appendChild(img);
+              } else if (up.media_type === 'video') {
+                const videoSrc = _mediaPathToUrl(up.media_path);
+                const thumbSrc = up.thumb_path ? _mediaPathToUrl(up.thumb_path) : null;
+                
+                const badge = document.createElement('span');
+                badge.className = 'memory-media-video-badge';
+                badge.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:1px 4px;border-radius:3px;font-weight:bold;z-index:2;';
+                badge.style.display = 'none';
+
+                if (thumbSrc) {
+                  const img = document.createElement('img');
+                  img.alt = '';
+                  img.decoding = 'async';
+                  img.loading = 'lazy';
+                  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                  img.src = thumbSrc;
+                  placeholder.appendChild(img);
+                  
+                  _getVideoDuration(videoSrc, function(dur) {
+                    if (dur && isFinite(dur)) {
+                      badge.textContent = _formatVideoDuration(dur);
+                      badge.style.display = '';
+                    }
+                  });
+                } else {
+                  const v = document.createElement('video');
+                  v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                  v.muted = true; v.playsInline = true; v.preload = 'metadata';
+                  v.src = videoSrc;
+                  v.addEventListener('loadedmetadata', function() {
+                    v.currentTime = Math.min(0.1, v.duration || 0);
+                    if (v.duration && isFinite(v.duration)) {
+                      badge.textContent = _formatVideoDuration(v.duration);
+                      badge.style.display = '';
+                    }
+                  });
+                  placeholder.appendChild(v);
+                }
+                placeholder.appendChild(badge);
+              } else {
+                const icon = _mkEl('div');
+                icon.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:1.5rem;';
+                icon.textContent = '🖼';
+                placeholder.appendChild(icon);
+              }
+              placeholder.appendChild(rm);
               thumbWrap.appendChild(placeholder);
             }
             wrap.appendChild(thumbWrap);
@@ -14087,10 +14174,49 @@
                   img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
                   img.src = _mediaPathToUrl(uploadedMedia.media_path || uploadedMedia.original_url || uploadedMedia.url || uploadedMedia.preview_url || uploadedMedia.thumb_path || uploadedMedia.thumb_url);
                   prevThumb.appendChild(img);
+                } else if (uploadedMedia.media_type === 'video') {
+                  const videoSrc = _mediaPathToUrl(uploadedMedia.media_path);
+                  const thumbSrc = uploadedMedia.thumb_path ? _mediaPathToUrl(uploadedMedia.thumb_path) : null;
+                  
+                  const badge = document.createElement('span');
+                  badge.className = 'memory-media-video-badge';
+                  badge.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:1px 4px;border-radius:3px;font-weight:bold;z-index:2;';
+                  badge.style.display = 'none';
+
+                  if (thumbSrc) {
+                    const img = document.createElement('img');
+                    img.alt = '';
+                    img.decoding = 'async';
+                    img.loading = 'lazy';
+                    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                    img.src = thumbSrc;
+                    prevThumb.appendChild(img);
+                    
+                    _getVideoDuration(videoSrc, function(dur) {
+                      if (dur && isFinite(dur)) {
+                        badge.textContent = _formatVideoDuration(dur);
+                        badge.style.display = '';
+                      }
+                    });
+                  } else {
+                    const v = document.createElement('video');
+                    v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                    v.muted = true; v.playsInline = true; v.preload = 'metadata';
+                    v.src = videoSrc;
+                    v.addEventListener('loadedmetadata', function() {
+                      v.currentTime = Math.min(0.1, v.duration || 0);
+                      if (v.duration && isFinite(v.duration)) {
+                        badge.textContent = _formatVideoDuration(v.duration);
+                        badge.style.display = '';
+                      }
+                    });
+                    prevThumb.appendChild(v);
+                  }
+                  prevThumb.appendChild(badge);
                 } else {
                   const icon = _mkEl('div');
                   icon.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:1.5rem;';
-                  icon.textContent = uploadedMedia.media_type === 'video' ? '🎬' : '🖼';
+                  icon.textContent = '🖼';
                   prevThumb.appendChild(icon);
                 }
                 const typeLabel = _mkEl('div');

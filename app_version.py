@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.191'
-description = 'Фикс бага что при неактивном токена сайт молча ничего не показывает'
+version = '1.0.192'
+description = 'Кнопка по центру'
 
 
 def get_version_metadata() -> tuple[str, str]:

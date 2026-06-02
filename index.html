@@ -642,9 +642,11 @@
             position:relative; width:64px; height:64px;
             border-radius:10px; overflow:hidden;
             border:1.5px solid var(--border-color);
+            background:rgba(0,0,0,0.25);
+            display:flex; align-items:center; justify-content:center;
         }
         .add-attach-thumb img, .add-attach-thumb video {
-            width:100%; height:100%; object-fit:cover;
+            width:100%; height:100%; object-fit:contain;
         }
         .add-attach-rm {
             position:absolute; top:2px; right:2px;
@@ -13735,7 +13737,7 @@
               img.alt = '';
               img.decoding = 'async';
               img.loading = 'lazy';
-              img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+              img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
               img.src = _mediaPathToUrl(up.media_path || up.original_url || up.url || up.preview_url || up.thumb_path || up.thumb_url);
               t.appendChild(img);
             } else if (up.media_type === 'video') {
@@ -13747,12 +13749,20 @@
               badge.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:1px 4px;border-radius:3px;font-weight:bold;z-index:2;';
               badge.style.display = 'none';
 
+              const playIcon = document.createElement('div');
+              playIcon.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;';
+              const playSvg = document.createElement('span');
+              playSvg.style.cssText = 'color:#fff;font-size:0.6rem;margin-left:1px;';
+              playSvg.textContent = '▶';
+              playIcon.appendChild(playSvg);
+              t.appendChild(playIcon);
+
               if (thumbSrc) {
                 const img = document.createElement('img');
                 img.alt = '';
                 img.decoding = 'async';
                 img.loading = 'lazy';
-                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
                 img.src = thumbSrc;
                 t.appendChild(img);
                 
@@ -13764,7 +13774,7 @@
                 });
               } else {
                 const v = document.createElement('video');
-                v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                v.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
                 v.muted = true; v.playsInline = true; v.preload = 'metadata';
                 v.src = videoSrc;
                 v.addEventListener('loadedmetadata', function() {
@@ -14098,7 +14108,7 @@
                 img.alt = '';
                 img.decoding = 'async';
                 img.loading = 'lazy';
-                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
                 img.src = _mediaPathToUrl(up.media_path || up.thumb_path);
                 placeholder.appendChild(img);
               } else if (up.media_type === 'video') {
@@ -14110,12 +14120,20 @@
                 badge.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:1px 4px;border-radius:3px;font-weight:bold;z-index:2;';
                 badge.style.display = 'none';
 
+                const playIcon = document.createElement('div');
+                playIcon.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;';
+                const playSvg = document.createElement('span');
+                playSvg.style.cssText = 'color:#fff;font-size:0.6rem;margin-left:1px;';
+                playSvg.textContent = '▶';
+                playIcon.appendChild(playSvg);
+                placeholder.appendChild(playIcon);
+
                 if (thumbSrc) {
                   const img = document.createElement('img');
                   img.alt = '';
                   img.decoding = 'async';
                   img.loading = 'lazy';
-                  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                  img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
                   img.src = thumbSrc;
                   placeholder.appendChild(img);
                   
@@ -14127,7 +14145,7 @@
                   });
                 } else {
                   const v = document.createElement('video');
-                  v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                  v.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
                   v.muted = true; v.playsInline = true; v.preload = 'metadata';
                   v.src = videoSrc;
                   v.addEventListener('loadedmetadata', function() {
@@ -14238,7 +14256,7 @@
                   img.alt = '';
                   img.decoding = 'async';
                   img.loading = 'lazy';
-                  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                  img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
                   img.src = _mediaPathToUrl(uploadedMedia.media_path || uploadedMedia.original_url || uploadedMedia.url || uploadedMedia.preview_url || uploadedMedia.thumb_path || uploadedMedia.thumb_url);
                   prevThumb.appendChild(img);
                 } else if (uploadedMedia.media_type === 'video') {
@@ -14250,12 +14268,20 @@
                   badge.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:0.7rem;padding:1px 4px;border-radius:3px;font-weight:bold;z-index:2;';
                   badge.style.display = 'none';
 
+                  const playIcon = document.createElement('div');
+                  playIcon.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none;';
+                  const playSvg = document.createElement('span');
+                  playSvg.style.cssText = 'color:#fff;font-size:0.6rem;margin-left:1px;';
+                  playSvg.textContent = '▶';
+                  playIcon.appendChild(playSvg);
+                  prevThumb.appendChild(playIcon);
+
                   if (thumbSrc) {
                     const img = document.createElement('img');
                     img.alt = '';
                     img.decoding = 'async';
                     img.loading = 'lazy';
-                    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                    img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
                     img.src = thumbSrc;
                     prevThumb.appendChild(img);
                     
@@ -14267,7 +14293,7 @@
                     });
                   } else {
                     const v = document.createElement('video');
-                    v.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                    v.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
                     v.muted = true; v.playsInline = true; v.preload = 'metadata';
                     v.src = videoSrc;
                     v.addEventListener('loadedmetadata', function() {

@@ -756,6 +756,40 @@ def _generate_thumbnail(image_path: Path, max_side: int = 400) -> Optional[str]:
         return None
 
 
+_video_preview_semaphore = asyncio.Semaphore(2)
+
+
+async def _generate_video_preview(video_path: Path) -> Optional[str]:
+    thumb_path = video_path.with_stem(video_path.stem + "_thumb").with_suffix(".jpg")
+    if thumb_path.is_file():
+        return str(thumb_path)
+
+    async with _video_preview_semaphore:
+        try:
+            cmd = [
+                "nice", "-n", "19",
+                "ffmpeg", "-threads", "1",
+                "-ss", "00:00:00.100",
+                "-i", str(video_path),
+                "-vframes", "1",
+                "-q:v", "4",
+                "-vf", "scale=400:-2",
+                "-y", str(thumb_path)
+            ]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL
+            )
+            await proc.wait()
+            if thumb_path.is_file():
+                logger.info("Video thumbnail generated successfully: %s", thumb_path)
+                return str(thumb_path)
+        except Exception as e:
+            logger.warning("Failed to generate video preview for %s: %s", video_path, e)
+    return None
+
+
 def _spawn_background_task(coro, label: str) -> None:
     """Запускает фоновую задачу и логирует её завершение."""
     task = asyncio.create_task(coro)
@@ -7488,6 +7522,8 @@ async def upload_media_general(request: web.Request) -> web.Response:
                     logger.warning("upload_media_general: failed to read image size for %s: %s", saved_path, dim_err)
             if _PILImage:
                 thumb_path = await asyncio.to_thread(_generate_thumbnail, Path(saved_path))
+        elif media_type_str == "video":
+            _spawn_background_task(_generate_video_preview(Path(saved_path)), "video_preview_generation")
 
         resp_data = {
             "ok": True,

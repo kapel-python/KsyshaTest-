@@ -6433,14 +6433,35 @@
         badge.style.display = 'none';
         wrap.appendChild(badge);
 
-        _extractVideoThumb(media.src, function(dataUrl, duration) {
-          if (dataUrl) img.src = dataUrl;
-          else img.style.display = 'none';
-          if (duration && isFinite(duration)) {
-            badge.textContent = _formatVideoDuration(duration);
-            badge.style.display = '';
-          }
-        });
+        const hasServerPreview = media.thumb && media.thumb !== media.src && /\.(jpe?g|png|webp|gif)/i.test(media.thumb);
+
+        if (hasServerPreview) {
+          img.src = media.thumb;
+        } else {
+          const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                obs.disconnect();
+                const runExtraction = () => {
+                  _extractVideoThumb(media.src, function(dataUrl, duration) {
+                    if (dataUrl) img.src = dataUrl;
+                    else img.style.display = 'none';
+                    if (duration && isFinite(duration)) {
+                      badge.textContent = _formatVideoDuration(duration);
+                      badge.style.display = '';
+                    }
+                  });
+                };
+                if (window.requestIdleCallback) {
+                  window.requestIdleCallback(runExtraction, { timeout: 2000 });
+                } else {
+                  setTimeout(runExtraction, 200);
+                }
+              }
+            });
+          }, { rootMargin: '150px' });
+          observer.observe(wrap);
+        }
 
         _attachMediaOpenHandler(wrap, media);
         return wrap;

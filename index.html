@@ -9923,6 +9923,9 @@
 
           const HOME_UI = {
             ru: {
+              invalidTokenTitle: 'Этот токен больше не действует',
+              invalidTokenText: 'Ссылка недействительна, истекла или уже была использована.',
+              invalidTokenBtn: 'Понятно',
               stepWord: 'Шаг',
               stepOf: 'из',
               settingsAria: 'Настройки',
@@ -10136,6 +10139,9 @@
               exportExportedAt: 'Экспортировано:',
             },
             de: {
+              invalidTokenTitle: 'Dieser Token ist nicht mehr gültig',
+              invalidTokenText: 'Der Link ist ungültig, abgelaufen oder wurde bereits verwendet.',
+              invalidTokenBtn: 'Verstanden',
               stepWord: 'Schritt',
               stepOf: 'von',
               settingsAria: 'Einstellungen',
@@ -10349,6 +10355,9 @@
               exportExportedAt: 'Exportiert:',
             },
             en: {
+              invalidTokenTitle: 'This token is no longer valid',
+              invalidTokenText: 'The link is invalid, expired, or has already been used.',
+              invalidTokenBtn: 'Got it',
               stepWord: 'Step',
               stepOf: 'of',
               settingsAria: 'Settings',
@@ -13073,6 +13082,7 @@
         }
 
         // ── Автовход по токену из URL (?token=...) ──
+        let showInvalidTokenModalOnStart = false;
         const _urlParams = new URLSearchParams(window.location.search);
         const _urlToken = _urlParams.get('token');
         if (_urlToken) {
@@ -13193,6 +13203,7 @@
                   if (hasValidSession) {
                     console.log(`[auth-debug:${authDebugId}] Ignoring invalid token because user has a valid session`);
                     tokenValidationFailed = false;
+                    showInvalidTokenModalOnStart = true;
                   } else {
                     tokenValidationFailed = true;
                     tokenValidationErrorMsg = 'token_invalid';
@@ -13202,6 +13213,7 @@
                 console.error('[auth] Token check HTTP error', checkResp.status);
                 if (hasValidSession) {
                   tokenValidationFailed = false;
+                  showInvalidTokenModalOnStart = true;
                 } else {
                   tokenValidationFailed = true;
                   tokenValidationErrorMsg = 'HTTP ' + checkResp.status;
@@ -13212,6 +13224,7 @@
               console.log(`[auth-debug:${authDebugId}] Caught exception during token_check, shouldConsumeToken remains false`);
               if (hasValidSession) {
                 tokenValidationFailed = false;
+                showInvalidTokenModalOnStart = true;
               } else {
                 tokenValidationFailed = true;
                 tokenValidationErrorMsg = e.message || 'token_invalid';
@@ -13255,6 +13268,7 @@
                 debugState.token_auth_result = 'failed';
                 if (hasValidSession) {
                   tokenValidationFailed = false;
+                  showInvalidTokenModalOnStart = true;
                 } else {
                   tokenValidationFailed = true;
                   tokenValidationErrorMsg = 'token_invalid';
@@ -13266,6 +13280,7 @@
               debugState.token_auth_result = 'exception';
               if (hasValidSession) {
                 tokenValidationFailed = false;
+                showInvalidTokenModalOnStart = true;
               } else {
                 tokenValidationFailed = true;
                 tokenValidationErrorMsg = e.message || 'token_invalid';
@@ -13286,7 +13301,9 @@
           // Убираем токен и rebind из URL без перезагрузки страницы
           const isRebind = _urlParams.get('rebind') === '1';
           if (isRebind) _urlParams.delete('rebind');
-          _urlParams.delete('token');
+          if (!showInvalidTokenModalOnStart) {
+            _urlParams.delete('token');
+          }
           const _newSearch = _urlParams.toString();
           const _newUrl = window.location.pathname + (_newSearch ? '?' + _newSearch : '') + window.location.hash;
           history.replaceState(null, '', _newUrl);
@@ -13330,6 +13347,36 @@
           }
         }
 
+        function showInvalidTokenModal() {
+          const bd = document.createElement('div');
+          bd.className = 'modal-backdrop';
+          bd.style.zIndex = '1000000';
+          bd.innerHTML = `
+            <div class="modal-card" style="max-width:360px; text-align:center;">
+              <div class="modal-title" style="margin-bottom:12px; font-size:20px; color:var(--text-color, #333);">⚠️ ${_ui('invalidTokenTitle')}</div>
+              <div class="modal-text" style="margin-bottom:20px; font-size:15px; color:var(--muted-text, #666); line-height:1.4;">${_ui('invalidTokenText')}</div>
+              <div class="modal-actions" style="justify-content:center;">
+                <button class="modal-button modal-button-primary" id="invalidTokenCloseBtn" style="width:100%; border:none; padding:12px; border-radius:8px; font-weight:bold; font-size:15px; cursor:pointer;">${_ui('invalidTokenBtn')}</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(bd);
+
+          const closeInvalidTokenModal = () => {
+            bd.remove();
+            const _params = new URLSearchParams(window.location.search);
+            _params.delete('token');
+            const _search = _params.toString();
+            const _url = window.location.pathname + (_search ? '?' + _search : '') + window.location.hash;
+            history.replaceState(null, '', _url);
+          };
+
+          bd.addEventListener('click', (e) => {
+            if (e.target === bd) closeInvalidTokenModal();
+          });
+          document.getElementById('invalidTokenCloseBtn').onclick = closeInvalidTokenModal;
+        }
+
         const existingRole = getCurrentRole();
 
         if (existingRole) {
@@ -13353,6 +13400,10 @@
           connectSiteWs();
 
           startApp(isNew, storedTheme);
+
+          if (showInvalidTokenModalOnStart) {
+            showInvalidTokenModal();
+          }
 
         } else {
 
@@ -15533,6 +15584,9 @@
 
   const HOME_UI = {
     ru: {
+      invalidTokenTitle: 'Этот токен больше не действует',
+      invalidTokenText: 'Ссылка недействительна, истекла или уже была использована.',
+      invalidTokenBtn: 'Понятно',
       stepWord: 'Шаг',
       stepOf: 'из',
       settingsAria: 'Настройки',
@@ -15746,6 +15800,9 @@
       exportExportedAt: 'Экспортировано:',
     },
     de: {
+      invalidTokenTitle: 'Dieser Token ist nicht mehr gültig',
+      invalidTokenText: 'Der Link ist ungültig, abgelaufen oder wurde bereits verwendet.',
+      invalidTokenBtn: 'Verstanden',
       stepWord: 'Schritt',
       stepOf: 'von',
       settingsAria: 'Einstellungen',
@@ -15959,6 +16016,9 @@
       exportExportedAt: 'Exportiert:',
     },
     en: {
+      invalidTokenTitle: 'This token is no longer valid',
+      invalidTokenText: 'The link is invalid, expired, or has already been used.',
+      invalidTokenBtn: 'Got it',
       stepWord: 'Step',
       stepOf: 'of',
       settingsAria: 'Settings',

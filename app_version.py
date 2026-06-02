@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.193'
-description = 'Фикс кнопочки'
+version = '1.0.194'
+description = 'Фикс бага отвязки всех устройств при обычном подтверждении об отвязке аккаунта'
 
 
 def get_version_metadata() -> tuple[str, str]:

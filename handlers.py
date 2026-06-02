@@ -9410,9 +9410,29 @@ async def unlink_confirm(callback: CallbackQuery):
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Подтверждаю отвязку", callback_data=f"unlink_final:{token}")],
-        [InlineKeyboardButton(text="❌ Отмена", callback_data=f"unlink_deny:{token}")]
+        [InlineKeyboardButton(text="❌ Отмена", callback_data=f"unlink_cancel:{token}")]
     ])
     await callback.message.edit_text(text, parse_mode=ParseMode.HTML, reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("unlink_cancel:"))
+async def unlink_cancel(callback: CallbackQuery):
+    token = callback.data.split(":")[1]
+    req = db.get_unlink_request(token)
+    if not req or req["status"] not in ("pending", "awaiting_final"):
+        await callback.answer("Запрос уже обработан или истёк.", show_alert=True)
+        return
+
+    db.set_unlink_status(token, "cancelled")
+    
+    try:
+        from http_api import _notify_unlink_ws
+        await _notify_unlink_ws(token, {"status": "cancelled"})
+    except Exception:
+        pass
+
+    text = "ℹ️ <b>Отвязка отменена</b>\n\nТекущий Telegram-аккаунт остаётся привязанным к сайту."
+    await callback.message.edit_text(text, parse_mode=ParseMode.HTML)
     await callback.answer()
 
 @router.callback_query(F.data.startswith("unlink_final:"))

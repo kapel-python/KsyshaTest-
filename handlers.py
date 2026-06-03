@@ -6337,10 +6337,19 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         if not os.path.isdir(os.path.join(repo_root, ".git")):
             raise Exception("Директория .git не найдена. Это не Git-репозиторий.")
             
-        # 2. Verify branch is known
+        # Auto-recover from detached HEAD if rollback is not active
         branch = status_info.get("branch")
-        if not branch or branch == "—":
-            raise Exception("Ветка репозитория не определена.")
+        if branch == "HEAD" and db.get_setting("rollback_active") != "1":
+            await callback.message.answer("⚠️ Обнаружен detached HEAD при неактивном откате. Автоматически переключаюсь на ветку main...")
+            checkout_main = subprocess.run(["git", "checkout", "main"], cwd=repo_root, capture_output=True, text=True)
+            if checkout_main.returncode == 0:
+                status_info = get_git_status_info()
+                branch = status_info.get("branch")
+                await callback.message.answer("✅ Успешно переключено на ветку main.")
+            
+        # 2. Verify branch is known and not detached
+        if not branch or branch in ("—", "HEAD"):
+            raise Exception("Ветка репозитория не определена (HEAD detached). Пожалуйста, вернитесь на ветку main перед созданием релиза.")
             
         # 3. Verify there are changes to commit
         is_clean = status_info.get("is_clean", True)

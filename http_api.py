@@ -5087,7 +5087,7 @@ def _render_maintenance_page() -> str:
 
     return html
 
-def _markdown_to_html(md_text: str, emoji_title: str) -> str:
+def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) -> str:
     lines = md_text.splitlines()
     html_lines = []
     in_list = False
@@ -5148,6 +5148,8 @@ def _markdown_to_html(md_text: str, emoji_title: str) -> str:
         html_lines.append("</blockquote>")
         
     body_content = "\n".join(html_lines)
+    
+    bullet_char = "•" if is_privacy else "🌸"
     
     return f"""<!DOCTYPE html>
 <html lang="ru">
@@ -5286,7 +5288,7 @@ def _markdown_to_html(md_text: str, emoji_title: str) -> str:
     }}
 
     .doc-list li::before {{
-      content: "🌸";
+      content: "{bullet_char}";
       position: absolute;
       left: -24px;
       top: 2px;
@@ -5310,53 +5312,11 @@ def _markdown_to_html(md_text: str, emoji_title: str) -> str:
       background: var(--pink-border);
       margin: 32px 0;
     }}
-
-    .back-btn-container {{
-      margin-bottom: 24px;
-      width: 100%;
-      max-width: 680px;
-      display: flex;
-      justify-content: flex-start;
-      z-index: 1;
-    }}
-
-    .back-btn {{
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      text-decoration: none;
-      color: var(--muted);
-      font-weight: 500;
-      font-size: 0.95rem;
-      padding: 8px 16px;
-      border-radius: 12px;
-      background: var(--surface);
-      border: 1px solid var(--pink-border);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-      transition: all 0.2s ease;
-      cursor: pointer;
-    }}
-
-    .back-btn:hover {{
-      color: var(--accent);
-      border-color: var(--accent);
-      transform: translateX(-3px);
-    }}
   </style>
 </head>
 <body>
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
-
-  <div class="back-btn-container">
-    <a href="/" class="back-btn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="19" y1="12" x2="5" y2="12"></line>
-        <polyline points="12 19 5 12 12 5"></polyline>
-      </svg>
-      На главную
-    </a>
-  </div>
 
   <main class="container">
     {body_content}
@@ -5375,7 +5335,7 @@ async def privacy_page(request: web.Request) -> web.Response:
     except Exception:
         return web.Response(text="cannot read privacy.md", status=500)
     
-    html_content = _markdown_to_html(md_text, "🔒 Конфиденциальность")
+    html_content = _markdown_to_html(md_text, "🔒 Конфиденциальность", is_privacy=True)
     return web.Response(text=html_content, content_type="text/html", charset="utf-8")
 
 async def terms_page(request: web.Request) -> web.Response:

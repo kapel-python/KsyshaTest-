@@ -6824,9 +6824,12 @@ async def site_error_middleware(request: web.Request, handler):
         request["_req_started_monotonic"] = time.monotonic()
         return await handler(request)
 
-    except web.HTTPException:
+    except web.HTTPException as e:
 
         # Стандартные HTTP‑ошибки не считаем авариями
+        if isinstance(e, web.HTTPNotFound):
+            if request.path not in ("/404", "/404.html"):
+                raise web.HTTPFound("/404")
 
         raise
 

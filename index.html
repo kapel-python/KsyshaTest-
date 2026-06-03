@@ -8692,7 +8692,11 @@
           '    <button class="modal-button" id="aiClearConfirmBtn" style="background:linear-gradient(135deg,#ff6b6b,#c0392b);color:#fff;border:none">' + _ui('clearChatConfirm') + '</button>' +
           '  </div>' +
           '</div>';
-        document.body.appendChild(bd);
+        const aiModal = document.getElementById('aiModal');
+        bd.style.position = 'absolute';
+        bd.style.inset = '0';
+        bd.style.borderRadius = 'inherit';
+        (aiModal || document.body).appendChild(bd);
 
         bd.addEventListener('click', function(e) {
           if (e.target === bd) bd.classList.add('hidden');

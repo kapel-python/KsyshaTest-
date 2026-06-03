@@ -6341,7 +6341,17 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         branch = status_info.get("branch")
         if branch == "HEAD" and db.get_setting("rollback_active") != "1":
             await callback.message.answer("⚠️ Обнаружен detached HEAD при неактивном откате. Автоматически переключаюсь на ветку main...")
+            
+            # Stash changes to avoid checkout abort
+            status_res = subprocess.run(["git", "status", "--porcelain"], cwd=repo_root, capture_output=True, text=True)
+            has_changes = bool(status_res.stdout.strip())
+            if has_changes:
+                subprocess.run(["git", "stash"], cwd=repo_root, capture_output=True)
+                
             checkout_main = subprocess.run(["git", "checkout", "main"], cwd=repo_root, capture_output=True, text=True)
+            
+            if has_changes:
+                subprocess.run(["git", "stash", "pop"], cwd=repo_root, capture_output=True)
             if checkout_main.returncode == 0:
                 status_info = get_git_status_info()
                 branch = status_info.get("branch")
@@ -6851,6 +6861,13 @@ async def admin_confirm_rollback(callback: CallbackQuery):
         check_main = subprocess.run(["git", "rev-parse", "main"], cwd=repo_root, capture_output=True, text=True)
         is_main = check_main.returncode == 0 and check_main.stdout.strip().startswith(commit[:7])
 
+        # Check if there are local changes that need stashing
+        status_res = subprocess.run(["git", "status", "--porcelain"], cwd=repo_root, capture_output=True, text=True)
+        has_changes = bool(status_res.stdout.strip())
+        
+        if has_changes:
+            subprocess.run(["git", "stash"], cwd=repo_root, capture_output=True)
+
         if is_main:
             # We are returning to the tip of main. Clear rollback state.
             db.delete_setting("rollback_active")
@@ -6889,6 +6906,9 @@ async def admin_confirm_rollback(callback: CallbackQuery):
                 text=True,
                 timeout=10
             )
+            
+        if has_changes:
+            subprocess.run(["git", "stash", "pop"], cwd=repo_root, capture_output=True)
         if checkout_res.returncode != 0:
             # Revert DB settings if checkout fails
             db.delete_setting("rollback_active")
@@ -6973,6 +6993,14 @@ async def admin_undo_rollback(callback: CallbackQuery):
         
         # 1. Perform git checkout main in host workspace
         import subprocess
+        
+        # Check if there are local changes that need stashing
+        status_res = subprocess.run(["git", "status", "--porcelain"], cwd=repo_root, capture_output=True, text=True)
+        has_changes = bool(status_res.stdout.strip())
+        
+        if has_changes:
+            subprocess.run(["git", "stash"], cwd=repo_root, capture_output=True)
+
         checkout_res = subprocess.run(
             ["git", "checkout", "main"],
             cwd=repo_root,
@@ -6980,6 +7008,10 @@ async def admin_undo_rollback(callback: CallbackQuery):
             text=True,
             timeout=10
         )
+        
+        if has_changes:
+            subprocess.run(["git", "stash", "pop"], cwd=repo_root, capture_output=True)
+
         if checkout_res.returncode != 0:
             raise Exception(f"git checkout main завершился с ошибкой:\nStdout: {checkout_res.stdout}\nStderr: {checkout_res.stderr}")
             

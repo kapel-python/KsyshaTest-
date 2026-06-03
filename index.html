@@ -16266,11 +16266,12 @@
   function _stgGet(k, d) { return localStorage.getItem(k) ?? d; }
   function _stgSet(k, v) { localStorage.setItem(k, v); }
 
+  localStorage.setItem('memories_hearts', 'off');
   const _stgState = {
     theme:  _stgGet(THEME_STORAGE_KEY_STG, window.__initialTheme || 'light'),
     lang:   _stgGet(STG_LS.lang,   'ru'),
     tz:     _stgGet(STG_LS.tz,     '__auto__'),
-    hearts: _stgGet(STG_LS.hearts, 'on') !== 'off',
+    hearts: false,
   };
   window._botTimezone = _stgGet(STG_LS.botTz, '');
   window._botTimezoneDisplay = _stgGet(STG_LS.botTzDisplay, '');
@@ -16719,11 +16720,9 @@
   }
 
   function applyHeartsStg(on) {
-    _stgSet(STG_LS.hearts, on ? 'on' : 'off');
-    window._heartsEnabled = on;
-    if (!on) {
-      document.querySelectorAll('.heart-el').forEach(e => e.remove());
-    }
+    _stgSet(STG_LS.hearts, 'off');
+    window._heartsEnabled = false;
+    document.querySelectorAll('.heart-el').forEach(e => e.remove());
   }
 
   /* ── Open / close ── */
@@ -17011,17 +17010,6 @@
     });
     sz.appendChild(tg); frag.appendChild(sz); frag.appendChild(div());
 
-    /* Hearts */
-    const hr = mk('div','stg-toggle-row');
-    const hi = mk('div','stg-toggle-info');
-    hi.appendChild(mk('div','stg-toggle-name', tr.sHearts));
-    hi.appendChild(mk('div','stg-toggle-desc', tr.heartsDesc));
-    const hl = document.createElement('label'); hl.className = 'stg-switch';
-    const inp = document.createElement('input'); inp.type='checkbox'; inp.checked=_stgDraft.hearts;
-    inp.onchange = () => { _stgDraft.hearts = inp.checked; applyHeartsStg(inp.checked); };
-    hl.appendChild(inp); hl.appendChild(mk('span','stg-slider'));
-    hr.appendChild(hi); hr.appendChild(hl);
-    frag.appendChild(hr);
     body.replaceChildren(frag);
   }
   </script>
@@ -17029,6 +17017,8 @@
   <!-- ════════ FLOATING HEARTS ════════ -->
   <script>
   (function() {
+    window._heartsEnabled = false;
+    return;
     const HEARTS = ['💓','💝','💕','💖','💞','💘'];
 
     function rnd(a, b) { return a + Math.random() * (b - a); }

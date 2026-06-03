@@ -5512,6 +5512,16 @@
 
       }
 
+      function parseMarkdown(text) {
+        if (!text) return '';
+        let html = escapeHtml(text);
+        html = html.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        html = html.replace(/\n/g, '<br>');
+        return html;
+      }
+
       // i18n helper for card creation functions
       function _i(key) {
         const l = (_stgState && _stgState.lang) || 'ru';
@@ -9089,7 +9099,13 @@
 
         textEl.className = 'msg-text';
 
-        if (text) textEl.textContent = text;
+        if (text) {
+          if (role === 'ai') {
+            textEl.innerHTML = parseMarkdown(text);
+          } else {
+            textEl.textContent = text;
+          }
+        }
 
         const timeEl = document.createElement('div');
 
@@ -9662,7 +9678,7 @@
                     hideAITyping();
                     bubble = addAIMessage('ai', '');
                   }
-                  bubble.textContent += token;
+                  bubble.innerHTML = parseMarkdown(fullReply);
                   const msgs = document.getElementById('aiMessages');
                   if (msgs) msgs.scrollTop = msgs.scrollHeight;
                 }
@@ -12801,7 +12817,7 @@
           const txt = document.createElement('div');
           txt.style.cssText =
             'font-size:0.92rem;line-height:1.65;color:' + textCol + ';margin-bottom:18px;';
-          txt.innerHTML = escapeHtml(notif.text || '').replace(/\n/g, '<br>');
+          txt.innerHTML = parseMarkdown(notif.text || '');
           body.appendChild(txt);
         }
 

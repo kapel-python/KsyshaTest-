@@ -3,7 +3,7 @@
 import subprocess
 import os
 
-version = '1.0.238'
+version = '1.0.239'
 description = 'Фикс админки'
 
 

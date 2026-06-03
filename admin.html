@@ -1180,7 +1180,7 @@ async function init(){
   const loader = document.getElementById('loadingScreen');
   if (CHALLENGE_MODE === true) {
     loader.classList.add('hide');
-    setTimeout(()=>{ loader.style.display='none'; document.getElementById('challengeApp').classList.add('show'); },400);
+    setTimeout(()=>{ loader.style.display='none'; document.getElementById('challengeApp').style.display='flex'; },400);
     startChallenge();
     return;
   }

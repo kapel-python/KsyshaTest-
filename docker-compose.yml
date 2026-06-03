@@ -27,6 +27,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ~/.ssh:/root/.ssh:ro
       - /root/KsyshaTest:/workspace
+      - /root/KsyshaTest:/app
       - /workspace/data:/workspace/data
       - /workspace/media:/workspace/media
   cloudflared:

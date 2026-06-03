@@ -303,6 +303,22 @@ class BotActivityMiddleware(BaseMiddleware):
                 user_id = event.chat_join_request.from_user.id
                 action = "запрос на вступление"
 
+        is_allowed_unauthorized_state = False
+        if isinstance(event, Update):
+            current_state = data.get("state")
+            state_name = ""
+            if current_state:
+                try:
+                    state_name = await current_state.get_state() or ""
+                except Exception as e:
+                    logger.debug("Не удалось получить FSM state: %s", e)
+                    state_name = ""
+
+            is_allowed_unauthorized_state = any(
+                state_name.startswith(prefix)
+                for prefix in self._ALLOWED_UNAUTHORIZED_STATE_PREFIXES
+            ) if state_name else False
+
         if user_id:
             try:
                 # Логируем активность для любого пользователя (пары или legacy)
@@ -314,7 +330,7 @@ class BotActivityMiddleware(BaseMiddleware):
                 message_or_call = event.message or getattr(event, 'callback_query', None)
                 if message_or_call and getattr(message_or_call, "data", "") != "rebound_create_new":
                     msg_text = getattr(message_or_call, "text", "") or ""
-                    if not msg_text.startswith("/start invite_"):
+                    if not msg_text.startswith("/start invite_") and not is_allowed_unauthorized_state:
                         rebound_info = db.get_rebound_account(user_id)
                         if rebound_info:
                             new_user_id = rebound_info["user_id"]
@@ -344,19 +360,6 @@ class BotActivityMiddleware(BaseMiddleware):
         if isinstance(event, Update):
             message = event.message
             callback = event.callback_query
-            current_state = data.get("state")
-            state_name = ""
-            if current_state:
-                try:
-                    state_name = await current_state.get_state() or ""
-                except Exception as e:
-                    logger.debug("Не удалось получить FSM state: %s", e)
-                    state_name = ""
-
-            is_allowed_unauthorized_state = any(
-                state_name.startswith(prefix)
-                for prefix in self._ALLOWED_UNAUTHORIZED_STATE_PREFIXES
-            ) if state_name else False
 
             if message and message.from_user:
                 msg_user_id = message.from_user.id

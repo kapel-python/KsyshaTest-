@@ -3040,8 +3040,11 @@ class Database:
                         # Финальная зачистка старого ID
                         conn.execute("DELETE FROM bot_last_active WHERE user_id = ?", (old_id,))
                         
-                        # Если пользователь успешно вернулся, снимаем с него статус призрака
-                        self.clear_rebound_status(user_id)
+                    # Если пользователь успешно вернулся, снимаем с него статус призрака
+                    conn.execute(
+                        "UPDATE unlink_requests SET status = 'cleared' WHERE user_id = ? AND status = 'confirmed'",
+                        (user_id,)
+                    )
                     
                     # Если пара стала полной и таймер ещё не запущен - запускаем его
                     conn.execute(

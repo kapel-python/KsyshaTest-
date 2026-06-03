@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.207'
-description = 'Синтаксический фикс'
+version = '1.0.208'
+description = 'Фикс невозможности использования бота при перепривязке'
 
 
 def get_version_metadata() -> tuple[str, str]:

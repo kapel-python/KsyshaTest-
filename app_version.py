@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.224'
-description = 'Страницы /privacy и /terms'
+version = '1.0.225'
+description = 'Фикс версии с пользовательским соглашением и политикой конфиденциальности'
 
 
 def get_version_metadata() -> tuple[str, str]:

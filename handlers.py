@@ -403,7 +403,7 @@ class BotActivityMiddleware(BaseMiddleware):
                         ])
                         await message.answer(
                             f"👋 Привет, <b>{first_name}</b>!\n\n"
-                            "❤️ Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
+                            "Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
                             "Для начала — как тебя зовут?",
                             reply_markup=skip_kb,
                             parse_mode=ParseMode.HTML,
@@ -1339,7 +1339,7 @@ async def cmd_start(message: Message, state: FSMContext):
         ])
         await message.answer(
             f"👋 Привет, <b>{first_name}</b>!\n\n"
-            f"❤️ Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
+            f"Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
             f"👤 <b>{inviter_name}</b> приглашает тебя вступить в пару\n\n"
             "Но для начала мне нужно узнать, а как тебя зовут?",
             reply_markup=skip_kb,
@@ -1358,7 +1358,7 @@ async def cmd_start(message: Message, state: FSMContext):
             ])
             await message.answer(
                 f"👋 Привет, <b>{first_name}</b>!\n\n"
-                "❤️ Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
+                "Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
                 "Для начала — как тебя зовут?",
                 reply_markup=skip_kb,
                 parse_mode=ParseMode.HTML
@@ -1634,8 +1634,8 @@ async def _finish_couple_onboarding(message: Message, state: FSMContext, callbac
             share_url = f"https://t.me/share/url?url={quote(invite_link, safe='')}&text={quote(share_text, safe='')}"
             send_fn = callback.message.edit_text if callback else message.answer
             await send_fn(
-                f"🎉 <b>{final_name}</b>, УРА — регистрация пройдена!\n\n"
-                f"✅ Теперь осталось добавить своего партнёра, чтобы начать создавать что-то крутое вместе!\n\n"
+                f"✅ <b>{final_name}</b>, регистрация успешно пройдена!\n\n"
+                f"✅ Теперь осталось добавить своего партнёра.\n\n"
                 f"🔗 Отправь ссылку тому, кого хочешь пригласить — по кнопке ниже",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🔗 Пригласить партнёра", url=share_url)],
@@ -9516,7 +9516,7 @@ async def rebound_create_new(callback: CallbackQuery, state: FSMContext):
         
     await callback.message.edit_text(
         f"👋 Привет, <b>{first_name}</b>!\n\n"
-        "❤️ Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
+        "Создай пару с своим партнёром и вместе создавайте, изменяйте и делитесь моментами!\n\n"
         "Для начала — как тебя зовут?",
         reply_markup=skip_kb,
         parse_mode=ParseMode.HTML,

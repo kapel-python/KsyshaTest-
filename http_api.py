@@ -5667,9 +5667,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "streak_day1":     "день",
             "streak_day234":   "дня",
             "streak_days":     "дней",
-            "first_visit_sub": "Этот момент был долгожданным ❤️",
+            "first_visit_sub": "Вы вошли впервые",
             "no_visit_yet":    "Ещё не было ни одного визита",
-            "device_sub":      "По последнему входу ❤️",
+            "device_sub":      "По последнему входу",
             "no_data":         "Ещё нет данных",
             "fav_time_sub":    lambda pct: f"{pct}% всех визитов именно в это время",
             "fav_cat_opens":   lambda n, total: f"Открыто {n} раз из {total}" if total else f"Открыто {n} раз",
@@ -5704,9 +5704,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "streak_day1":     "күн",
             "streak_day234":   "күн",
             "streak_days":     "күн",
-            "first_visit_sub": "Сен чынында бул учурду күттүң ❤️",
+            "first_visit_sub": "Сиз биринчи жолу кирдиңиз",
             "no_visit_yet":    "Али бир да кириш болгон жок",
-            "device_sub":      "Акыркы кириш боюнча ❤️",
+            "device_sub":      "Акыркы кириш боюнча",
             "no_data":         "Азырынча маалымат жок",
             "fav_time_sub":    lambda pct: f"Бардык кириштердин {pct}% ушул убакта",
             "fav_cat_opens":   lambda n, total: f"{total} дан {n} жолу ачылды" if total else f"{n} жолу ачылды",
@@ -5741,9 +5741,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "streak_day1":     "Tag",
             "streak_day234":   "Tage",
             "streak_days":     "Tage",
-            "first_visit_sub": "Du hast auf diesen Moment gewartet ❤️",
+            "first_visit_sub": "Sie haben sich zum ersten Mal angemeldet",
             "no_visit_yet":    "Noch kein einziger Besuch",
-            "device_sub":      "Letzter Besuch ❤️",
+            "device_sub":      "Letzter Besuch",
             "no_data":         "Noch keine Daten",
             "fav_time_sub":    lambda pct: f"{pct}% aller Besuche genau zu dieser Zeit",
             "fav_cat_opens":   lambda n, total: f"{n} von {total} mal geöffnet" if total else f"{n} mal geöffnet",
@@ -5778,9 +5778,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "streak_day1":     "day",
             "streak_day234":   "days",
             "streak_days":     "days",
-            "first_visit_sub": "You were really waiting for this moment ❤️",
+            "first_visit_sub": "You logged in for the first time",
             "no_visit_yet":    "Not a single visit yet",
-            "device_sub":      "By last visit ❤️",
+            "device_sub":      "By last visit",
             "no_data":         "No data yet",
             "fav_time_sub":    lambda pct: f"{pct}% of all visits happened exactly at this time",
             "fav_cat_opens":   lambda n, total: f"Opened {n} times out of {total}" if total else f"Opened {n} times",
@@ -6432,7 +6432,7 @@ def _companion_limit_message() -> str:
         "Ты использовал все сообщения за этот период. "
         "Лимит полностью сбросится через 24 часа после "
         "твоего первого сообщения этого периода.\n\n"
-        "Увидимся совсем скоро! 💛"
+        "Увидимся совсем скоро!"
     )
 
 

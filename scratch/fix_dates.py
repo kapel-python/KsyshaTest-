@@ -24,9 +24,9 @@ def main():
                     new_content
                 )
                 # Fix translation strings
-                new_content = new_content.replace('15 мая — особенный день ❤️', 'Это особенный день ❤️')
-                new_content = new_content.replace('Der 30. Oktober ist ein besonderer Tag ❤️', 'Das ist ein besonderer Tag ❤️')
-                new_content = new_content.replace('October 30 is a special day ❤️', 'This is a special day ❤️')
+                new_content = new_content.replace('15 мая — особенный день ❤️', 'Это особенный день')
+                new_content = new_content.replace('Der 30. Oktober ist ein besonderer Tag ❤️', 'Das ist ein besonderer Tag')
+                new_content = new_content.replace('October 30 is a special day ❤️', 'This is a special day')
                 new_content = new_content.replace('15 мая 2026', '15 мая 2026')
             
             if file == 'maintenance.html':

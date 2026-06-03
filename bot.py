@@ -658,7 +658,7 @@ async def _check_expired_events(bot):
             for event, pending_users in pending_pairs:
                 try:
                     title = (event.title or "").strip()
-                    text = f"⏰ Событие <b>{title}</b> наступило! УРААА! 🎉"
+                    text = f"⏰ Событие <b>{title}</b> наступило! 🎉"
                     keyboard = InlineKeyboardMarkup(
                         inline_keyboard=[
                             [

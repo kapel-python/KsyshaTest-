@@ -947,7 +947,7 @@ def format_scheduled_event_text(event: ScheduledEvent, user_id: Optional[int] = 
     text += f"💬 Описание: {desc if desc else '—'}\n"
     text += f"📅 Будет {dt_display}\n"
     if expired:
-        text += "\n✅ Событие уже наступило, УРААА!\n"
+        text += "\n✅ Событие уже наступило.\n"
     else:
         remaining = format_time_remaining(event.event_datetime, creator_id)
         text += f"🕓 Осталось: {remaining}\n\n"

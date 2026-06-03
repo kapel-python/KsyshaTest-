@@ -209,6 +209,17 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   </div>
 </div>
 
+<div id="challengeApp" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:100;flex-direction:column;background:var(--bg);">
+  <div class="denied-card" id="challengeCard">
+    <span class="denied-icon">🔐</span>
+    <div class="denied-title" id="challengeTitle">Проверка безопасности</div>
+    <div class="denied-sub" id="challengeSub" style="margin-bottom:15px">Инициализация...</div>
+    <input type="password" id="challengePwd" style="display:none;width:100%;margin-bottom:20px;padding:12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text);outline:none;font-size:0.9rem;text-align:center;" placeholder="Пароль">
+    <button class="amodal-btn ok-purple" id="challengeBtn" style="display:none;width:100%;padding:12px;" onclick="window.submitChallengePwd()">Продолжить</button>
+    <div id="challengeSpinner" class="loading-spinner" style="display:block;margin:10px auto"></div>
+  </div>
+</div>
+
 <div id="adminApp">
   <header class="admin-header">
     <div style="display:flex;align-items:center">
@@ -433,6 +444,113 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 <script>
 (function(){
 const API_KEY = '{{API_SECRET_KEY}}';
+const CHALLENGE_MODE = {{ADMIN_CHALLENGE_MODE}};
+let challengeToken = '';
+
+async function getFingerprint() {
+    try {
+        const d = new Date();
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        return navigator.userAgent + "|" + screen.width + "x" + screen.height + "|" + navigator.language + "|" + tz;
+    } catch(e) { return navigator.userAgent; }
+}
+
+window.submitChallengePwd = function() {
+    const pwd = document.getElementById('challengePwd').value;
+    document.getElementById('challengePwd').style.display = 'none';
+    document.getElementById('challengeBtn').style.display = 'none';
+    document.getElementById('challengeSpinner').style.display = 'block';
+    verifyChallenge(pwd);
+};
+
+async function verifyChallenge(pwd) {
+    try {
+        document.getElementById('challengeSub').textContent = 'Проверка...';
+        const r = await fetch('/api/admin/challenge/verify', {
+            method: 'POST',
+            headers: _authHeaders({'Content-Type':'application/json'}),
+            body: JSON.stringify({ token: challengeToken, password: pwd })
+        });
+        const d = await r.json();
+        if (!d.ok) {
+            if (d.error === 'wrong_password') {
+                document.getElementById('challengeSub').innerHTML = '<span style="color:#ef4444">Неверный пароль!</span>';
+                document.getElementById('challengePwd').style.display = 'block';
+                document.getElementById('challengeBtn').style.display = 'block';
+                document.getElementById('challengeSpinner').style.display = 'none';
+                return;
+            }
+            throw new Error(d.error || "verify_failed");
+        }
+        
+        document.getElementById('challengeSub').innerHTML = '✅ Запрос отправлен в Telegram<br>Подтвердите вход с доверенного устройства...';
+        
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/api/admin/challenge/ws?token=${challengeToken}`);
+        
+        ws.onmessage = async (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'confirmed') {
+                    document.getElementById('challengeSub').textContent = 'Доступ разрешён! Входим...';
+                    await fetch('/api/admin/challenge/session', {
+                        method: 'POST',
+                        headers: _authHeaders({'Content-Type':'application/json'}),
+                        body: JSON.stringify({ token: challengeToken })
+                    });
+                    window.location.reload();
+                } else if (msg.type === 'denied') {
+                    document.getElementById('challengeSub').innerHTML = '<span style="color:#ef4444">❌ Вход отклонён в Telegram.</span>';
+                    document.getElementById('challengeSpinner').style.display = 'none';
+                }
+            } catch(ex){}
+        };
+        ws.onclose = () => {
+            if (document.getElementById('challengeSub').textContent.includes('Telegram')) {
+                document.getElementById('challengeSub').innerHTML = '<span style="color:#ef4444">Соединение прервано. Обновите страницу.</span>';
+                document.getElementById('challengeSpinner').style.display = 'none';
+            }
+        };
+        
+    } catch(e) {
+        document.getElementById('challengeSub').textContent = 'Ошибка: ' + e.message;
+        document.getElementById('challengeSpinner').style.display = 'none';
+    }
+}
+
+async function startChallenge() {
+    try {
+        const fp = await getFingerprint();
+        const r = await fetch('/api/admin/challenge/init', {
+            method: 'POST',
+            headers: _authHeaders({'Content-Type':'application/json'}),
+            body: JSON.stringify({ fingerprint: fp })
+        });
+        const d = await r.json();
+        if (!d.ok) throw new Error(d.error || "init_failed");
+        
+        challengeToken = d.token;
+        if (d.need_password) {
+            document.getElementById('challengeSub').innerHTML = 'Уровень доверия: <b>' + d.trust_score + '/100</b><br><br>Система зафиксировала подозрительную активность или новое устройство. Введите пароль:';
+            document.getElementById('challengeSpinner').style.display = 'none';
+            document.getElementById('challengePwd').style.display = 'block';
+            document.getElementById('challengeBtn').style.display = 'block';
+            document.getElementById('challengePwd').focus();
+            
+            document.getElementById('challengePwd').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    window.submitChallengePwd();
+                }
+            });
+        } else {
+            verifyChallenge('');
+        }
+    } catch(e) {
+        document.getElementById('challengeSub').textContent = 'Ошибка: ' + e.message;
+        document.getElementById('challengeSpinner').style.display = 'none';
+    }
+}
+
 function _getCookie(name){
   const parts = (document.cookie || '').split(';');
   for(const p of parts){
@@ -1059,8 +1177,15 @@ window.doFullReset = doFullReset;
 
 // ── Инициализация ─────────────────────────────
 async function init(){
-  const ok = await checkAccess();
   const loader = document.getElementById('loadingScreen');
+  if (CHALLENGE_MODE === true) {
+    loader.classList.add('hide');
+    setTimeout(()=>{ loader.style.display='none'; document.getElementById('challengeApp').classList.add('show'); },400);
+    startChallenge();
+    return;
+  }
+
+  const ok = await checkAccess();
   if(!ok){
     loader.classList.add('hide');
     setTimeout(()=>{ loader.style.display='none'; document.getElementById('accessDenied').classList.add('show'); },400);

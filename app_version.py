@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.217'
-description = 'Фикс статистики'
+version = '1.0.218'
+description = 'Фикс отображения устройтсва при отвязке аккаунта + комментирование строчки "вход на сайт ..."'
 
 
 def get_version_metadata() -> tuple[str, str]:

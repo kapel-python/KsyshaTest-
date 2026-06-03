@@ -3482,17 +3482,7 @@ async def log_visit(request: web.Request) -> web.Response:
 
             )
 
-            await bot.send_message(
-
-                chat_id=notify_target,
-
-                text=text,
-
-                parse_mode=ParseMode.HTML,
-
-                reply_markup=keyboard,
-
-            )
+            # await bot.send_message(chat_id=notify_target, text=text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
             await bot.session.close()
 
@@ -4689,17 +4679,47 @@ async def api_unlink_init(request: web.Request) -> web.Response:
 
     async def _send_bot_msg():
         from zoneinfo import ZoneInfo
-        now_msk = datetime.now(timezone.utc).astimezone(ZoneInfo("Europe/Moscow"))
-        time_str = now_msk.strftime("%d %B %Y, %H:%M МСК")
+        user_tz = db.get_user_setting(user_id, "timezone") or "Europe/Moscow"
+        try:
+            tz_obj = ZoneInfo(user_tz)
+        except Exception:
+            tz_obj = ZoneInfo("Europe/Moscow")
+        now_local = datetime.now(timezone.utc).astimezone(tz_obj)
+        
+        m_name = ["Января", "Февраля", "Марта", "Апреля", "Мая", "Июня", "Июля", "Августа", "Сентября", "Октября", "Ноября", "Декабря"][now_local.month - 1]
+        time_str = f"{now_local.day:02d} {m_name} {now_local.year}, {now_local.hour:02d}:{now_local.minute:02d}"
+        
+        def cc_to_flag(code: str) -> str:
+            if not code or len(code) != 2:
+                return "🌐"
+            c1, c2 = code[0].upper(), code[1].upper()
+            if "A" <= c1 <= "Z" and "A" <= c2 <= "Z":
+                return chr(127462 + ord(c1) - 65) + chr(127462 + ord(c2) - 65)
+            return "🌐"
+            
+        c_names = {
+            "RU": "Россия", "FI": "Финляндия", "KZ": "Казахстан", "BY": "Беларусь",
+            "UA": "Украина", "KG": "Кыргызстан", "UZ": "Узбекистан", "DE": "Германия",
+            "US": "США", "GB": "Великобритания", "CH": "Швейцария", "NL": "Нидерланды",
+            "FR": "Франция", "IT": "Италия", "ES": "Испания", "TR": "Турция"
+        }
+        
+        country_clean = country.strip()
+        flag = cc_to_flag(country_clean)
+        c_name = c_names.get(country_clean.upper(), country_clean)
+        if c_name == "-":
+            c_name = "Неизвестно"
+        geo_info = f"{c_name}, {city}" if city and city != "-" else c_name
+        
+        pretty_ua = _format_device_info(ua, None)
         
         text = (
             f"🔓 <b>Запрос на отвязку аккаунта</b>\n\n"
-            f"Устройство: {ua}\n"
-            f"IP: {ip} ({country}, {city})\n"
+            f"💻 Устройство: {pretty_ua}\n"
+            f"{flag} IP: {ip} ({geo_info})\n"
             f"Время: {time_str}\n\n"
-            f"Отвязать текущий аккаунт от сайта?\n"
-            f"После отвязки вход с текущим Telegram-аккаунтом будет невозможен.\n"
-            f"Для повторного входа потребуется другой аккаунт и специальная ссылка."
+            f"🌐 <b>Отвязать текущий аккаунт от сайта?</b>\n"
+            f"После отвязки вход через этот телеграм аккаунт не получится. Придется использовать другой аккаунт"
         )
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Да, отвязать", callback_data=f"unlink_confirm:{token}")],

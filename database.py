@@ -3076,11 +3076,25 @@ class Database:
             return ""
 
     def create_transfer_invite(self, couple_id: int, creator_id: int, pre_bound_user_id: Optional[int] = None) -> str:
-        """Создаёт инвайт-код для переноса аккаунта."""
+        """Создаёт инвайт-код для переноса аккаунта.
+
+        Перед вставкой нового кода все предыдущие активные transfer invite-коды
+        этого пользователя инвалидируются в той же транзакции — в каждый момент
+        времени существует не более одного рабочего transfer invite.
+        """
         import secrets
         code = secrets.token_urlsafe(12)
         try:
             with self._get_connection() as conn:
+                conn.execute(
+                    """UPDATE invite_codes SET used = TRUE, used_at = CURRENT_TIMESTAMP
+                       WHERE creator_id = ? AND used = FALSE
+                       AND code IN (
+                           SELECT transfer_invite_code FROM unlink_requests
+                           WHERE user_id = ? AND transfer_invite_code IS NOT NULL
+                       )""",
+                    (creator_id, creator_id)
+                )
                 conn.execute(
                     'INSERT INTO invite_codes (code, couple_id, creator_id, pre_bound_user_id) VALUES (?, ?, ?, ?)',
                     (code, couple_id, creator_id, pre_bound_user_id)
@@ -5622,6 +5636,30 @@ class Database:
                 conn.commit()
         except Exception as e:
             logger.exception("Ошибка revoke_all_user_sessions: %s", e)
+
+    def invalidate_transfer_invites_for_user(self, user_id: int) -> int:
+        """Инвалидирует все активные transfer invite-коды пользователя.
+
+        Вызывается при сценарии 'Нет, это не я!' — после отзыва сессий
+        все ссылки для перепривязки должны стать нерабочими.
+        Возвращает количество инвалидированных кодов.
+        """
+        try:
+            with self._get_connection() as conn:
+                cur = conn.execute(
+                    """UPDATE invite_codes SET used = TRUE, used_at = CURRENT_TIMESTAMP
+                       WHERE creator_id = ? AND used = FALSE
+                       AND code IN (
+                           SELECT transfer_invite_code FROM unlink_requests
+                           WHERE user_id = ? AND transfer_invite_code IS NOT NULL
+                       )""",
+                    (user_id, user_id)
+                )
+                conn.commit()
+                return cur.rowcount
+        except Exception as e:
+            logger.exception("Ошибка invalidate_transfer_invites_for_user: %s", e)
+            return 0
 
     def log_security_event(self, type: str, user_id: Optional[int], ip: str, ua: str, country: str, city: str, detail: str) -> None:
         try:

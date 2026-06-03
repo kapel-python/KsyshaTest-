@@ -5286,7 +5286,7 @@ async def index(request: web.Request) -> web.StreamResponse:
     return resp
 
 
-async def not_found_page(request: web.Request) -> web.Response:
+async def not_found_page(request: web.Request, status_code: int = 200) -> web.Response:
     """Отдаёт 404.html с подставленным именем бота."""
     project_root = Path(__file__).resolve().parent
     page_path = project_root / "404.html"
@@ -5295,7 +5295,7 @@ async def not_found_page(request: web.Request) -> web.Response:
     html = page_path.read_text(encoding="utf-8")
     bot_username = (getattr(config, "BOT_USERNAME", "") or "Akimova_Ksysha_love_bot").strip()
     html = html.replace("{{BOT_USERNAME}}", bot_username)
-    return web.Response(text=html, content_type="text/html", charset="utf-8", status=200)
+    return web.Response(text=html, content_type="text/html", charset="utf-8", status=status_code)
 
 
 async def profile_page(request: web.Request) -> web.Response:
@@ -6829,7 +6829,7 @@ async def site_error_middleware(request: web.Request, handler):
         # Стандартные HTTP‑ошибки не считаем авариями
         if isinstance(e, web.HTTPNotFound):
             if request.path not in ("/404", "/404.html"):
-                raise web.HTTPFound("/404")
+                return await not_found_page(request, status_code=404)
 
         raise
 

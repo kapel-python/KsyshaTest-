@@ -445,6 +445,18 @@ function _getCookie(name){
 }
 const VISITOR_ID = new URLSearchParams(window.location.search).get('v') || _getCookie('visitor_id') || '';
 
+function _authHeaders(extra) {
+  const h = Object.assign({}, extra || {});
+  if (API_KEY) h['X-Api-Key'] = API_KEY;
+  if (VISITOR_ID) h['X-Visitor-Id'] = VISITOR_ID;
+  try {
+    const sig = localStorage.getItem('ai_visitor_sig');
+    if (sig) h['X-Visitor-Signature'] = sig;
+  } catch(e) {}
+  return h;
+}
+
+
 function h(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function relativeTime(utcStr) {
@@ -485,7 +497,7 @@ window.closeModal = closeModal;
 // ── Проверка доступа ──────────────────────────
 async function checkAccess() {
   try {
-    const r = await fetch('/api/admin/check?v='+encodeURIComponent(VISITOR_ID),{headers:{'X-Api-Key':API_KEY}});
+    const r = await fetch('/api/admin/check?v='+encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
     const d = await r.json(); return d.ok && d.is_creator;
   } catch(e){ return false; }
 }
@@ -525,7 +537,7 @@ function _updateHealthCharts(){
 
 async function loadHealthMetrics() {
   try {
-    const r = await fetch('/api/admin/health_metrics?v='+encodeURIComponent(VISITOR_ID),{headers:{'X-Api-Key':API_KEY}});
+    const r = await fetch('/api/admin/health_metrics?v='+encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
     const d = await r.json();
     if(!d.ok || !d.metrics) return;
     const m = d.metrics;
@@ -560,7 +572,7 @@ async function loadData() {
   const btn = document.getElementById('refreshBtn');
   if(btn) btn.classList.add('spinning');
   try {
-    const r = await fetch('/api/admin/stats?v='+encodeURIComponent(VISITOR_ID),{headers:{'X-Api-Key':API_KEY}});
+    const r = await fetch('/api/admin/stats?v='+encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
     const d = await r.json();
     if(!d.ok) throw new Error();
     const s = d.stats||{};
@@ -649,7 +661,7 @@ async function confirmMaintenance() {
   const action = _maintenanceOn?'maintenance_off':'maintenance_on';
   try {
     const r = await fetch('/api/admin/action',{
-      method:'POST',headers:{'Content-Type':'application/json','X-Api-Key':API_KEY},
+      method:'POST',headers:_authHeaders({'Content-Type':'application/json'}), credentials: 'include',
       body:JSON.stringify({visitor_id:VISITOR_ID,action}),
     });
     const d = await r.json();
@@ -664,7 +676,7 @@ async function doTestCelebration() {
     toast('⏳ Отправляю анимацию…');
     const r = await fetch('/api/test_celebration', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Key': API_KEY },
+      headers: _authHeaders({ 'Content-Type': 'application/json' }), credentials: 'include',
       body: JSON.stringify({ visitor_id: VISITOR_ID }),
     });
     const d = await r.json();
@@ -729,7 +741,8 @@ function uploadFileWithProgress(entry){
     fd.append('file', entry.file);
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/upload_notification_media?v='+encodeURIComponent(VISITOR_ID));
-    xhr.setRequestHeader('X-Api-Key', API_KEY);
+    const h = _authHeaders();
+    for (let k in h) xhr.setRequestHeader(k, h[k]);
     xhr.upload.onprogress = e => {
       if(e.lengthComputable){
         const pct = Math.round(e.loaded/e.total*100);
@@ -791,7 +804,7 @@ async function sendCompose(){
 
   try{
     const r = await fetch('/api/admin/notification',{
-      method:'POST', headers:{'Content-Type':'application/json','X-Api-Key':API_KEY},
+      method:'POST', headers:_authHeaders({'Content-Type':'application/json'}), credentials: 'include',
       body: JSON.stringify({visitor_id:VISITOR_ID, text, media_items: media_items.length?media_items:null}),
     });
     const d = await r.json();
@@ -810,16 +823,16 @@ async function collectExportData(){
   const url = tz?'/api/all?tz='+encodeURIComponent(tz):'/api/all';
   const ed = {meta:{exported_at:new Date().toISOString()},server:{}};
   try{
-    const r = await fetch(url,{headers:{'X-Api-Key':API_KEY}});
+    const r = await fetch(url, { headers: _authHeaders(), credentials: 'include' });
     if(r.ok){ const j=await r.json(); ed.server.memories=j.memories||[]; ed.server.events=j.events||[]; ed.server.wishes=j.wishes||{}; ed.server.stats=j.stats||{}; ed.server.favorites=j.favorites||{}; }
   }catch(e){}
   // История ИИ — отдельно для Ксюши и Создателя
   try{
-    const r2 = await fetch('/api/ai_companion_history?visitor_id=partner',{headers:{'X-Api-Key':API_KEY}});
+    const r2 = await fetch('/api/ai_companion_history?visitor_id=partner', { headers: _authHeaders(), credentials: 'include' });
     if(r2.ok){ const j2=await r2.json(); ed.server.ai_history_ksyusha=j2.history||[]; }
   }catch(e){}
   try{
-    const r3 = await fetch('/api/ai_companion_history?visitor_id=creator',{headers:{'X-Api-Key':API_KEY}});
+    const r3 = await fetch('/api/ai_companion_history?visitor_id=creator', { headers: _authHeaders(), credentials: 'include' });
     if(r3.ok){ const j3=await r3.json(); ed.server.ai_history_creator=j3.history||[]; }
   }catch(e){}
   return ed;
@@ -948,7 +961,7 @@ async function doBackup(){
   toast('⏳ Создаю бэкап…');
   try{
     const r = await fetch('/api/admin/backup',{
-      method:'POST',headers:{'Content-Type':'application/json','X-Api-Key':API_KEY},
+      method:'POST',headers:_authHeaders({'Content-Type':'application/json'}), credentials: 'include',
       body:JSON.stringify({visitor_id:VISITOR_ID}),
     });
     const d = await r.json();

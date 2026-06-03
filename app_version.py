@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.203'
-description = 'Оптимизация скорости загрузки'
+version = '1.0.204'
+description = 'Фикс сброса сессий и устройств после отвязки аккаунта'
 
 
 def get_version_metadata() -> tuple[str, str]:

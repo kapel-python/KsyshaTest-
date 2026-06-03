@@ -955,6 +955,18 @@ function _getCookie(name) {
   return m ? decodeURIComponent(m[1]) : '';
 }
 
+// ── Auth helpers ────────────────────────────────────────────────────────
+function _authHeaders() {
+  const h = {};
+  const vid = _getCookie('visitor_id');
+  if (vid) h['X-Visitor-Id'] = vid;
+  try {
+    const sig = localStorage.getItem('ai_visitor_sig');
+    if (sig) h['X-Visitor-Signature'] = sig;
+  } catch(e) {}
+  return h;
+}
+
 // ── SPA navigation ──────────────────────────────────────────────────────
 function navTo(screenId, updateHash = true) {
   if (updateHash) {
@@ -1159,6 +1171,7 @@ function _checkAuthAndLoad() {
   }
 
   fetch('/api/site_bootstrap?v=' + encodeURIComponent(vid) + '&light=true', {
+    headers: _authHeaders(),
     credentials: 'include',
   })
   .then(r => {
@@ -1191,6 +1204,7 @@ function loadSessions() {
   `;
   
   fetch('/api/sessions?v=' + encodeURIComponent(vid), {
+    headers: _authHeaders(),
     credentials: 'include'
   })
   .then(r => r.json())
@@ -1325,7 +1339,7 @@ function confirmRevokeSession(id) {
   fetch('/api/sessions/revoke', {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
     body: JSON.stringify({ device_id: id, visitor_id: vid })
   })
   .then(r => r.json())
@@ -1348,7 +1362,7 @@ let unlinkWs = null;
 
 async function startUnlink() {
   try {
-    const res = await fetch('/api/unlink/init', { method: 'POST' });
+    const res = await fetch('/api/unlink/init', { method: 'POST', headers: _authHeaders() });
     const data = await res.json();
     if (!data.ok) {
       if (data.error === 'blocked') alert("Слишком много попыток. Попробуйте позже.");
@@ -1371,7 +1385,7 @@ async function startUnlink() {
         else if (msg.status === 'confirmed') {
           showUnlinkState('confirmed', msg.bot_link);
           const v = _getCookie('visitor_id') || '';
-          fetch('/api/site_bootstrap?v=' + encodeURIComponent(v) + '&light=true')
+          fetch('/api/site_bootstrap?v=' + encodeURIComponent(v) + '&light=true', { headers: _authHeaders() })
             .then(r => r.json())
             .then(d => { if (d && !d.error) _populateProfile(d); })
             .catch(err => console.error(err));
@@ -1417,7 +1431,7 @@ async function doLogout() {
     const r = await fetch('/api/logout', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: Object.assign({ 'Content-Type': 'application/json' }, _authHeaders()),
     });
     if (r.ok || r.status === 200) {
       window.location.replace('/');

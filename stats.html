@@ -1208,6 +1208,18 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
                || window.__STATS_VID__ || '';
   var apiKey = window.__STATS_APIKEY__ || '';
 
+  function _authHeaders() {
+    var h = {};
+    if (apiKey) h['X-Api-Key'] = apiKey;
+    var _vid = _getCookie('visitor_id');
+    if (_vid) h['X-Visitor-Id'] = _vid;
+    try {
+      var sig = localStorage.getItem('ai_visitor_sig');
+      if (sig) h['X-Visitor-Signature'] = sig;
+    } catch(e) {}
+    return h;
+  }
+
   function setLabel() {
     var el = document.getElementById('hmMonthLabel');
     if (el) el.textContent = MONTHS[curM - 1] + ' ' + curY;
@@ -1222,9 +1234,9 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
     if (!box) return;
     box.style.opacity = '.35';
     box.style.pointerEvents = 'none';
-    // No API key needed — endpoint is public
+    // No API key needed — endpoint is public (actually requires auth via cookies/headers)
     var url = '/api/heatmap?year=' + curY + '&month=' + curM + '&v=' + encodeURIComponent(vid) + '&lang=' + (localStorage.getItem('memories_lang')||'ru');
-    fetch(url)
+    fetch(url, { headers: _authHeaders(), credentials: 'include' })
     .then(function(r){ return r.json(); })
     .then(function(d){
       if (d && d.html) {

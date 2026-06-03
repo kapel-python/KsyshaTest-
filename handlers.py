@@ -1259,6 +1259,36 @@ async def cmd_start(message: Message, state: FSMContext):
             )
             return
 
+        # Проверка на токен перепривязки (transfer_invite_code) — до проверки "пара укомплектована",
+        # потому что при обычной перепривязке слот создателя остаётся положительным до момента join.
+        unlink_req = db.get_unlink_request_by_transfer_code(invite_code)
+        if unlink_req:
+            old_user_id = unlink_req["user_id"]
+            # Сначала освобождаем слот старого пользователя (делаем id отрицательным),
+            # затем присоединяем нового — join_couple сам перенесёт данные.
+            db.unlink_user_from_couple(unlink_req["couple_id"], old_user_id)
+            used_couple_id = db.use_invite_code(invite_code, user_id)
+            if used_couple_id and db.join_couple(used_couple_id, user_id):
+                db.add_admin(user_id, added_by=user_id)
+                site_url = (getattr(config, "BOT_SITE_URL", "") or getattr(config, "SITE_DIRECT_URL", "")).strip().rstrip("/")
+                site_kb_rows = []
+                if site_url:
+                    cpl = db.get_couple_by_id(used_couple_id)
+                    assigned_role = "creator" if cpl and cpl.get("user1_id") == user_id else "partner"
+                    token = db.get_or_create_user_token(user_id, role=assigned_role)
+                    site_link = f"{site_url}?token={token}&rebind=1"
+                    site_kb_rows.append([InlineKeyboardButton(text="🌐 Перейти на сайт", url=site_link)])
+                
+                await message.answer(
+                    "✅ <b>Аккаунт на сайте перепривязан к этому Telegram аккаунту</b>, "
+                    "но чтобы изменения вступили в силу перейди по ссылке",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=site_kb_rows) if site_kb_rows else None,
+                    parse_mode=ParseMode.HTML
+                )
+            else:
+                await message.answer("❌ Произошла ошибка при перепривязке аккаунта.")
+            return
+
         # Пользователь уже состоит в паре
         if db.is_in_couple(user_id):
             await message.answer(
@@ -1289,31 +1319,6 @@ async def cmd_start(message: Message, state: FSMContext):
                 "Использование этого токена не требуется.",
                 parse_mode=ParseMode.HTML
             )
-            return
-
-        # Проверка на токен перепривязки (transfer_invite_code)
-        unlink_req = db.get_unlink_request_by_transfer_code(invite_code)
-        if unlink_req:
-            used_couple_id = db.use_invite_code(invite_code, user_id)
-            if used_couple_id and db.join_couple(used_couple_id, user_id):
-                db.add_admin(user_id, added_by=user_id)
-                site_url = (getattr(config, "BOT_SITE_URL", "") or getattr(config, "SITE_DIRECT_URL", "")).strip().rstrip("/")
-                site_kb_rows = []
-                if site_url:
-                    cpl = db.get_couple_by_id(used_couple_id)
-                    assigned_role = "creator" if cpl and cpl.get("user1_id") == user_id else "partner"
-                    token = db.get_or_create_user_token(user_id, role=assigned_role)
-                    site_link = f"{site_url}?token={token}&rebind=1"
-                    site_kb_rows.append([InlineKeyboardButton(text="🌐 Перейти на сайт", url=site_link)])
-                
-                await message.answer(
-                    "✅ <b>Аккаунт на сайте перепривязан к этому Telegram аккаунту</b>, "
-                    "но чтобы изменения вступили в силу перейди по ссылке",
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=site_kb_rows) if site_kb_rows else None,
-                    parse_mode=ParseMode.HTML
-                )
-            else:
-                await message.answer("❌ Произошла ошибка при перепривязке аккаунта.")
             return
 
         # Всё ок — начинаем онбординг для вступления
@@ -9369,6 +9374,7 @@ async def unlink_deny(callback: CallbackQuery):
     db.set_unlink_status(token, "denied")
     visitor_base = f"{user_id}_"
     db.revoke_all_user_sessions(user_id, visitor_base)
+    db.invalidate_transfer_invites_for_user(user_id)
     db.log_security_event('unlink_denied', user_id, req['ip'], req['ua'], req['country'], req['city'], f'{{"token": "{token}"}}')
     
     try:
@@ -9457,7 +9463,9 @@ async def unlink_final(callback: CallbackQuery):
         return
 
     user_id = req["user_id"]
-    db.unlink_user_from_couple(req["couple_id"], user_id)
+    # Слот в couples НЕ освобождаем здесь — пользователь остаётся в паре
+    # и может читать свои данные до тех пор, пока новый аккаунт не примет инвайт.
+    # unlink_user_from_couple вызывается позже, в /start invite_<code> (transfer-ветка).
     invite_code = db.create_transfer_invite(req["couple_id"], user_id, pre_bound_user_id=None)
     db.set_unlink_status(token, "confirmed", invite_code)
 

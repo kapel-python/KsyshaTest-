@@ -1688,9 +1688,21 @@ setInterval(() => {
 })();
 function _apiKey() { return window.API_SECRET_KEY || ''; }
 
+function _authHeaders(optsHeaders) {
+  const h = Object.assign({ 'Content-Type': 'application/json', 'X-Api-Key': _apiKey() }, optsHeaders || {});
+  const match = document.cookie.match(/(?:^|;\s*)visitor_id=([^;]*)/);
+  const vid = match ? decodeURIComponent(match[1]) : '';
+  if (vid) h['X-Visitor-Id'] = vid;
+  try {
+    const sig = localStorage.getItem('ai_visitor_sig');
+    if (sig) h['X-Visitor-Signature'] = sig;
+  } catch(e) {}
+  return h;
+}
+
 async function _apiFetch(path, opts) {
-  const headers = Object.assign({ 'Content-Type': 'application/json', 'X-Api-Key': _apiKey() }, (opts||{}).headers);
-  const res = await fetch(path, Object.assign({}, opts, { headers }));
+  const headers = _authHeaders((opts||{}).headers);
+  const res = await fetch(path, Object.assign({}, opts, { headers, credentials: 'include' }));
   return res.json();
 }
 

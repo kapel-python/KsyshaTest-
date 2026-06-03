@@ -2765,14 +2765,14 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
     loop = asyncio.get_running_loop()
 
-    async_q = asyncio.Queue()
+    q: queue.Queue = queue.Queue()
 
     def _run_stream():
 
         try:
             if not routing.get("needs_data"):
-                loop.call_soon_threadsafe(async_q.put_nowait, (routing.get("reply") or "Не смог ответить, попробуй ещё раз").strip())
-                loop.call_soon_threadsafe(async_q.put_nowait, _json.dumps({"__suggestions__": routing.get("suggestions") or []}, ensure_ascii=False))
+                q.put((routing.get("reply") or "Не смог ответить, попробуй ещё раз").strip())
+                q.put(_json.dumps({"__suggestions__": routing.get("suggestions") or []}, ensure_ascii=False))
                 return
 
             for chunk in ask_companion_stream(
@@ -2787,15 +2787,15 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
             ):
 
-                loop.call_soon_threadsafe(async_q.put_nowait, chunk)
+                q.put(chunk)
 
         except Exception:
             logger.exception("AI-companion-stream worker failed")
-            loop.call_soon_threadsafe(async_q.put_nowait, "__worker_error__")
+            q.put("__worker_error__")
 
         finally:
 
-            loop.call_soon_threadsafe(async_q.put_nowait, None)
+            q.put(None)
 
     thread = threading.Thread(target=_run_stream, daemon=True)
 
@@ -2813,9 +2813,9 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
                 chunk = await asyncio.wait_for(
 
-                    async_q.get(),
+                    loop.run_in_executor(None, lambda: q.get(timeout=1)),
 
-                    timeout=1.0,
+                    timeout=2,
 
                 )
 
@@ -2829,7 +2829,7 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
                     await response.write(b": ping\n\n")
 
-                if not thread.is_alive() and async_q.empty():
+                if not thread.is_alive() and q.empty():
 
                     break
 

@@ -9560,6 +9560,17 @@
 
       }
 
+      async function typeAITextFast(el, text) {
+        for (let i = 0; i < text.length; i++) {
+          el.textContent += text[i];
+          if (i % 2 === 0) {
+            const msgs = document.getElementById('aiMessages');
+            if (msgs) msgs.scrollTop = msgs.scrollHeight;
+            await new Promise(r => setTimeout(r, 2));
+          }
+        }
+      }
+
       async function sendAIMessage() {
 
         if (aiIsTyping) return;
@@ -9678,14 +9689,17 @@
                     hideAITyping();
                     bubble = addAIMessage('ai', '');
                   }
-                  bubble.innerHTML = parseMarkdown(fullReply);
+                  await typeAITextFast(bubble, token);
                   const msgs = document.getElementById('aiMessages');
                   if (msgs) msgs.scrollTop = msgs.scrollHeight;
                 }
               }
             }
 
-            if (fullReply) aiChatHistory.push({ role: 'assistant', content: fullReply });
+            if (fullReply) {
+              aiChatHistory.push({ role: 'assistant', content: fullReply });
+              if (bubble) bubble.innerHTML = parseMarkdown(fullReply);
+            }
             if (suggestions.length) addAISuggestions(suggestions);
             success = true;
 

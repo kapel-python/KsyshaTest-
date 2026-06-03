@@ -8044,7 +8044,9 @@
         (function() {
           const el = document.getElementById('aiDaysCounter');
           if (!el) return;
-          const met = new Date(2025, 9, 30); // 30.10.2025
+          const metRaw = (window.APP_DATA && window.APP_DATA.date_met) ? window.APP_DATA.date_met : null;
+          if (!metRaw) { el.textContent = "Дата не указана"; return; }
+          const met = new Date(metRaw);
           const now = new Date();
           const days = Math.floor((now - met) / 86400000);
           const _dStr = (I18N[_stgState && _stgState.lang || 'ru'] || I18N.ru);
@@ -10027,7 +10029,7 @@
               notificationTitle: 'Сообщение для тебя ❤️',
               notificationOk: 'Хорошо ❤️',
               celebrationAnniversaryTitle: 'Наша годовщина!',
-              celebrationAnniversarySub: '30 октября — особенный день ❤️',
+              celebrationAnniversarySub: 'Это особенный день ❤️',
               celebrationEventTitle: 'Событие наступило!',
               celebrationEventSub: 'Это событие которое вы ждали ✨',
               celebrationTestTitle: 'Тестовая анимация!',
@@ -10048,7 +10050,7 @@
               addDescriptionField: 'Описание',
               addDescriptionPlaceholder: 'Напиши что угодно…',
               addDateField: 'Дата и время',
-              addDatePlaceholder: 'Например: 30 октября 2026 в 18:00',
+              addDatePlaceholder: 'Например: 15 мая 2026 в 18:00',
               addWishField: 'Желание',
               addWishPlaceholder: 'Опиши своё желание…',
               addPreviewTitle: '✅ Проверь данные',
@@ -10104,7 +10106,7 @@
               addStepDescHint: 'Описание (необязательно)',
               addStepWishHint: 'Опиши своё желание…',
               addStepTitleHint: 'Например: Наш первый вечер',
-              addStepDateHint: 'Например: 30 октября 2026 в 18:00',
+              addStepDateHint: 'Например: 15 мая 2026 в 18:00',
               addStepMedia: '📎 Фото / видео',
               addUserMessage: '✉️ Сообщение для тебя ❤️',
               addUserOk: 'Хорошо ❤️',
@@ -10243,7 +10245,7 @@
               notificationTitle: 'Nachricht für dich ❤️',
               notificationOk: 'Okay ❤️',
               celebrationAnniversaryTitle: 'Unser Jahrestag!',
-              celebrationAnniversarySub: 'Der 30. Oktober ist ein besonderer Tag ❤️',
+              celebrationAnniversarySub: 'Das ist ein besonderer Tag ❤️',
               celebrationEventTitle: 'Ereignis ist eingetreten!',
               celebrationEventSub: 'Dieses Ereignis habt ihr erwartet ✨',
               celebrationTestTitle: 'Testanimation!',
@@ -10459,7 +10461,7 @@
               notificationTitle: 'Message for you ❤️',
               notificationOk: 'Okay ❤️',
               celebrationAnniversaryTitle: 'Our anniversary!',
-              celebrationAnniversarySub: 'October 30 is a special day ❤️',
+              celebrationAnniversarySub: 'This is a special day ❤️',
               celebrationEventTitle: 'The event has started!',
               celebrationEventSub: 'This is the event you were waiting for ✨',
               celebrationTestTitle: 'Test animation!',
@@ -15688,7 +15690,7 @@
       notificationTitle: 'Сообщение для тебя ❤️',
       notificationOk: 'Хорошо ❤️',
       celebrationAnniversaryTitle: 'Наша годовщина!',
-      celebrationAnniversarySub: '30 октября — особенный день ❤️',
+      celebrationAnniversarySub: 'Это особенный день ❤️',
       celebrationEventTitle: 'Событие наступило!',
       celebrationEventSub: 'Это событие которое вы ждали ✨',
       celebrationTestTitle: 'Тестовая анимация!',
@@ -15709,7 +15711,7 @@
       addDescriptionField: 'Описание',
       addDescriptionPlaceholder: 'Напиши что угодно…',
       addDateField: 'Дата и время',
-      addDatePlaceholder: 'Например: 30 октября 2026 в 18:00',
+      addDatePlaceholder: 'Например: 15 мая 2026 в 18:00',
       addWishField: 'Желание',
       addWishPlaceholder: 'Опиши своё желание…',
       addPreviewTitle: '✅ Проверь данные',
@@ -15765,7 +15767,7 @@
       addStepDescHint: 'Описание (необязательно)',
       addStepWishHint: 'Опиши своё желание…',
       addStepTitleHint: 'Например: Наш первый вечер',
-      addStepDateHint: 'Например: 30 октября 2026 в 18:00',
+      addStepDateHint: 'Например: 15 мая 2026 в 18:00',
       addStepMedia: '📎 Фото / видео',
       addUserMessage: '✉️ Сообщение для тебя ❤️',
       addUserOk: 'Хорошо ❤️',
@@ -15904,7 +15906,7 @@
       notificationTitle: 'Nachricht für dich ❤️',
       notificationOk: 'Okay ❤️',
       celebrationAnniversaryTitle: 'Unser Jahrestag!',
-      celebrationAnniversarySub: 'Der 30. Oktober ist ein besonderer Tag ❤️',
+      celebrationAnniversarySub: 'Das ist ein besonderer Tag ❤️',
       celebrationEventTitle: 'Das Ereignis hat begonnen!',
       celebrationEventSub: 'Das ist das Ereignis, auf das du gewartet hast ✨',
       celebrationTestTitle: 'Testanimation!',
@@ -16120,7 +16122,7 @@
       notificationTitle: 'Message for you ❤️',
       notificationOk: 'Okay ❤️',
       celebrationAnniversaryTitle: 'Our anniversary!',
-      celebrationAnniversarySub: 'October 30 is a special day ❤️',
+      celebrationAnniversarySub: 'This is a special day ❤️',
       celebrationEventTitle: 'The event has started!',
       celebrationEventSub: 'This is the event you were waiting for ✨',
       celebrationTestTitle: 'Test animation!',

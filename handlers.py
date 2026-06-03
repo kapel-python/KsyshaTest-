@@ -1461,9 +1461,9 @@ async def _ask_met_date(message: Message, state: FSMContext, callback: CallbackQ
     await send_fn(
         "💑 <b>Когда вы познакомились?</b>\n\n"
         "Напиши дату в любом формате, например:\n"
-        "• <i>30 октября 2025</i>\n"
-        "• <i>30.10.2025</i>\n"
-        "• <i>тридцатое октября прошлого года</i>",
+        "• <i>15 мая 2024</i>\n"
+        "• <i>15.05.2024</i>\n"
+        "• <i>пятнадцатое мая прошлого года</i>",
         parse_mode=ParseMode.HTML
     )
 
@@ -1651,7 +1651,7 @@ async def _finish_couple_onboarding(message: Message, state: FSMContext, callbac
 
 
 def _format_met_date_ru(date_db: str) -> str:
-    """Форматирует 'YYYY-MM-DD ...' в '30 октября 2025'."""
+    """Форматирует 'YYYY-MM-DD ...' в '15 мая 2024'."""
     MONTHS_RU = {
         1: "января", 2: "февраля", 3: "марта", 4: "апреля",
         5: "мая", 6: "июня", 7: "июля", 8: "августа",
@@ -1672,7 +1672,7 @@ async def onboarding_met_date_raw(message: Message, state: FSMContext):
     user_id = message.from_user.id
     raw = (message.text or "").strip()
     if not raw:
-        await message.answer("Напиши дату текстом, например: <i>30 октября 2025</i>", parse_mode=ParseMode.HTML)
+        await message.answer("Напиши дату текстом, например: <i>15 мая 2024</i>", parse_mode=ParseMode.HTML)
         return
     await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
     msg_status = await message.answer("⏳ Определяю дату...")
@@ -1689,7 +1689,7 @@ async def onboarding_met_date_raw(message: Message, state: FSMContext):
     if not ai_date:
         await message.answer(
             "❌ Не удалось распознать дату. Попробуй написать по другому, например:\n"
-            "• <i>30 октября 2025</i>\n• <i>30.10.2025</i>",
+            "• <i>15 мая 2024</i>\n• <i>15.05.2024</i>",
             parse_mode=ParseMode.HTML
         )
         return
@@ -1730,8 +1730,8 @@ async def onboarding_met_date_no(callback: CallbackQuery, state: FSMContext):
     await state.set_state(CoupleOnboardingStates.waiting_for_met_date_raw)
     await callback.message.edit_text(
         "💑 <b>Напиши дату знакомства ещё раз:</b>\n\n"
-        "• <i>30 октября 2025</i>\n"
-        "• <i>30.10.2025</i>",
+        "• <i>15 мая 2024</i>\n"
+        "• <i>15.05.2024</i>",
         parse_mode=ParseMode.HTML
     )
 

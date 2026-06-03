@@ -995,17 +995,17 @@ def _test_utils():
         assert _parse_date_local_ru("вчера", today=base) == "24.5.2026"
 
     def t_local_date_without_year_numeric():
-        # 30.10 при "сегодня" 25.05 -> прошлый год
+        # 15.05 при "сегодня" 25.05 -> прошлый год
         base = date(2026, 5, 25)
-        assert _parse_date_local_ru("30.10", today=base) == "30.10.2025"
+        assert _parse_date_local_ru("15.05", today=base) == "15.05.2024"
 
     def t_local_date_without_year_text():
         base = date(2026, 11, 1)
-        assert _parse_date_local_ru("30 октября", today=base) == "30.10.2026"
+        assert _parse_date_local_ru("15 мая", today=base) == "15.05.2026"
 
     def t_local_date_month_typo():
         base = date(2026, 12, 1)
-        assert _parse_date_local_ru("30 октябя", today=base) == "30.10.2026"
+        assert _parse_date_local_ru("15 мая", today=base) == "15.05.2026"
         assert _parse_date_local_ru("5 сентебря 2024", today=base) == "5.9.2024"
 
     def t_extract_today_from_context():

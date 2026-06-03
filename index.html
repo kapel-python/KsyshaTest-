@@ -9854,6 +9854,7 @@
           if (!data || typeof data !== 'object') {
             throw new Error('Invalid bootstrap payload');
           }
+          window.APP_DATA = data;
 
           const respEtag = resp.headers.get('ETag') || cachedEtag;
           if (data && respEtag) {
@@ -16650,10 +16651,15 @@
     // Days counter
     const daysEl = document.getElementById('aiDaysCounter');
     if (daysEl) {
-      const met = new Date(2025, 9, 30);
-      const d = Math.floor((new Date() - met) / 86400000);
-      const dw = typeof tr.dayWord === 'function' ? tr.dayWord(d) : (tr.dayWord || 'дней');
-      daysEl.textContent = d + ' ' + dw + ' ' + (tr.togetherSuffix || 'вместе');
+      const metRaw = (window.APP_DATA && window.APP_DATA.date_met) ? window.APP_DATA.date_met : null;
+      if (metRaw) {
+        const met = new Date(metRaw);
+        const d = Math.floor((new Date() - met) / 86400000);
+        const dw = typeof tr.dayWord === 'function' ? tr.dayWord(d) : (tr.dayWord || 'дней');
+        daysEl.textContent = d + ' ' + dw + ' ' + (tr.togetherSuffix || 'вместе');
+      } else {
+        daysEl.textContent = tr.aiStatus || 'знает все о нас';
+      }
     }
 
     // H1 heading — use innerHTML to preserve <span> gradient
@@ -16712,7 +16718,9 @@
 
     // Static labels in the AI area and sky card footer
     const aiDays = document.getElementById('aiDaysCounter');
-    if (aiDays && _ui('aiStatus')) aiDays.textContent = _ui('aiStatus');
+    if (aiDays && _ui('aiStatus') && !(window.APP_DATA && window.APP_DATA.date_met)) {
+      aiDays.textContent = _ui('aiStatus');
+    }
 
     if (typeof updateSkyConfigCard === 'function' && typeof ensureVisitorIdForRole === 'function' && ensureVisitorIdForRole()) {
       updateSkyConfigCard();

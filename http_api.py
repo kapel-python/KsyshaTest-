@@ -1111,25 +1111,47 @@ async def _push_celebration_to_all(cel_data: dict) -> None:
         _ws_discard(couple_id, role, ws)
 
 
+async def _push_celebration_to_couple(couple_id: int, cel_data: dict) -> None:
+    """Пушит праздничную анимацию всем подключённым WS-клиентам конкретной пары."""
+    bucket = _site_ws_clients.get(couple_id)
+    if not bucket:
+        return
+    dead = []
+    for role in ("creator", "partner"):
+        for ws in list(bucket.get(role, set())):
+            try:
+                await ws.send_json({"type": "celebration", "celebration": cel_data})
+            except Exception:
+                dead.append((couple_id, role, ws))
+    for couple_id, role, ws in dead:
+        _ws_discard(couple_id, role, ws)
+
+
 async def _check_and_fire_celebrations() -> None:
     """Проверяет годовщины и прошедшие события, создаёт анимации в БД и пушит по WS."""
-    from config import config as _cfg
     from datetime import date as _date, timedelta as _td, datetime as _dt, timezone as _tz
 
     now_utc = _dt.now(_tz.utc)
 
-    # ── 1. Годовщина (30 октября) ──
-    # Создаём запись ОДИН РАЗ в год при наступлении 30 октября в любом
-    # из двух часовых поясов. Запись хранится пока оба пользователя её
-    # не получат — даже если они зашли через день/неделю.
-    date_met = _cfg.DATE_MET  # date(2025, 10, 30)
-    if date_met:
+    # ── 1. Годовщины для всех пар ──
+    # Проверяем годовщину для каждой пары на основе их met_date
+    for couple in db.get_all_couples():
+        couple_id = couple.get("id")
+        met_date_str = couple.get("met_date")
+        if not met_date_str:
+            continue
+        try:
+            parts = met_date_str[:10].split("-")
+            date_met = _date(int(parts[0]), int(parts[1]), int(parts[2]))
+        except Exception:
+            continue
+
         current_year = now_utc.year
-        # Ключ включает год — чтобы каждый год была новая запись
-        anniv_ctype = f"anniversary_{current_year}"
+        # Ключ включает ID пары и год — чтобы у каждой пары была своя годовщина
+        anniv_ctype = f"anniversary_{couple_id}_{current_year}"
         last_anniv = db.get_last_celebration_date(anniv_ctype)
         if not last_anniv:
-            # Проверяем: наступило ли 30 октября хотя бы в одном из двух поясов
+            # Проверяем: наступило ли годовщина хотя бы в одном из поясов
             for tz_offset in (3, 6):
                 local_now = now_utc + _td(hours=tz_offset)
                 if (local_now.month == date_met.month and
@@ -1143,7 +1165,8 @@ async def _check_and_fire_celebrations() -> None:
                     title = f"🎉 {year_num}-я годовщина! Мы вместе уже {year_num} {suffix}!"
                     cel_id = db.add_celebration(anniv_ctype, title)
                     if cel_id:
-                        await _push_celebration_to_all(
+                        await _push_celebration_to_couple(
+                            couple_id,
                             {"id": cel_id, "celebration_type": "anniversary", "event_title": title}
                         )
                     break

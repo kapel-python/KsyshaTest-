@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.208'
-description = 'Фикс невозможности использования бота при перепривязке'
+version = '1.0.209'
+description = 'Фикс вшитой даты знакомства'
 
 
 def get_version_metadata() -> tuple[str, str]:

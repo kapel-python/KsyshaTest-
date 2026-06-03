@@ -30,6 +30,8 @@ class Config:
     MEDIA_ACCESS_TOKEN: str = os.getenv("MEDIA_ACCESS_TOKEN", "")
     DEPLOYER_SECRET: str = os.getenv("DEPLOYER_SECRET", "")
     DEPLOYER_URL: str = os.getenv("DEPLOYER_URL", "http://deployer:25100/deploy")
+    SITE_AUTH_PASSWORD_KSYUSHA: str = os.getenv("SITE_AUTH_PASSWORD_KSYUSHA", "")
+    SITE_AUTH_PASSWORD_CREATOR: str = os.getenv("SITE_AUTH_PASSWORD_CREATOR", "")
     
     
     TEXT_MARCH_8: str = """Привет! С праздником! ❤️🎉
@@ -75,6 +77,16 @@ class Config:
         import sys
 
         os.makedirs(self.MEDIA_FOLDER, exist_ok=True)
+
+        if self.DATE_MET is None:
+            env_date = os.getenv("DATE_MET")
+            if env_date:
+                try:
+                    self.DATE_MET = date.fromisoformat(env_date)
+                except Exception:
+                    pass
+        if self.DATE_MET is None:
+            self.DATE_MET = date(2025, 10, 30)
 
         if self.SITE_OPEN_DATE is None:
             self.SITE_OPEN_DATE = date(2026, 2, 8)

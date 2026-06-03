@@ -5380,6 +5380,25 @@ class Database:
 
     def get_pending_celebration(self, visitor_id: str) -> Optional[Dict[str, Any]]:
         """Возвращает первую непоказанную анимацию для данного visitor_id."""
+        if not visitor_id:
+            return None
+        norm = str(visitor_id).strip().lower()
+        if "_" in norm:
+            norm = norm.split("_")[0]
+        
+        if norm == "creator":
+            user_id = self.get_creator_id()
+        elif norm in ("ksyusha", "ksusha", "partner"):
+            user_id = self.get_ksusha_id()
+        else:
+            try:
+                user_id = int(norm)
+            except (ValueError, TypeError):
+                user_id = None
+
+        couple = self.get_couple_by_user(user_id) if user_id else None
+        couple_id = couple["id"] if couple else None
+
         try:
             with self._get_connection() as conn:
                 cur = conn.execute(
@@ -5390,15 +5409,44 @@ class Database:
                     "ORDER BY c.id ASC"
                 )
                 for row in cur.fetchall():
+                    ctype = row[1] or ""
+                    event_id = row[3]
                     delivered = (row[5] or "").split(",")
-                    if visitor_id not in delivered:
-                        return {
-                            "id": row[0],
-                            "celebration_type": row[1],
-                            "event_title": row[2],
-                            "event_id": row[3],
-                            "created_at_utc": row[4],
-                        }
+                    
+                    if visitor_id in delivered:
+                        continue
+
+                    # Фильтрация по годовщине
+                    if ctype.startswith("anniversary_"):
+                        parts = ctype.split("_")
+                        if len(parts) >= 3:
+                            try:
+                                cel_couple_id = int(parts[1])
+                                if cel_couple_id != couple_id:
+                                    continue
+                            except ValueError:
+                                continue
+                        else:
+                            # Старый формат anniversary_{year} - показываем только паре по умолчанию
+                            if user_id not in (self.get_creator_id(), self.get_ksusha_id()):
+                                continue
+
+                    # Фильтрация по событиям
+                    if event_id is not None:
+                        event = self.get_scheduled_event(event_id)
+                        if not event:
+                            continue
+                        event_couple = self.get_couple_by_user(event.user_id)
+                        if not event_couple or event_couple["id"] != couple_id:
+                            continue
+
+                    return {
+                        "id": row[0],
+                        "celebration_type": ctype.split("_")[0] if "_" in ctype else ctype,
+                        "event_title": row[2],
+                        "event_id": event_id,
+                        "created_at_utc": row[4],
+                    }
             return None
         except Exception as e:
             logger.exception("get_pending_celebration error: %s", e)

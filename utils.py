@@ -307,16 +307,15 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
     if not text or "{" not in text:
         return text
     from database import db as _db
-    date_met = _db.get_couple_met_date(user_id) if user_id else None
-    if not date_met:
-        return text
+
+    date_met = None
+    if user_id:
+        try:
+            date_met = _db.get_couple_met_date(user_id)
+        except Exception:
+            pass
+
     today = _get_user_today(user_id)
-    delta = today - date_met
-    delta_days = max(0, delta.days)
-    next_anniv = date(today.year, date_met.month, date_met.day)
-    if next_anniv < today:
-        next_anniv = date(today.year + 1, date_met.month, date_met.day)
-    days_until_anniv = (next_anniv - today).days
 
     try:
         from database import db
@@ -324,24 +323,107 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
     except Exception:
         lang = "ru"
 
-    if lang == "en":
-        months_en = {
-            "January": "January", "February": "February", "March": "March", "April": "April",
-            "May": "May", "June": "June", "July": "July", "August": "August",
-            "September": "September", "October": "October", "November": "November", "December": "December"
-        }
-        m_en = months_en.get(date_met.strftime('%B'), date_met.strftime('%B'))
-        anniv_str = f"{m_en} {date_met.day}, {next_anniv.year}"
-    elif lang == "de":
-        months_de = {
-            "January": "Januar", "February": "Februar", "March": "März", "April": "April",
-            "May": "Mai", "June": "Juni", "July": "Juli", "August": "August",
-            "September": "September", "October": "Oktober", "November": "November", "December": "Dezember"
-        }
-        m_de = months_de.get(date_met.strftime('%B'), date_met.strftime('%B'))
-        anniv_str = f"{date_met.day}. {m_de} {next_anniv.year}"
-    else:
-        anniv_str = f"{date_met.day} {MONTH_RU.get(date_met.strftime('%B'), date_met.strftime('%B').lower())} {next_anniv.year}"
+    date_met_params = {
+        "days_together": "",
+        "time_together": "",
+        "days_until_anniversary": "",
+        "anniversary_date": "",
+        "relationship_age": "",
+    }
+    if date_met:
+        try:
+            delta = today - date_met
+            delta_days = max(0, delta.days)
+            next_anniv = date(today.year, date_met.month, date_met.day)
+            if next_anniv < today:
+                next_anniv = date(today.year + 1, date_met.month, date_met.day)
+            days_until_anniv = (next_anniv - today).days
+
+            if lang == "en":
+                months_en = {
+                    "January": "January", "February": "February", "March": "March", "April": "April",
+                    "May": "May", "June": "June", "July": "July", "August": "August",
+                    "September": "September", "October": "October", "November": "November", "December": "December"
+                }
+                m_en = months_en.get(date_met.strftime('%B'), date_met.strftime('%B'))
+                anniv_str = f"{m_en} {date_met.day}, {next_anniv.year}"
+            elif lang == "de":
+                months_de = {
+                    "January": "Januar", "February": "Februar", "March": "März", "April": "April",
+                    "May": "Mai", "June": "Juni", "July": "Juli", "August": "August",
+                    "September": "September", "October": "Oktober", "November": "November", "December": "Dezember"
+                }
+                m_de = months_de.get(date_met.strftime('%B'), date_met.strftime('%B'))
+                anniv_str = f"{date_met.day}. {m_de} {next_anniv.year}"
+            else:
+                anniv_str = f"{date_met.day} {MONTH_RU.get(date_met.strftime('%B'), date_met.strftime('%B').lower())} {next_anniv.year}"
+
+            years, months, days = _date_diff_calendar(date_met, today)
+            if years > 0:
+                time_together_str = f"{years}г. {months} мес {days}д"
+            elif months > 0:
+                time_together_str = f"{months} мес {days}д"
+            else:
+                time_together_str = f"{days}д"
+
+            def _format_relationship_age(y: int, m: int, d: int, l: str) -> str:
+                if l == "ru":
+                    def plural_days(n):
+                        if n % 10 == 1 and n % 100 != 11:
+                            return f"{n} день"
+                        elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+                            return f"{n} дня"
+                        else:
+                            return f"{n} дней"
+                    def plural_months(n):
+                        if n % 10 == 1 and n % 100 != 11:
+                            return f"{n} месяц"
+                        elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+                            return f"{n} месяца"
+                        else:
+                            return f"{n} месяцев"
+                    def plural_years(n):
+                        if n % 10 == 1 and n % 100 != 11:
+                            return f"{n} год"
+                        elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+                            return f"{n} года"
+                        else:
+                            return f"{n} лет"
+                elif l == "de":
+                    def plural_days(n):
+                        return f"{n} Tag" if n == 1 else f"{n} Tage"
+                    def plural_months(n):
+                        return f"{n} Monat" if n == 1 else f"{n} Monate"
+                    def plural_years(n):
+                        return f"{n} Jahr" if n == 1 else f"{n} Jahre"
+                else: # en
+                    def plural_days(n):
+                        return f"{n} day" if n == 1 else f"{n} days"
+                    def plural_months(n):
+                        return f"{n} month" if n == 1 else f"{n} months"
+                    def plural_years(n):
+                        return f"{n} year" if n == 1 else f"{n} years"
+
+                p_list = []
+                if y > 0:
+                    p_list.append(plural_years(y))
+                if m > 0:
+                    p_list.append(plural_months(m))
+                if y == 0 and m == 0:
+                    p_list.append(plural_days(d if d > 0 else 0))
+                return " ".join(p_list)
+
+            relationship_age_str = _format_relationship_age(years, months, days, lang)
+
+            date_met_params = {
+                "days_together": str(delta_days),
+                "time_together": time_together_str,
+                "days_until_anniversary": str(days_until_anniv),
+                "anniversary_date": anniv_str,
+                "relationship_age": relationship_age_str,
+            }
+        except Exception as e:
+            logger_utils.warning("Error computing date_met params: %s", e)
 
     dow = today.weekday()
     DAY_OF_WEEK_EN = {
@@ -363,20 +445,20 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
     SEASON_DE = {(12, 1, 2): "Winter", (3, 4, 5): "Frühling", (6, 7, 8): "Sommer", (9, 10, 11): "Herbst"}
     if lang == "en":
         season_str = "Winter"
-        for months, s in SEASON_EN.items():
-            if today.month in months:
+        for months_tuple, s in SEASON_EN.items():
+            if today.month in months_tuple:
                 season_str = s
                 break
     elif lang == "de":
         season_str = "Winter"
-        for months, s in SEASON_DE.items():
-            if today.month in months:
+        for months_tuple, s in SEASON_DE.items():
+            if today.month in months_tuple:
                 season_str = s
                 break
     else:
         season_str = "зима"
-        for months, s in SEASON_RU.items():
-            if today.month in months:
+        for months_tuple, s in SEASON_RU.items():
+            if today.month in months_tuple:
                 season_str = s
                 break
 
@@ -436,63 +518,6 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
     else:
         month_name_str = MONTH_NOMINATIVE_RU.get(today.strftime("%B"), today.strftime("%B").lower())
 
-    years, months, days = _date_diff_calendar(date_met, today)
-    if years > 0:
-        time_together_str = f"{years}г. {months} мес {days}д"
-    elif months > 0:
-        time_together_str = f"{months} мес {days}д"
-    else:
-        time_together_str = f"{days}д"
-
-    def _format_relationship_age(y: int, m: int, d: int, l: str) -> str:
-        if l == "ru":
-            def plural_days(n):
-                if n % 10 == 1 and n % 100 != 11:
-                    return f"{n} день"
-                elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
-                    return f"{n} дня"
-                else:
-                    return f"{n} дней"
-            def plural_months(n):
-                if n % 10 == 1 and n % 100 != 11:
-                    return f"{n} месяц"
-                elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
-                    return f"{n} месяца"
-                else:
-                    return f"{n} месяцев"
-            def plural_years(n):
-                if n % 10 == 1 and n % 100 != 11:
-                    return f"{n} год"
-                elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
-                    return f"{n} года"
-                else:
-                    return f"{n} лет"
-        elif l == "de":
-            def plural_days(n):
-                return f"{n} Tag" if n == 1 else f"{n} Tage"
-            def plural_months(n):
-                return f"{n} Monat" if n == 1 else f"{n} Monate"
-            def plural_years(n):
-                return f"{n} Jahr" if n == 1 else f"{n} Jahre"
-        else: # en
-            def plural_days(n):
-                return f"{n} day" if n == 1 else f"{n} days"
-            def plural_months(n):
-                return f"{n} month" if n == 1 else f"{n} months"
-            def plural_years(n):
-                return f"{n} year" if n == 1 else f"{n} years"
-
-        p_list = []
-        if y > 0:
-            p_list.append(plural_years(y))
-        if m > 0:
-            p_list.append(plural_months(m))
-        if y == 0 and m == 0:
-            p_list.append(plural_days(d if d > 0 else 0))
-        return " ".join(p_list)
-
-    relationship_age_str = _format_relationship_age(years, months, days, lang)
-
     if lang == "en":
         today_date_str = today.strftime("%B %d, %Y")
     elif lang == "de":
@@ -508,18 +533,15 @@ def substitute_params(text: str, user_id: Optional[int] = None) -> str:
         today_date_str = f"{today.day} {month_ru_gen} {today.year}"
 
     params = {
-        "days_together": str(delta_days),
-        "time_together": time_together_str,
-        "days_until_anniversary": str(days_until_anniv),
-        "anniversary_date": anniv_str,
         "day_of_week": day_of_week_str,
         "season": season_str,
         "time_greeting": time_greeting,
         "month_name": month_name_str,
         "day_of_month": str(today.day),
-        "relationship_age": relationship_age_str,
         "today_date": today_date_str,
     }
+    params.update(date_met_params)
+
     result = text
     for key, val in params.items():
         result = result.replace(f"{{{key}}}", val)

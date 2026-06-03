@@ -1346,11 +1346,11 @@ async def cmd_start(message: Message, state: FSMContext):
             parse_mode=ParseMode.HTML
         )
         return
-
     # ── Пользователь не состоит в паре ──
     if not db.is_in_couple(user_id):
-        if not db.is_user_onboarded(user_id):
-            # Первый раз — запускаем онбординг, пара создастся после
+        couple = db.get_couple_by_user(user_id)
+        if not couple:
+            # Нет пары — запускаем онбординг, пара создастся после
             await state.update_data(creating_couple=True)
             await state.set_state(CoupleOnboardingStates.waiting_for_name)
             skip_kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1364,12 +1364,8 @@ async def cmd_start(message: Message, state: FSMContext):
                 parse_mode=ParseMode.HTML
             )
             return
-        # Уже онбордился, но партнёр ещё не присоединился — показываем ссылку
-        couple = db.get_couple_by_user(user_id)
-        if not couple:
-            couple_id = db.create_couple(user_id)
-        else:
-            couple_id = couple["id"]
+        # Уже создана пара (партнёр ещё не присоединился) — показываем ссылку
+        couple_id = couple["id"]
         existing_code = db.get_active_invite_for_couple(couple_id)
         code = existing_code if existing_code else db.create_invite_code(couple_id, user_id)
         bot_username = (await message.bot.get_me()).username

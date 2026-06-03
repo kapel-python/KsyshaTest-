@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.220'
-description = 'Фикс отсутствия кнопки добавить момент на сайте'
+version = '1.0.221'
+description = 'Название Sure Memory + удаление блока статистики из олавньй'
 
 
 def get_version_metadata() -> tuple[str, str]:

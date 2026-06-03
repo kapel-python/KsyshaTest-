@@ -15,7 +15,7 @@
 <head>
     <meta charset="utf-8">
 
-    <title id="pageTitle">Наши воспоминания</title>
+    <title id="pageTitle">Sure Memory</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
@@ -4832,7 +4832,7 @@
 
         <h1>
 
-            <span class="h1-main" id="pageHeadingEl">Наши <span>воспоминания</span></span>
+            <span class="h1-main" id="pageHeadingEl">Sure <span>Memory</span></span>
 
         </h1>
 
@@ -4849,7 +4849,7 @@
 
         <div class="loading-heart">❤️</div>
 
-        <div class="loading-text" data-i18n="loadingText">Загружаю наши воспоминания</div>
+        <div class="loading-text" data-i18n="loadingText">Загружаю Sure Memory</div>
 
         <div class="loading-dots">
 
@@ -4907,7 +4907,7 @@
 
         </div>
 
-        <div id="stats" class="stats"></div>
+        <!-- <div id="stats" class="stats"></div> -->
 
         <div id="event_countdown_wrap" class="event-countdown-wrap" style="display: none;"></div>
 
@@ -9855,6 +9855,9 @@
             throw new Error('Invalid bootstrap payload');
           }
           window.APP_DATA = data;
+          if (typeof applyI18n === 'function') {
+            applyI18n(_stgState.lang);
+          }
 
           const respEtag = resp.headers.get('ETag') || cachedEtag;
           if (data && respEtag) {
@@ -10611,29 +10614,31 @@
 
             + '</div>';
 
-          statsEl.innerHTML =
+          if (statsEl) {
+            statsEl.innerHTML =
 
-            '<div class="stats-inner">'
+              '<div class="stats-inner">'
 
-              + statsHeaderHtml
+                + statsHeaderHtml
 
-              + '<div class="stats-grid">'
+                + '<div class="stats-grid">'
 
-              + '<div class="stats-cell"><div class="stats-cell-icon">📝</div><div><div class="stats-cell-num">' + (s.total_memories || 0) + '</div><div class="stats-cell-lbl">' + _str('statsMemories') + '</div></div></div>'
+                + '<div class="stats-cell"><div class="stats-cell-icon">📝</div><div><div class="stats-cell-num">' + (s.total_memories || 0) + '</div><div class="stats-cell-lbl">' + _str('statsMemories') + '</div></div></div>'
 
-              + '<div class="stats-cell"><div class="stats-cell-icon">📸</div><div><div class="stats-cell-num">' + photos + '</div><div class="stats-cell-lbl">' + _str('statsPhotos') + '</div></div></div>'
+                + '<div class="stats-cell"><div class="stats-cell-icon">📸</div><div><div class="stats-cell-num">' + photos + '</div><div class="stats-cell-lbl">' + _str('statsPhotos') + '</div></div></div>'
 
-              + '<div class="stats-cell"><div class="stats-cell-icon">🎥</div><div><div class="stats-cell-num">' + videos + '</div><div class="stats-cell-lbl">' + _str('statsVideos') + '</div></div></div>'
+                + '<div class="stats-cell"><div class="stats-cell-icon">🎥</div><div><div class="stats-cell-num">' + videos + '</div><div class="stats-cell-lbl">' + _str('statsVideos') + '</div></div></div>'
 
-              + '<div class="stats-cell"><div class="stats-cell-icon">🎙</div><div><div class="stats-cell-num">' + voices + '</div><div class="stats-cell-lbl">' + _str('statsVoices') + '</div></div></div>'
+                + '<div class="stats-cell"><div class="stats-cell-icon">🎙</div><div><div class="stats-cell-num">' + voices + '</div><div class="stats-cell-lbl">' + _str('statsVoices') + '</div></div></div>'
 
-              + '<div class="stats-cell"><div class="stats-cell-icon">📅</div><div><div class="stats-cell-num">' + (s.scheduled_events_count || 0) + '</div><div class="stats-cell-lbl">' + _str('statsEvents') + '</div></div></div>'
+                + '<div class="stats-cell"><div class="stats-cell-icon">📅</div><div><div class="stats-cell-num">' + (s.scheduled_events_count || 0) + '</div><div class="stats-cell-lbl">' + _str('statsEvents') + '</div></div></div>'
 
-              + '<div class="stats-cell"><div class="stats-cell-icon">💫</div><div><div class="stats-cell-num">' + (s.wishes_count || 0) + '</div><div class="stats-cell-lbl">' + _str('statsWishes') + '</div></div></div>'
+                + '<div class="stats-cell"><div class="stats-cell-icon">💫</div><div><div class="stats-cell-num">' + (s.wishes_count || 0) + '</div><div class="stats-cell-lbl">' + _str('statsWishes') + '</div></div></div>'
 
-              + '</div>'
+                + '</div>'
 
-            + '</div>';
+              + '</div>';
+          }
 
           // Карта категорий (ключ -> данные категории)
 
@@ -15235,11 +15240,11 @@
       sHearts:  'Анимация сердечек',
       heartsDesc:'💓 Сердечки летают по экрану',
       /* Page texts */
-      loadingText: 'Загружаю наши воспоминания',
+      loadingText: 'Загружаю Sure Memory',
       loadingSub:  'Это займёт секунду',
       welcomeTitle:'Привет!',
       welcomeText: 'Ваше пространство на двоих\nСовместные моменты, события и желания в одном месте',
-      pageHeading: 'Наши воспоминания',
+      pageHeading: 'Sure Memory',
       searchPlaceholder: 'Поиск по воспоминаниям…',
       filterAll:     'Все',
       filterMoments: '💫 Важные',
@@ -15323,7 +15328,7 @@
       wishNumSecond: 'второе',
       wishNumThird:  'третье',
       addWishFull:   (n) => 'Добавить ' + ['','первое','второе','третье'][n] + ' желание',
-      pageH1:        'Наши <span>воспоминания</span>',
+      pageH1:        'Sure <span>Memory</span>',
       secImportantMoments: '💫 Важные моменты',
       secMemories:         '📖 Воспоминания',
       secDates:            '📅 Важные даты',
@@ -15363,11 +15368,11 @@
       sTz:      'Zeitzone',
       sHearts:  'Herzchen-Animation',
       heartsDesc:'💓 Herzchen fliegen auf dem Bildschirm',
-      loadingText: 'Lade unsere Erinnerungen',
+      loadingText: 'Lade Sure Memory',
       loadingSub:  'Das dauert nur einen Moment',
       welcomeTitle:'Hallo!',
       welcomeText: 'Euer gemeinsamer Raum\nGemeinsame Momente, Ereignisse und Wünsche an einem Ort',
-      pageHeading: 'Unsere Erinnerungen',
+      pageHeading: 'Sure Memory',
       searchPlaceholder: 'Erinnerungen suchen…',
       filterAll:     'Alle',
       filterMoments: '💫 Wichtige',
@@ -15451,7 +15456,7 @@
       wishNumSecond: 'zweiten',
       wishNumThird:  'dritten',
       addWishFull:   (n) => 'Hinzufügen ' + ['','ersten','zweiten','dritten'][n] + ' Wunsch',
-      pageH1:        'Unsere <span>Erinnerungen</span>',
+      pageH1:        'Sure <span>Memory</span>',
       secImportantMoments: '💫 Wichtige Momente',
       secMemories:         '📖 Erinnerungen',
       secDates:            '📅 Wichtige Daten',
@@ -15491,11 +15496,11 @@
       sTz:      'Time zone',
       sHearts:  'Heart animation',
       heartsDesc:'💓 Hearts fly across the screen',
-      loadingText: 'Loading our memories',
+      loadingText: 'Loading Sure Memory',
       loadingSub:  'This will take a second',
       welcomeTitle:'Hi!',
       welcomeText: 'Your shared space\nShared moments, events, and wishes in one place',
-      pageHeading: 'Our memories',
+      pageHeading: 'Sure Memory',
       searchPlaceholder: 'Search memories…',
       filterAll:     'All',
       filterMoments: '💫 Important',
@@ -15579,7 +15584,7 @@
       wishNumSecond: 'second',
       wishNumThird:  'third',
       addWishFull:   (n) => 'Add ' + ['','first','second','third'][n] + ' wish',
-      pageH1:        'Our <span>memories</span>',
+      pageH1:        'Sure <span>Memory</span>',
       secImportantMoments: '💫 Important moments',
       secMemories:         '📖 Memories',
       secDates:            '📅 Important dates',
@@ -16560,7 +16565,36 @@
     // data-i18n elements (textContent)
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.dataset.i18n;
-      if (tr[key] !== undefined && typeof tr[key] !== 'function') el.textContent = tr[key];
+      if (tr[key] !== undefined && typeof tr[key] !== 'function') {
+        if (key === 'welcomeTitle') {
+          const data = window.APP_DATA;
+          let nameToAppend = '';
+          if (data) {
+            const vid = getCookie('visitor_id');
+            let loggedInUserId = vid ? vid.split('_')[0] : null;
+            if (loggedInUserId === 'ksyusha' || loggedInUserId === 'partner') {
+              loggedInUserId = String(data.partner_id);
+            } else if (loggedInUserId === 'creator') {
+              loggedInUserId = String(data.creator_id);
+            }
+            const isCreator = loggedInUserId && String(data.creator_id) === loggedInUserId;
+            const isPartner = loggedInUserId && String(data.partner_id) === loggedInUserId;
+            const users = data.users || {};
+            const creator = users.creator || {};
+            const partner = users.ksyusha || users.partner || {};
+            const myInfo = isCreator ? creator : (isPartner ? partner : creator);
+            nameToAppend = myInfo.display || myInfo.first_name || '';
+          }
+          if (nameToAppend) {
+            const baseText = tr[key].replace(/[!,.]/g, '').trim();
+            el.textContent = baseText + ', ' + nameToAppend + '!';
+          } else {
+            el.textContent = tr[key];
+          }
+        } else {
+          el.textContent = tr[key];
+        }
+      }
     });
 
     // data-i18n-placeholder (input placeholders)

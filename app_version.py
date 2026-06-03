@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.202'
-description = 'Фикс использования нескольких (3 или 4) баз данных вместо 1 боевой'
+version = '1.0.203'
+description = 'Оптимизация скорости загрузки'
 
 
 def get_version_metadata() -> tuple[str, str]:

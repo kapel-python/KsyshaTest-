@@ -12,6 +12,6 @@ venv/
 .env.*
 !.env.example
 bot.log
-*.db
+**/*.db
 media/
 photo/

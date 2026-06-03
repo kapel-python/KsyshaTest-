@@ -17,11 +17,11 @@ services:
     ports:
       - "25086:25086"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:25086/', timeout=4).getcode()==200 else 1)\""]
-      interval: 20s
-      timeout: 6s
-      retries: 10
-      start_period: 40s
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:25086/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     stop_grace_period: 30s
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

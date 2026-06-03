@@ -409,7 +409,7 @@ def _send_messages_stream(messages: List[Dict[str, str]], model: str | None = No
 
         return result
 
-    for raw in response.iter_lines():
+    for raw in response.iter_lines(chunk_size=1):
 
         if not raw:
 

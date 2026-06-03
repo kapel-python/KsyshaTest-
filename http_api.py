@@ -2765,14 +2765,14 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
     loop = asyncio.get_running_loop()
 
-    q: queue.Queue = queue.Queue()
+    async_q = asyncio.Queue()
 
     def _run_stream():
 
         try:
             if not routing.get("needs_data"):
-                q.put((routing.get("reply") or "Не смог ответить, попробуй ещё раз").strip())
-                q.put(_json.dumps({"__suggestions__": routing.get("suggestions") or []}, ensure_ascii=False))
+                loop.call_soon_threadsafe(async_q.put_nowait, (routing.get("reply") or "Не смог ответить, попробуй ещё раз").strip())
+                loop.call_soon_threadsafe(async_q.put_nowait, _json.dumps({"__suggestions__": routing.get("suggestions") or []}, ensure_ascii=False))
                 return
 
             for chunk in ask_companion_stream(
@@ -2787,15 +2787,15 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
             ):
 
-                q.put(chunk)
+                loop.call_soon_threadsafe(async_q.put_nowait, chunk)
 
         except Exception:
             logger.exception("AI-companion-stream worker failed")
-            q.put("__worker_error__")
+            loop.call_soon_threadsafe(async_q.put_nowait, "__worker_error__")
 
         finally:
 
-            q.put(None)
+            loop.call_soon_threadsafe(async_q.put_nowait, None)
 
     thread = threading.Thread(target=_run_stream, daemon=True)
 
@@ -2813,9 +2813,9 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
                 chunk = await asyncio.wait_for(
 
-                    loop.run_in_executor(None, lambda: q.get(timeout=1)),
+                    async_q.get(),
 
-                    timeout=2,
+                    timeout=1.0,
 
                 )
 
@@ -2829,7 +2829,7 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
                     await response.write(b": ping\n\n")
 
-                if not thread.is_alive() and q.empty():
+                if not thread.is_alive() and async_q.empty():
 
                     break
 

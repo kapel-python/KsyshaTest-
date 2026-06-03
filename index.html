@@ -5503,21 +5503,19 @@
       }
 
       function escapeHtml(text) {
-
-        const div = document.createElement('div');
-
-        div.textContent = text;
-
-        return div.innerHTML;
-
+        return String(text || '').replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
       }
 
       function parseMarkdown(text) {
         if (!text) return '';
         let html = escapeHtml(text);
-        html = html.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
-        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        html = html.replace(/\*\*([^\*]+)(?:\*\*|$)/g, '<strong>$1</strong>');
+        html = html.replace(/\*([^\*]+)(?:\*|$)/g, '<em>$1</em>');
+        html = html.replace(/`([^`]+)(?:`|$)/g, '<code>$1</code>');
         html = html.replace(/\n/g, '<br>');
         return html;
       }
@@ -9560,9 +9558,12 @@
 
       }
 
-      async function typeAITextFast(el, text) {
-        for (let i = 0; i < text.length; i++) {
-          el.textContent += text[i];
+      async function typeAITextFast(el, token) {
+        let typed = el.dataset.typed || '';
+        for (let i = 0; i < token.length; i++) {
+          typed += token[i];
+          el.dataset.typed = typed;
+          el.innerHTML = parseMarkdown(typed);
           if (i % 2 === 0) {
             const msgs = document.getElementById('aiMessages');
             if (msgs) msgs.scrollTop = msgs.scrollHeight;

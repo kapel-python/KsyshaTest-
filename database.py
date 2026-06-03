@@ -3039,6 +3039,9 @@ class Database:
                         
                         # Финальная зачистка старого ID
                         conn.execute("DELETE FROM bot_last_active WHERE user_id = ?", (old_id,))
+                        
+                        # Если пользователь успешно вернулся, снимаем с него статус призрака
+                        self.clear_rebound_status(user_id)
                     
                     # Если пара стала полной и таймер ещё не запущен - запускаем его
                     conn.execute(
@@ -5654,7 +5657,7 @@ class Database:
                     FROM unlink_requests ur
                     JOIN invite_codes i ON ur.transfer_invite_code = i.code
                     JOIN users u ON i.used_by = u.user_id
-                    WHERE ur.user_id = ? AND i.used = 1
+                    WHERE ur.user_id = ? AND i.used = 1 AND ur.status != 'cleared'
                     ORDER BY ur.created_at DESC LIMIT 1
                 '''
                 row = conn.execute(query, (old_user_id,)).fetchone()
@@ -5668,7 +5671,7 @@ class Database:
         try:
             with self._get_connection() as conn:
                 conn.execute(
-                    "UPDATE unlink_requests SET user_id = -abs(user_id) WHERE user_id = ?",
+                    "UPDATE unlink_requests SET status = 'cleared' WHERE user_id = ? AND status = 'confirmed'",
                     (old_user_id,)
                 )
                 conn.commit()

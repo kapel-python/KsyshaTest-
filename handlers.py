@@ -313,11 +313,13 @@ class BotActivityMiddleware(BaseMiddleware):
             if isinstance(event, Update):
                 message_or_call = event.message or getattr(event, 'callback_query', None)
                 if message_or_call and getattr(message_or_call, "data", "") != "rebound_create_new":
-                    rebound_info = db.get_rebound_account(user_id)
-                    if rebound_info:
-                        new_user_id = rebound_info["user_id"]
-                        new_first_name = rebound_info.get("first_name") or "нового аккаунта"
-                        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                    msg_text = getattr(message_or_call, "text", "") or ""
+                    if not msg_text.startswith("/start invite_"):
+                        rebound_info = db.get_rebound_account(user_id)
+                        if rebound_info:
+                            new_user_id = rebound_info["user_id"]
+                            new_first_name = rebound_info.get("first_name") or "нового аккаунта"
+                            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
                         from aiogram.enums import ParseMode
                         import html
                         

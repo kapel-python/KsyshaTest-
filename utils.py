@@ -571,7 +571,10 @@ def format_datetime_russian(dt_str: str) -> str:
             return f"{date_part} в {time_part}"
         return date_part
     except Exception:
-        return dt_str[:10] if len(dt_str) >= 10 else dt_str
+        import re
+        if re.match(r'^\d{4}-\d{2}-\d{2}', dt_str):
+            return dt_str[:10]
+        return dt_str
 
 
 def format_datetime_for_user(dt_str: str, timezone_id: Optional[str]) -> str:

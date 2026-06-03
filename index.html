@@ -8933,11 +8933,28 @@
            document.body.appendChild(done);
         }
 
-        // 1 секунда — потом reload
+        // 1 секунда — потом убираем галочку и чистим чат локально
         await new Promise(r => setTimeout(r, 1000));
-        closeAI();
-        await new Promise(r => setTimeout(r, 150));
-        location.reload();
+        if (done.parentNode) done.parentNode.removeChild(done);
+
+        // Очищаем историю ИИ без закрытия модалки
+        aiChatHistory = [];
+        _aiLastMsgDateKey = null;
+        const msgs = document.getElementById('aiMessages');
+        if (msgs) {
+           const keep = msgs.querySelectorAll('#welcomeDateSep, .msg.ai:first-of-type');
+           msgs.innerHTML = '';
+           keep.forEach(el => msgs.appendChild(el));
+        }
+        
+        const sug = document.getElementById('aiSuggestions');
+        if (sug) sug.style.display = 'flex';
+
+        aiIsTyping = false;
+        const aiInp = document.getElementById('aiInput');
+        if (aiInp) { aiInp.value = ''; aiInp.style.height = 'auto'; aiInp.disabled = false; }
+        const aiBtn = document.getElementById('aiSendBtn');
+        if (aiBtn) aiBtn.disabled = false;
       }
 
       function toggleAISearch() {

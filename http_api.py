@@ -1311,69 +1311,33 @@ def _parse_user_agent(user_agent: str) -> str:
         m = re.search(r"OS\s+([\d_]+)", ua)
         os = f"iOS {get_major(m.group(1))}" if m else "iOS"
     elif "windows nt" in ua_l:
-        m = re.search(r"Windows NT\s+([\d\.]+)", ua, re.IGNORECASE)
-        nt_ver = m.group(1) if m else ""
-        os = "Windows 10/11" if nt_ver == "10.0" else ("Windows 8.1" if nt_ver == "6.3" else ("Windows 8" if nt_ver == "6.2" else ("Windows 7" if nt_ver == "6.1" else "Windows")))
+        os = "Windows"
     elif "mac os x" in ua_l:
         m = re.search(r"Mac OS X\s+([\d_]+)", ua, re.IGNORECASE)
         os = f"macOS {get_major(m.group(1))}" if m else "macOS"
     elif "linux" in ua_l:
         os = "Linux"
-    else:
-        os = "Другая ОС"
+
+    if os:
+        return os
 
     # Определяем Браузер
-    browser = ""
     if "samsungbrowser/" in ua_l:
-        m = re.search(r"SamsungBrowser/([\d\.]+)", ua, re.IGNORECASE)
-        browser = f"Samsung Browser {get_major(m.group(1))}" if m else "Samsung Browser"
+        return "Samsung Browser"
     elif "edg/" in ua_l or "edga/" in ua_l or "edgios/" in ua_l:
-        m = re.search(r"Edg[aAios]?/([\d\.]+)", ua, re.IGNORECASE)
-        browser = f"Edge {get_major(m.group(1))}" if m else "Edge"
+        return "Edge"
     elif "opr/" in ua_l or "opera/" in ua_l:
-        m = re.search(r"(?:OPR|Opera)/([\d\.]+)", ua, re.IGNORECASE)
-        browser = f"Opera {get_major(m.group(1))}" if m else "Opera"
+        return "Opera"
     elif "yabrowser/" in ua_l:
-        m = re.search(r"YaBrowser/([\d\.]+)", ua, re.IGNORECASE)
-        browser = f"Yandex {get_major(m.group(1))}" if m else "Yandex"
-    elif "chrome/" in ua_l and "chromium/" not in ua_l:
-        m = re.search(r"Chrome/([\d\.]+)", ua)
-        browser = f"Chrome {get_major(m.group(1))}" if m else "Chrome"
-    elif "chromium/" in ua_l:
-        m = re.search(r"Chromium/([\d\.]+)", ua)
-        browser = f"Chrome {get_major(m.group(1))}" if m else "Chrome"
+        return "Yandex"
+    elif "chrome/" in ua_l or "chromium/" in ua_l:
+        return "Chrome"
     elif "firefox/" in ua_l:
-        m = re.search(r"Firefox/([\d\.]+)", ua)
-        browser = f"Firefox {get_major(m.group(1))}" if m else "Firefox"
+        return "Firefox"
     elif "safari/" in ua_l and "chrome/" not in ua_l:
-        m = re.search(r"Version/([\d\.]+)", ua)
-        browser = f"Safari {get_major(m.group(1))}" if m else "Safari"
-    else:
-        browser = "Браузер"
+        return "Safari"
 
-    # Модель устройства (упрощённая)
-    model = ""
-    if "android" in ua_l:
-        m = re.search(r"Android\s+[\d\.]+;\s*([^;]+?)\s+Build", ua, re.IGNORECASE)
-        if m:
-            model = m.group(1).strip()
-            model = model.split(" ")[0]
-    elif "iphone" in ua_l:
-        model = "iPhone"
-    elif "ipad" in ua_l:
-        model = "iPad"
-
-    parts = []
-    if os and os != "Другая ОС":
-        parts.append(os)
-    if browser and browser != "Браузер":
-        parts.append(browser)
-    if model and model not in parts and not any(model.lower() in p.lower() for p in parts):
-        parts.append(model)
-        
-    if not parts:
-        return "Устройство"
-    return ", ".join(parts)
+    return "Устройство"
 
 def _format_device_info(user_agent_raw: str, ua_hints: dict | None) -> str:
     """Форматирует информацию об устройстве в простой и легко читаемый вид."""
@@ -1382,62 +1346,52 @@ def _format_device_info(user_agent_raw: str, ua_hints: dict | None) -> str:
 
     platform = (ua_hints.get("platform") or "").strip()
     platform_ver = (ua_hints.get("platformVersion") or "").strip()
-    model = (ua_hints.get("model") or "").strip()
     full_list = ua_hints.get("fullVersionList") or ua_hints.get("full_version_list") or []
 
-    # Упрощаем версию ОС
     if platform_ver:
         platform_ver = platform_ver.split(".")[0]
 
-    os_str = platform or "Неизвестная платформа"
-    if platform_ver:
-        os_str = f"{os_str} {platform_ver}"
+    os_str = ""
+    if platform:
+        p_low = platform.lower()
+        if "android" in p_low:
+            os_str = f"Android {platform_ver}" if platform_ver else "Android"
+        elif "ios" in p_low or "iphone" in p_low or "ipad" in p_low:
+            os_str = f"iOS {platform_ver}" if platform_ver else "iOS"
+        elif "windows" in p_low:
+            os_str = "Windows"
+        elif "mac" in p_low or "os x" in p_low:
+            os_str = f"macOS {platform_ver}" if platform_ver else "macOS"
+        elif "linux" in p_low:
+            os_str = "Linux"
+        else:
+            os_str = platform
 
-    # Браузер
-    browser_str = "Браузер"
+    if os_str:
+        return os_str
+
     if isinstance(full_list, list) and full_list:
-        chrome_entry = None
-        for item in full_list:
-            try:
-                brand = (item.get("brand") or "").lower()
-                if "chrome" in brand or "chromium" in brand:
-                    chrome_entry = item
-                    break
-            except Exception:
-                continue
-        entry = chrome_entry or full_list[0]
-        if entry:
-            brand = entry.get("brand") or "Браузер"
-            # Упрощаем бренд
-            if "chromium" in brand.lower() or "chrome" in brand.lower():
-                brand = "Chrome"
-            elif "edge" in brand.lower():
-                brand = "Edge"
-            elif "opera" in brand.lower():
-                brand = "Opera"
-            elif "yandex" in brand.lower():
-                brand = "Yandex"
-            
-            version = entry.get("version") or ""
-            version_major = version.split(".")[0] if version else ""
-            if version_major:
-                browser_str = f"{brand} {version_major}"
-            else:
-                browser_str = brand
+        brands = [ (item.get("brand") or "").lower() for item in full_list ]
+        if any("chrome" in b or "chromium" in b for b in brands):
+            return "Chrome"
+        if any("edge" in b for b in brands):
+            return "Edge"
+        if any("opera" in b for b in brands):
+            return "Opera"
+        if any("yandex" in b for b in brands):
+            return "Yandex"
+        if any("firefox" in b for b in brands):
+            return "Firefox"
+        if any("safari" in b for b in brands):
+            return "Safari"
+        
+        fallback_brand = full_list[0].get("brand")
+        if fallback_brand:
+            if "chromium" in fallback_brand.lower() or "chrome" in fallback_brand.lower():
+                return "Chrome"
+            return fallback_brand
 
-    parts = []
-    if os_str and os_str != "Неизвестная платформа":
-        parts.append(os_str)
-    if browser_str and browser_str != "Браузер":
-        parts.append(browser_str)
-    if model:
-        model_clean = model.split(" ")[0]
-        if model_clean not in parts and not any(model_clean.lower() in p.lower() for p in parts):
-            parts.append(model_clean)
-
-    if not parts:
-        return "Устройство"
-    return ", ".join(parts)
+    return _parse_user_agent(user_agent_raw)
 
 def _is_private_ip(ip: str) -> bool:
 
@@ -5535,7 +5489,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "streak_day1":     "день",
             "streak_day234":   "дня",
             "streak_days":     "дней",
-            "first_visit_sub": "Вы вошли впервые",
+            "first_visit_sub": "Твой самый первый визит",
             "no_visit_yet":    "Ещё не было ни одного визита",
             "device_sub":      "По последнему входу",
             "no_data":         "Ещё нет данных",
@@ -5560,6 +5514,8 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "no_fav_mem":      "Пока нет любимого момента",
             "no_title":        "(без названия)",
             "of_total_time":   lambda pct: f"{pct} от всего времени",
+            "no_fav_cat_label": "Пока нет",
+            "no_fav_cat_val":   "Нет просмотренных воспоминаний",
         },
         "ky": {
             "page_title":      "Сенин статистикаң",
@@ -5572,7 +5528,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "streak_day1":     "күн",
             "streak_day234":   "күн",
             "streak_days":     "күн",
-            "first_visit_sub": "Сиз биринчи жолу кирдиңиз",
+            "first_visit_sub": "Сенин эң биринчи киришиң",
             "no_visit_yet":    "Али бир да кириш болгон жок",
             "device_sub":      "Акыркы кириш боюнча",
             "no_data":         "Азырынча маалымат жок",
@@ -5597,6 +5553,8 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "no_fav_mem":      "Азырынча сүйүктүү учур жок",
             "no_title":        "(аталышсыз)",
             "of_total_time":   lambda pct: f"{pct} жалпы убакыттан",
+            "no_fav_cat_label": "Азырынча жок",
+            "no_fav_cat_val":   "Көрүлгөн эскерүүлөр жок",
         },
         "de": {
             "page_title":      "Deine Statistik",
@@ -5609,7 +5567,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "streak_day1":     "Tag",
             "streak_day234":   "Tage",
             "streak_days":     "Tage",
-            "first_visit_sub": "Sie haben sich zum ersten Mal angemeldet",
+            "first_visit_sub": "Dein allererster Besuch",
             "no_visit_yet":    "Noch kein einziger Besuch",
             "device_sub":      "Letzter Besuch",
             "no_data":         "Noch keine Daten",
@@ -5634,6 +5592,8 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "no_fav_mem":      "Noch kein Lieblingsmoment",
             "no_title":        "(ohne Titel)",
             "of_total_time":   lambda pct: f"{pct} der Gesamtzeit",
+            "no_fav_cat_label": "Noch keine",
+            "no_fav_cat_val":   "Keine angesehenen Erinnerungen",
         },
         "en": {
             "page_title":      "Your statistics",
@@ -5646,7 +5606,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "streak_day1":     "day",
             "streak_day234":   "days",
             "streak_days":     "days",
-            "first_visit_sub": "You logged in for the first time",
+            "first_visit_sub": "Your very first visit",
             "no_visit_yet":    "Not a single visit yet",
             "device_sub":      "By last visit",
             "no_data":         "No data yet",
@@ -5671,6 +5631,8 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "no_fav_mem":      "No favorite moment yet",
             "no_title":        "(no title)",
             "of_total_time":   lambda pct: f"{pct} of total time",
+            "no_fav_cat_label": "None yet",
+            "no_fav_cat_val":   "No viewed memories yet",
         },
     }[lang]
 
@@ -5946,9 +5908,9 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             migrated_opens[k] = migrated_opens.get(k, 0) + v
     opens_by_section = migrated_opens
 
-    fav_category_label = "—"
+    fav_category_label = _S["no_fav_cat_label"]
 
-    fav_category_value = "—"
+    fav_category_value = _S["no_fav_cat_val"]
 
     fav_category_sub = _S["fav_cat_sub_def"]
 
@@ -6168,10 +6130,16 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     html = html.replace("{{FAV_MEMORY_TITLE}}", fav_mem_title or _S["no_fav_mem"])
 
-    html = html.replace("{{FAV_MEMORY_CATEGORY}}", fav_mem_cat_label or "—")
+    html = html.replace("{{FAV_MEMORY_CATEGORY}}", fav_mem_cat_label or "")
 
     html = html.replace("{{FAV_MEMORY_DURATION}}", fav_mem_duration_str or "0 сек")
-    html = html.replace("{{FAV_MEMORY_META}}", _S["fav_mem_meta"](fav_mem_duration_str or "0 сек"))
+    if fav_mem_id:
+        fav_mem_meta_val = _S["fav_mem_meta"](fav_mem_duration_str or "0 сек")
+    else:
+        fav_mem_meta_val = ""
+    html = html.replace("{{FAV_MEMORY_META}}", fav_mem_meta_val)
+    fav_mem_cat_display = "inline-flex" if (fav_mem_id and fav_mem_cat_label) else "none"
+    html = html.replace("{{FAV_MEMORY_CAT_DISPLAY}}", fav_mem_cat_display)
     html = html.replace("{{STATS_PAGE_TITLE}}", _S["page_title"])
     html = html.replace("{{STATS_HERO_BADGE}}", _S["hero_badge"])
     html = html.replace("{{STATS_HERO_TITLE}}", _S["hero_title"])

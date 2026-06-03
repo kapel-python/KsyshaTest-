@@ -865,7 +865,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
   <div class="featured">
     <div class="featured-badge" data-i18n="statFavBadge">⭐ Любимый момент</div>
     <div class="featured-title">
-      <span class="featured-category">{{FAV_MEMORY_CATEGORY}}</span> {{FAV_MEMORY_TITLE}}
+      <span class="featured-category" style="display: {{FAV_MEMORY_CAT_DISPLAY}}">{{FAV_MEMORY_CATEGORY}}</span> {{FAV_MEMORY_TITLE}}
     </div>
     <div class="featured-meta">{{FAV_MEMORY_META}}</div>
     <div class="featured-bar-label">
@@ -1041,7 +1041,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       statFavBadge:   '⭐ Любимый момент',
       statFavMeta:    'Провела там дольше всего',
       statViewTime:   'Время просмотра',
-      statFirstVisit: 'Первый вход',
+      statFirstVisit: 'Первый вход на сайт',
       statFavTime:    'Любимое время',
       statFavCat:     'Любимая категория',
       statDevice:     'Устройство',
@@ -1071,7 +1071,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       statFavBadge:   '⭐ Сүйүктүү учур',
       statFavMeta:    'Эң узак убакыт өткөргөн жери',
       statViewTime:   'Көрүү убакыты',
-      statFirstVisit: 'Биринчи кириш',
+      statFirstVisit: 'Сайтка биринчи кирген күн',
       statFavTime:    'Сүйүктүү убакыт',
       statFavCat:     'Сүйүктүү категория',
       statDevice:     'Түзмөк',
@@ -1101,7 +1101,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       statFavBadge:   '⭐ Lieblingsmoment',
       statFavMeta:    'Am längsten dort verbracht',
       statViewTime:   'Ansichtszeit',
-      statFirstVisit: 'Erster Besuch',
+      statFirstVisit: 'Erster Besuch auf der Website',
       statFavTime:    'Lieblingszeit',
       statFavCat:     'Lieblingskategorie',
       statDevice:     'Gerät',
@@ -1131,7 +1131,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
       statFavBadge:   '⭐ Favorite Moment',
       statFavMeta:    'Spent the most time there',
       statViewTime:   'View time',
-      statFirstVisit: 'First visit',
+      statFirstVisit: 'First visit to the site',
       statFavTime:    'Favorite time',
       statFavCat:     'Favorite category',
       statDevice:     'Device',
@@ -1155,6 +1155,7 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
 
   function applyStatsI18n() {
     const lang = localStorage.getItem('memories_lang') || 'ru';
+    document.documentElement.lang = lang;
     const tr = STATS_I18N[lang] || STATS_I18N.ru;
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.dataset.i18n;

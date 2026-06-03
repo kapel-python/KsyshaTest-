@@ -1875,12 +1875,13 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
     desc2 = _desc(u2) if u2 else ""
 
     # ── Время вместе ──
-    created_str = couple.get("created_at", "")
-    time_together = "только начинаем ✨"
-    if created_str:
+    paired_str = couple.get("paired_at")
+    time_together_line = ""
+    if paired_str and u2 and u2 > 0 and u1 > 0:
+        time_together = "только начинаем ✨"
         try:
-            created_dt = datetime.strptime(created_str[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
-            delta = datetime.now(_tz.utc) - created_dt
+            paired_dt = datetime.strptime(paired_str[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=_tz.utc)
+            delta = datetime.now(_tz.utc) - paired_dt
             total_sec = max(int(delta.total_seconds()), 0)
             days_total, rest = divmod(total_sec, 86400)
             hours, rest = divmod(rest, 3600)
@@ -1896,6 +1897,9 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
             time_together = " ".join(parts) if parts else f"{hours} ч {mins} мин"
         except Exception:
             pass
+        time_together_line = f"⏳ Вместе: <b>{time_together}</b>\n\n"
+    
+    created_str = couple.get("created_at", "")
 
     # ── Часовой пояс участника ──
     def _tz_line(uid):
@@ -2064,7 +2068,7 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
         f"{pair_line}\n\n"
         f"{p1_block}\n\n"
         f"{p2_block}\n\n"
-        f"⏳ Вместе: <b>{time_together}</b>\n\n"
+        f"{time_together_line}"
         f"{met_date_line}\n"
         f"{last_line}"
     )

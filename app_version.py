@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.198'
-description = 'Фикс дубля имени в наша пара'
+version = '1.0.199'
+description = 'Фикс времени "мы вместе" в наша пара'
 
 
 def get_version_metadata() -> tuple[str, str]:

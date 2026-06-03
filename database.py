@@ -2975,6 +2975,14 @@ class Database:
                             (f"{old_id}_", f"{user_id}_", f"{old_id}_%")
                         )
                     
+                    # Если пара стала полной и таймер ещё не запущен - запускаем его
+                    conn.execute(
+                        '''UPDATE couples 
+                           SET paired_at = CURRENT_TIMESTAMP 
+                           WHERE id = ? AND user1_id > 0 AND user2_id > 0 AND paired_at IS NULL''',
+                        (couple_id,)
+                    )
+                    
                     conn.commit()
                     return True
                 
@@ -2996,6 +3004,14 @@ class Database:
                     'UPDATE couples SET user2_id = -abs(user2_id) WHERE user2_id = ?',
                     (user_id,)
                 )
+                
+                # Если оба участника ушли - сбрасываем таймер "Вместе"
+                conn.execute(
+                    '''UPDATE couples 
+                       SET paired_at = NULL 
+                       WHERE user1_id < 0 AND (user2_id IS NULL OR user2_id < 0)'''
+                )
+                
                 conn.commit()
                 return cur1.rowcount > 0 or cur2.rowcount > 0
         except Exception as e:

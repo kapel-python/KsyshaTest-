@@ -1431,7 +1431,96 @@ async def diag_tests_back(callback: CallbackQuery):
     except Exception as e:
         await callback.answer(str(e))
 
+
+@startup_router.callback_query(F.data.startswith("admin_confirm1:"))
+async def admin_confirm1_handler(callback: CallbackQuery):
+    if callback.from_user.id != config.CREATOR_ID:
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+    token = callback.data.split(":", 1)[1]
+    async with aiohttp.ClientSession() as session:
+        try:
+            resp = await session.post(
+                f"http://localhost:{config.HTTP_PORT}/api/admin/challenge/confirm",
+                json={"token": token, "action": "confirm"},
+                headers={"X-Internal-Secret": config.API_SECRET_KEY},
+            )
+            data = await resp.json()
+        except Exception as e:
+            await callback.answer(f"Ошибка: {e}", show_alert=True)
+            return
+    step = data.get("step")
+    if step == 2:
+        markup = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Да, действительно разрешить вход", callback_data=f"admin_confirm2:{token}"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data=f"admin_deny:{token}"),
+        ]])
+        try:
+            await callback.message.edit_reply_markup(reply_markup=markup)
+        except Exception:
+            pass
+        await callback.answer("Подтвердите ещё раз")
+    else:
+        await callback.answer(str(data), show_alert=True)
+
+
+@startup_router.callback_query(F.data.startswith("admin_confirm2:"))
+async def admin_confirm2_handler(callback: CallbackQuery):
+    if callback.from_user.id != config.CREATOR_ID:
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+    token = callback.data.split(":", 1)[1]
+    async with aiohttp.ClientSession() as session:
+        try:
+            resp = await session.post(
+                f"http://localhost:{config.HTTP_PORT}/api/admin/challenge/confirm",
+                json={"token": token, "action": "confirm"},
+                headers={"X-Internal-Secret": config.API_SECRET_KEY},
+            )
+            data = await resp.json()
+        except Exception as e:
+            await callback.answer(f"Ошибка: {e}", show_alert=True)
+            return
+    step = data.get("step")
+    if step == "done":
+        try:
+            await callback.message.edit_text("✅ Вход разрешён", reply_markup=None)
+        except Exception:
+            pass
+        await callback.answer("Вход разрешён")
+    else:
+        await callback.answer(str(data), show_alert=True)
+
+
+@startup_router.callback_query(F.data.startswith("admin_deny:"))
+async def admin_deny_handler(callback: CallbackQuery):
+    if callback.from_user.id != config.CREATOR_ID:
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+    token = callback.data.split(":", 1)[1]
+    async with aiohttp.ClientSession() as session:
+        try:
+            await session.post(
+                f"http://localhost:{config.HTTP_PORT}/api/admin/challenge/confirm",
+                json={"token": token, "action": "deny"},
+                headers={"X-Internal-Secret": config.API_SECRET_KEY},
+            )
+        except Exception:
+            pass
+    try:
+        await callback.message.edit_text("❌ Вход отклонён", reply_markup=None)
+    except Exception:
+        pass
+    await callback.answer("Отклонено")
+
+
+@startup_router.callback_query(F.data == "admin_noop")
+async def admin_noop_handler(callback: CallbackQuery):
+    await callback.answer()
+
+
 if __name__ == "__main__":
+
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

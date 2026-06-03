@@ -33,6 +33,7 @@ class Config:
     DEPLOYER_URL: str = os.getenv("DEPLOYER_URL", "http://deployer:25100/deploy")
     SITE_AUTH_PASSWORD_KSYUSHA: str = os.getenv("SITE_AUTH_PASSWORD_KSYUSHA", "")
     SITE_AUTH_PASSWORD_CREATOR: str = os.getenv("SITE_AUTH_PASSWORD_CREATOR", "")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
     SECRETS_STRICT: bool = os.getenv("SECRETS_STRICT", "1").strip().lower() not in ("0", "false", "no", "off")
     
     

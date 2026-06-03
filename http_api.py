@@ -277,12 +277,12 @@ def _allowed_cors_origin(request: Optional[web.Request] = None) -> str:
     """
     configured = (getattr(config, "BOT_SITE_URL", "") or "").strip().rstrip("/")
     if not configured:
-        return "*"
+        return "null"
     try:
         from urllib.parse import urlparse
         allowed_origin = f"{urlparse(configured).scheme}://{urlparse(configured).netloc}"
     except Exception:
-        return "*"
+        return "null"
     if request is None:
         return allowed_origin
     req_origin = (request.headers.get("Origin") or "").strip().rstrip("/")
@@ -390,11 +390,13 @@ def _ua_fingerprint(request: web.Request) -> str:
     return hashlib.sha256(ua.encode("utf-8", errors="ignore")).hexdigest()[:16]
 
 
-def _issue_admin_session(user_id: int, request: web.Request, ttl_seconds: int = 12 * 3600) -> tuple[str, int]:
+def _issue_admin_session(user_id: int, request: web.Request, ttl_seconds: int = 3600) -> tuple[str, int]:
     exp = int(time.time()) + max(300, int(ttl_seconds))
     nonce = secrets.token_urlsafe(8)
     uaf = _ua_fingerprint(request)
-    body = f"{int(user_id)}.{exp}.{nonce}.{uaf}"
+    ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+    ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest()[:16]
+    body = f"{int(user_id)}.{exp}.{nonce}.{uaf}.{ip_hash}"
     sig = _sign_payload(f"admin:{body}")
     return f"{body}.{sig}", exp
 
@@ -404,10 +406,10 @@ def _verify_admin_session(token: str, request: web.Request) -> Optional[int]:
     if not tok:
         return None
     parts = tok.split(".")
-    if len(parts) < 5:
+    if len(parts) < 6:
         return None
-    uid_s, exp_s, nonce, uaf = parts[0], parts[1], parts[2], parts[3]
-    sig = ".".join(parts[4:])
+    uid_s, exp_s, nonce, uaf, ip_hash = parts[0], parts[1], parts[2], parts[3], parts[4]
+    sig = ".".join(parts[5:])
     try:
         uid = int(uid_s)
         exp = int(exp_s)
@@ -417,7 +419,11 @@ def _verify_admin_session(token: str, request: web.Request) -> Optional[int]:
         return None
     if not hmac.compare_digest(uaf, _ua_fingerprint(request)):
         return None
-    body = f"{uid}.{exp}.{nonce}.{uaf}"
+    ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+    expected_ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest()[:16]
+    if not hmac.compare_digest(ip_hash, expected_ip_hash):
+        return None
+    body = f"{uid}.{exp}.{nonce}.{uaf}.{ip_hash}"
     expected = _sign_payload(f"admin:{body}")
     if not hmac.compare_digest(expected, sig):
         return None
@@ -490,9 +496,6 @@ def _get_trusted_visitor_id(
         session_vid = session_vid or (request.headers.get("X-Visitor-Id") or "").strip()
         session_sig = session_sig or (request.headers.get("X-Visitor-Signature") or "").strip()
     
-    # Query fallback
-    session_vid = session_vid or (request.rel_url.query.get(query_key) or "").strip() or (request.rel_url.query.get("visitor_id") or "").strip()
-    session_sig = session_sig or (request.rel_url.query.get("sig") or "").strip() or (request.rel_url.query.get("visitor_sig") or "").strip()
 
     if not session_vid or not session_sig:
         return None
@@ -3867,32 +3870,26 @@ def _get_registered_couple(request: web.Request):
     return _db.get_couple_by_user(uid)
 
 
-def _check_admin_page_key(request: web.Request) -> bool:
-    """Проверяет ключ доступа к /admin из query-параметра или cookie."""
-    import hmac as _hmac
-    secret = (getattr(config, "API_SECRET_KEY", "") or "").strip()
-    if not secret:
-        return False  # fail-closed: без секрета доступ к /admin запрещён
-    provided_query = (request.rel_url.query.get("key") or "").strip()
-    return _hmac.compare_digest(provided_query, secret)
-
-
 def _has_admin_access(request: web.Request) -> bool:
-    if _verify_admin_session((request.cookies.get("admin_session") or "").strip(), request) is not None:
-        return True
-    return _check_admin_page_key(request)
+    return _verify_admin_session((request.cookies.get("admin_session") or "").strip(), request) is not None
 
 async def admin_page(request: web.Request) -> web.Response:
-    """Отдаёт страницу /admin (admin.html). Серверная проверка ключа + cookie-сессия."""
-    secret = (getattr(config, "API_SECRET_KEY", "") or "").strip()
-    provided_key = (request.rel_url.query.get("key") or "").strip()
+    """Отдаёт страницу /admin (admin.html). Доступ только через admin_session cookie."""
+    has_access = _has_admin_access(request)
+    challenge_mode = "false" if has_access else "true"
 
-    if secret and not _has_admin_access(request):
-        error_html = '<p class="err">Неверный ключ</p>' if "key" in request.rel_url.query else ""
-        return web.Response(
-            text=_ADMIN_AUTH_GATE_HTML.format(error=error_html),
-            content_type="text/html", charset="utf-8", status=401
-        )
+    if not has_access:
+        project_root = Path(__file__).resolve().parent
+        admin_path = project_root / "admin.html"
+        if not admin_path.exists():
+            return web.Response(text="admin.html not found", status=404)
+        try:
+            html = admin_path.read_text(encoding="utf-8")
+        except Exception:
+            return web.Response(text="cannot read admin.html", status=500)
+        html = html.replace("{{API_SECRET_KEY}}", "")
+        html = html.replace("{{ADMIN_CHALLENGE_MODE}}", challenge_mode)
+        return web.Response(text=html, content_type="text/html", charset="utf-8", status=200)
 
     project_root = Path(__file__).resolve().parent
     admin_path = project_root / "admin.html"
@@ -3902,22 +3899,310 @@ async def admin_page(request: web.Request) -> web.Response:
         html = admin_path.read_text(encoding="utf-8")
     except Exception:
         return web.Response(text="cannot read admin.html", status=500)
-    # Не пробрасываем серверный API-ключ в клиентский HTML.
     html = html.replace("{{API_SECRET_KEY}}", "")
-    response = web.Response(text=html, content_type="text/html", charset="utf-8")
-    # Legacy key (если введён) конвертируем в безопасную admin-session.
-    if secret and hmac.compare_digest(provided_key, secret):
-        creator_uid = int(getattr(config, "CREATOR_ID", 0) or 0)
-        if creator_uid > 0:
-            admin_sess, _ = _issue_admin_session(creator_uid, request)
-            response.set_cookie(
-                "admin_session", admin_sess,
-                httponly=True, samesite="Strict",
-                max_age=12 * 3600,
-                secure=_is_secure_request(request),
-            )
-    return response
+    html = html.replace("{{ADMIN_CHALLENGE_MODE}}", challenge_mode)
+    return web.Response(text=html, content_type="text/html", charset="utf-8")
 
+
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  ADMIN CHALLENGE SYSTEM
+# ──────────────────────────────────────────────────────────────────────────────
+
+# WebSocket clients waiting for admin challenge confirmation: token -> list[ws]
+_admin_ws_clients: dict = {}
+
+
+def _compute_admin_trust_score(request: web.Request, visitor_id: Optional[str], user_id: Optional[int]) -> tuple:
+    score = 0
+    flags = []
+    signals = db.get_admin_trust_signals()
+
+    # +40 valid admin_session
+    session_cookie = (request.cookies.get("admin_session") or "").strip()
+    if _verify_admin_session(session_cookie, request) is not None:
+        score += 40
+        flags.append("valid_session")
+    else:
+        if session_cookie:
+            score -= 10
+            flags.append("broken_session")
+
+    # +30 visitor_id matches creator with valid signature
+    if visitor_id and user_id:
+        creator_id = int(getattr(config, "CREATOR_ID", 0) or 0)
+        if user_id == creator_id:
+            score += 30
+            flags.append("creator_vid")
+
+    # +15 visitor_id matches history
+    last_vid = signals.get("admin_last_vid") or ""
+    if visitor_id and last_vid and visitor_id == last_vid:
+        score += 15
+        flags.append("vid_match")
+    elif visitor_id and last_vid:
+        score -= 20
+        flags.append("unknown_device")
+
+    # +10 IP matches history
+    ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+    ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest()[:16]
+    last_ip = signals.get("admin_last_ip") or ""
+    if ip_hash and last_ip and ip_hash == last_ip:
+        score += 10
+        flags.append("ip_match")
+
+    # +10 UA matches history
+    ua_hash = _ua_fingerprint(request)
+    last_ua = signals.get("admin_last_ua_hash") or ""
+    if ua_hash and last_ua and ua_hash == last_ua:
+        score += 10
+        flags.append("ua_match")
+
+    # +5 device age (has history at all)
+    last_at = signals.get("admin_last_at") or ""
+    if last_at:
+        score += 5
+        flags.append("has_history")
+
+    # +5 no attacks from this IP
+    attack_count = db.count_security_events_by_ip(ip_raw, "admin_brute", hours=24)
+    if attack_count == 0:
+        score += 5
+        flags.append("no_attacks")
+    else:
+        score -= 30
+        flags.append("has_attacks")
+
+    # +5 correct Origin
+    req_origin = (request.headers.get("Origin") or "").strip().rstrip("/")
+    site_url = (getattr(config, "BOT_SITE_URL", "") or "").strip().rstrip("/")
+    if req_origin and site_url and req_origin in site_url:
+        score += 5
+        flags.append("correct_origin")
+
+    return max(0, min(100, score)), flags
+
+
+async def admin_challenge_init(request: web.Request) -> web.Response:
+    """POST /api/admin/challenge/init — начало авторизации, создаёт challenge."""
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception:
+        payload = {}
+
+    visitor_id = _get_trusted_visitor_id(request, payload=payload)
+    user_id = _visitor_to_user_id(visitor_id) if visitor_id else None
+    ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+    ua = (request.headers.get("User-Agent") or "")[:512]
+    fingerprint = _pstr(payload.get("fingerprint")).strip() or None
+
+    trust_score, trust_flags = _compute_admin_trust_score(request, visitor_id, user_id)
+    need_password = trust_score < 70
+
+    token = secrets.token_hex(32)
+    ok = db.create_admin_challenge(
+        token=token,
+        visitor_id=visitor_id,
+        user_id=user_id,
+        ip=ip_raw,
+        ua=ua,
+        trust_score=trust_score,
+        trust_flags=trust_flags,
+        fingerprint=fingerprint,
+    )
+    if not ok:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
+
+    if not need_password:
+        db.update_admin_challenge(token, "pending_tg")
+
+    return _add_cors_headers(web.json_response({
+        "ok": True,
+        "token": token,
+        "need_password": need_password,
+        "trust_score": trust_score,
+    }))
+
+
+async def admin_challenge_verify(request: web.Request) -> web.Response:
+    """POST /api/admin/challenge/verify — проверка пароля и отправка TG-сообщения."""
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception:
+        payload = {}
+
+    token = _pstr(payload.get("token")).strip()
+    password = _pstr(payload.get("password")).strip()
+
+    if not token:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "missing_token"}, status=400))
+
+    challenge = db.get_admin_challenge(token)
+    if not challenge:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_token"}, status=400))
+
+    status = challenge.get("status", "")
+    if status not in ("pending_password", "pending_tg"):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "wrong_status"}, status=400))
+
+    # Check password if needed
+    if status == "pending_password":
+        admin_pwd = (getattr(config, "ADMIN_PASSWORD", "") or "").strip()
+        if not admin_pwd:
+            return _add_cors_headers(web.json_response({"ok": False, "error": "no_password_configured"}, status=500))
+        ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+        if not password or not hmac.compare_digest(password, admin_pwd):
+            db.log_security_event("admin_brute", ip=ip_raw, ua=(request.headers.get("User-Agent") or "")[:256], detail="bad_password")
+            return _add_cors_headers(web.json_response({"ok": False, "error": "wrong_password"}, status=403))
+        db.update_admin_challenge(token, "pending_tg")
+
+    # Send TG message
+    try:
+        creator_id = int(getattr(config, "CREATOR_ID", 0) or 0)
+        bot = Bot(token=config.BOT_TOKEN)
+        trust_score = challenge.get("trust_score", 0)
+        ip_val = challenge.get("ip", "?")
+        text = (
+            f"🔐 <b>Запрос входа в /admin</b>\n"
+            f"IP: <code>{ip_val}</code>\n"
+            f"Trust: <b>{trust_score}/100</b>\n\n"
+            f"Нажмите кнопку для подтверждения:"
+        )
+        markup = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"admin_confirm1:{token}")
+        ]])
+        msg = await bot.send_message(chat_id=creator_id, text=text, parse_mode=ParseMode.HTML, reply_markup=markup)
+        await bot.session.close()
+        db.update_admin_challenge(token, "tg_sent", tg_message_id=msg.message_id)
+    except Exception as e:
+        logger.exception("admin_challenge_verify: failed to send TG: %s", e)
+        return _add_cors_headers(web.json_response({"ok": False, "error": "tg_send_failed"}, status=500))
+
+    return _add_cors_headers(web.json_response({"ok": True, "status": "tg_sent"}))
+
+
+async def admin_challenge_confirm(request: web.Request) -> web.Response:
+    """POST /api/admin/challenge/confirm — вызывается bot.py при нажатии кнопки."""
+    internal_secret = (request.headers.get("X-Internal-Secret") or "").strip()
+    api_secret = (getattr(config, "API_SECRET_KEY", "") or "").strip()
+    if not api_secret or not hmac.compare_digest(internal_secret, api_secret):
+        return web.json_response({"ok": False, "error": "forbidden"}, status=403)
+
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception:
+        payload = {}
+
+    token = _pstr(payload.get("token")).strip()
+    action = _pstr(payload.get("action")).strip()  # "confirm" or "deny"
+
+    if not token or action not in ("confirm", "deny"):
+        return web.json_response({"ok": False, "error": "bad_params"}, status=400)
+
+    challenge = db.get_admin_challenge(token)
+    if not challenge:
+        return web.json_response({"ok": False, "error": "not_found"}, status=404)
+
+    status = challenge.get("status", "")
+
+    if action == "deny":
+        db.update_admin_challenge(token, "denied")
+        # Notify WS clients
+        for ws in _admin_ws_clients.pop(token, []):
+            try:
+                await ws.send_json({"type": "denied"})
+            except Exception:
+                pass
+        return web.json_response({"ok": True, "step": "denied"})
+
+    # action == confirm
+    if status == "tg_sent":
+        db.update_admin_challenge(token, "pending_tg2")
+        return web.json_response({"ok": True, "step": 2})
+    elif status == "pending_tg2":
+        db.update_admin_challenge(token, "confirmed")
+        # Notify WS clients
+        for ws in _admin_ws_clients.pop(token, []):
+            try:
+                await ws.send_json({"type": "confirmed"})
+            except Exception:
+                pass
+        return web.json_response({"ok": True, "step": "done"})
+    else:
+        return web.json_response({"ok": False, "error": "wrong_status", "status": status}, status=400)
+
+
+async def admin_challenge_session(request: web.Request) -> web.Response:
+    """POST /api/admin/challenge/session — выдаёт admin_session cookie для confirmed challenge."""
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception:
+        payload = {}
+
+    token = _pstr(payload.get("token")).strip()
+    if not token:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "missing_token"}, status=400))
+
+    challenge = db.get_admin_challenge(token)
+    if not challenge or challenge.get("status") != "confirmed":
+        return _add_cors_headers(web.json_response({"ok": False, "error": "not_confirmed"}, status=403))
+
+    db.update_admin_challenge(token, "used")
+
+    creator_id = int(getattr(config, "CREATOR_ID", 0) or 0)
+    admin_sess, _ = _issue_admin_session(creator_id, request, ttl_seconds=3600)
+
+    # Save login metadata
+    ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+    ua_hash = _ua_fingerprint(request)
+    visitor_id = challenge.get("visitor_id")
+    db.save_admin_login_metadata(ip=ip_raw, ua_hash=ua_hash, vid=visitor_id)
+
+    resp = _add_cors_headers(web.json_response({"ok": True}))
+    resp.set_cookie(
+        "admin_session", admin_sess,
+        httponly=True, samesite="Strict",
+        max_age=3600,
+        secure=_is_secure_request(request),
+    )
+    return resp
+
+
+async def ws_admin_confirm(request: web.Request) -> web.WebSocketResponse:
+    """GET /api/admin/challenge/ws?token=... — WebSocket ожидания подтверждения."""
+    token = (request.rel_url.query.get("token") or "").strip()
+    if not token:
+        return web.Response(status=400, text="missing token")
+
+    challenge = db.get_admin_challenge(token)
+    if not challenge:
+        return web.Response(status=404, text="not found")
+
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+
+    _admin_ws_clients.setdefault(token, []).append(ws)
+    try:
+        async for _ in ws:
+            pass
+    finally:
+        clients = _admin_ws_clients.get(token, [])
+        if ws in clients:
+            clients.remove(ws)
+        if not clients:
+            _admin_ws_clients.pop(token, None)
+
+    return ws
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -4472,9 +4757,9 @@ async def check_site_password(request: web.Request) -> web.Response:
 
 
 async def token_check(request: web.Request) -> web.Response:
-    """Проверяет чей токен (не расходуя его).
-    POST /api/token_check  { "token": "...", "current_visitor_id": "123" }
-    """
+    """POST /api/token_check — проверяет чей токен (не расходуя его)."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
     try:
         payload = await request.json()
         if not isinstance(payload, dict): payload = {}
@@ -4482,31 +4767,16 @@ async def token_check(request: web.Request) -> web.Response:
         payload = {}
 
     token = _pstr(payload.get("token")).strip()
-    debug_id = _pstr(payload.get("debug_id")).strip() or "none"
     if not token:
         return _add_cors_headers(web.json_response({"ok": False, "error": "empty"}))
 
-    logger.info(f"[auth-debug:{debug_id}] token_check called, current_visitor_id: {payload.get('current_visitor_id')}")
-
     token_data = db.peek_user_login_token(token)
     if not token_data:
-        logger.info(f"[auth-debug:{debug_id}] token_check invalid/used token")
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid"}))
 
     token_user_id = token_data["user_id"]
-    token_user_info = db.get_user(token_user_id) or {}
-    
     current_vid = _pstr(payload.get("current_visitor_id")).strip()
     current_user_id = _visitor_to_user_id(current_vid)
-    current_user_info = {}
-    if current_user_id:
-        current_user_info = db.get_user(current_user_id) or {}
-
-    def _format_name(u: dict, default: str) -> str:
-        fn = u.get("first_name") or ""
-        ln = u.get("last_name") or ""
-        un = u.get("username") or ""
-        return (fn + " " + ln).strip() or fn or ("@" + un if un else "") or default
 
     is_session_valid = bool(current_vid and db.get_device_by_visitor_id(current_vid))
 
@@ -4514,36 +4784,11 @@ async def token_check(request: web.Request) -> web.Response:
         "ok": True,
         "match": current_user_id == token_user_id if current_user_id is not None else False,
         "session_valid": is_session_valid,
-        "token_user": {
-            "id": token_user_id,
-            "name": _format_name(token_user_info, f"User {token_user_id}")
-        },
-        "current_user": {
-            "id": current_vid,
-            "name": _format_name(current_user_info, f"User {current_vid}") if current_vid else ""
-        }
+        "token_user": {"id": token_user_id},
+        "current_user": {"id": current_vid},
     }))
 
 async def auth_debug_log(request: web.Request) -> web.Response:
-    try:
-        payload = await request.json()
-    except Exception:
-        return _add_cors_headers(web.json_response({"ok": False}))
-    
-    debug_id = payload.get("id", "none")
-    logger.info(f"========== AUTH-DEBUG-TRACE [{debug_id}] ==========")
-    logger.info(f"[{debug_id}] Token opening attempt:")
-    logger.info(f"[{debug_id}] - visitor_id cookie present: {payload.get('vid_cookie_present')}")
-    logger.info(f"[{debug_id}] - role cookie present: {payload.get('role_cookie_present')}")
-    logger.info(f"[{debug_id}] - treated as: {payload.get('treated_as')}")
-    logger.info(f"[{debug_id}] - token_check executed: {payload.get('token_check_called')}")
-    logger.info(f"[{debug_id}] - token_check ok: {payload.get('token_check_result')}")
-    logger.info(f"[{debug_id}] - token_check match: {payload.get('token_check_match')}")
-    logger.info(f"[{debug_id}] - modal action: {payload.get('modal_action')}")
-    logger.info(f"[{debug_id}] - final shouldConsumeToken: {payload.get('should_consume_token')}")
-    logger.info(f"[{debug_id}] - token_auth called: {payload.get('token_auth_called')}")
-    logger.info(f"[{debug_id}] - token_auth result: {payload.get('token_auth_result')}")
-    logger.info(f"=====================================================")
     return _add_cors_headers(web.json_response({"ok": True}))
 
 async def token_auth(request: web.Request) -> web.Response:
@@ -8384,6 +8629,15 @@ def create_app() -> web.Application:
     app.router.add_post("/api/admin/action", admin_action)
     app.router.add_get("/api/version", api_version)
     app.router.add_get("/api/admin/version-history", admin_version_history)
+    app.router.add_route("OPTIONS", "/api/admin/challenge/init", handle_options)
+    app.router.add_post("/api/admin/challenge/init", admin_challenge_init)
+    app.router.add_route("OPTIONS", "/api/admin/challenge/verify", handle_options)
+    app.router.add_post("/api/admin/challenge/verify", admin_challenge_verify)
+    app.router.add_route("OPTIONS", "/api/admin/challenge/confirm", handle_options)
+    app.router.add_post("/api/admin/challenge/confirm", admin_challenge_confirm)
+    app.router.add_route("OPTIONS", "/api/admin/challenge/session", handle_options)
+    app.router.add_post("/api/admin/challenge/session", admin_challenge_session)
+    app.router.add_get("/api/admin/challenge/ws", ws_admin_confirm)
 
     app.router.add_post("/api/ai_companion", ai_companion)
 

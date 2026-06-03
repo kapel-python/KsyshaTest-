@@ -1042,6 +1042,25 @@ class Database:
                 )
             ''')
 
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS admin_challenges (
+                    token        TEXT PRIMARY KEY,
+                    visitor_id   TEXT,
+                    user_id      INTEGER,
+                    ip           TEXT,
+                    ua           TEXT,
+                    trust_score  INTEGER DEFAULT 0,
+                    trust_flags  TEXT,
+                    status       TEXT NOT NULL DEFAULT 'pending_password',
+                    expires_at   TIMESTAMP NOT NULL,
+                    tg_message_id INTEGER,
+                    fingerprint  TEXT,
+                    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_admin_challenges_token ON admin_challenges(token)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_admin_challenges_status_exp ON admin_challenges(status, expires_at)')
+
             # Миграция: добавляем pre_bound_user_id в invite_codes
             try:
                 cur = conn.execute("PRAGMA table_info(invite_codes)")
@@ -1990,8 +2009,8 @@ class Database:
     
     def is_admin(self, user_id: int) -> bool:
         """Проверяет, является ли пользователь администратором"""
-        # Создатель и компаньон всегда считаются администраторами
-        if user_id in (self.get_creator_id(), self.get_ksusha_id()):
+        from config import config as _cfg
+        if user_id in (int(_cfg.CREATOR_ID or 0), int(_cfg.KSUSHA_ID or 0)):
             return True
         
         try:
@@ -2008,7 +2027,8 @@ class Database:
     
     def is_creator(self, user_id: int) -> bool:
         """Проверяет, является ли пользователь создателем"""
-        return user_id == self.get_creator_id()
+        from config import config as _cfg
+        return user_id == int(_cfg.CREATOR_ID or 0)
     
     def get_user_stats(self, user_id: int) -> Dict[str, int]:
         """Получает статистику пользователя (воспоминания, события, желания)"""
@@ -2097,8 +2117,8 @@ class Database:
     
     def remove_admin(self, user_id: int) -> bool:
         """Удаляет администратора (кроме создателя и Ксюши)"""
-        # Нельзя удалить создателя и Ксюшу из админов
-        if user_id in (self.get_creator_id(), self.get_ksusha_id()):
+        from config import config as _cfg
+        if user_id in (int(_cfg.CREATOR_ID or 0), int(_cfg.KSUSHA_ID or 0)):
             return False
         
         try:
@@ -2120,6 +2140,155 @@ class Database:
             logger.exception(f"Ошибка при удалении администратора: {e}")
             return False
     
+    def create_admin_challenge(
+        self,
+        token: str,
+        visitor_id: Optional[str],
+        user_id: Optional[int],
+        ip: str,
+        ua: str,
+        trust_score: int,
+        trust_flags: list,
+        fingerprint: Optional[str] = None,
+    ) -> bool:
+        import json as _json
+        from datetime import datetime, timezone, timedelta
+        try:
+            expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+            with self._get_connection() as conn:
+                conn.execute(
+                    '''
+                    INSERT INTO admin_challenges
+                        (token, visitor_id, user_id, ip, ua, trust_score, trust_flags,
+                         status, expires_at, fingerprint)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_password', ?, ?)
+                    ''',
+                    (token, visitor_id, user_id, ip, ua, trust_score,
+                     _json.dumps(trust_flags), expires_at, fingerprint)
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("create_admin_challenge error: %s", e)
+            return False
+
+    def get_admin_challenge(self, token: str) -> Optional[Dict]:
+        from datetime import datetime, timezone
+        try:
+            with self._get_connection() as conn:
+                cur = conn.execute(
+                    '''
+                    SELECT * FROM admin_challenges
+                    WHERE token = ?
+                      AND expires_at > ?
+                      AND status NOT IN ('expired', 'denied', 'used')
+                    ''',
+                    (token, datetime.now(timezone.utc).isoformat())
+                )
+                row = cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.exception("get_admin_challenge error: %s", e)
+            return None
+
+    def update_admin_challenge(
+        self, token: str, status: str, tg_message_id: Optional[int] = None
+    ) -> bool:
+        try:
+            with self._get_connection() as conn:
+                if tg_message_id is not None:
+                    conn.execute(
+                        'UPDATE admin_challenges SET status=?, tg_message_id=? WHERE token=?',
+                        (status, tg_message_id, token)
+                    )
+                else:
+                    conn.execute(
+                        'UPDATE admin_challenges SET status=? WHERE token=?',
+                        (status, token)
+                    )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("update_admin_challenge error: %s", e)
+            return False
+
+    def get_admin_trust_signals(self) -> Dict:
+        try:
+            keys = ['admin_last_ip', 'admin_last_ua_hash', 'admin_last_vid', 'admin_last_at']
+            with self._get_connection() as conn:
+                result = {}
+                for k in keys:
+                    cur = conn.execute('SELECT value FROM settings WHERE key=?', (k,))
+                    row = cur.fetchone()
+                    result[k] = row['value'] if row else None
+                return result
+        except Exception as e:
+            logger.exception("get_admin_trust_signals error: %s", e)
+            return {}
+
+    def save_admin_login_metadata(self, ip: str, ua_hash: str, vid: Optional[str]) -> bool:
+        from datetime import datetime, timezone
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            pairs = [
+                ('admin_last_ip', ip),
+                ('admin_last_ua_hash', ua_hash),
+                ('admin_last_vid', vid or ''),
+                ('admin_last_at', now),
+            ]
+            with self._get_connection() as conn:
+                for k, v in pairs:
+                    conn.execute(
+                        'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                        (k, v)
+                    )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("save_admin_login_metadata error: %s", e)
+            return False
+
+    def count_security_events_by_ip(
+        self, ip: str, event_type: str, hours: int = 24
+    ) -> int:
+        from datetime import datetime, timezone, timedelta
+        try:
+            since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+            with self._get_connection() as conn:
+                cur = conn.execute(
+                    'SELECT COUNT(*) FROM security_events WHERE ip=? AND type=? AND created_at > ?',
+                    (ip, event_type, since)
+                )
+                return cur.fetchone()[0] or 0
+        except Exception as e:
+            logger.exception("count_security_events_by_ip error: %s", e)
+            return 0
+
+    def log_security_event(
+        self,
+        type: str,
+        user_id: Optional[int] = None,
+        ip: Optional[str] = None,
+        ua: Optional[str] = None,
+        detail: Optional[str] = None,
+        country: Optional[str] = None,
+        city: Optional[str] = None,
+    ) -> bool:
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    '''
+                    INSERT INTO security_events (type, user_id, ip, ua, country, city, detail)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (type, user_id, ip, ua, country, city, detail)
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("log_security_event error: %s", e)
+            return False
+
     def get_all_admins(self) -> List[Dict]:
         """Получает список всех администраторов"""
         try:

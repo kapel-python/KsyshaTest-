@@ -2927,53 +2927,118 @@ class Database:
                     if old_id is not None and old_id != user_id:
                         logger.info(f"Переносим данные пользователя с old_id={old_id} на new_id={user_id}")
                         
-                        # Переносим профиль пользователя с учетом сохранения имени нового аккаунта
+                        # 1. Профиль и умный перенос имени (не копируем старое имя из Telegram, если оно не кастомное)
                         old_prof = conn.execute("SELECT * FROM user_profiles WHERE user_id = ?", (old_id,)).fetchone()
                         new_prof = conn.execute("SELECT * FROM user_profiles WHERE user_id = ?", (user_id,)).fetchone()
+                        old_user = conn.execute("SELECT first_name FROM users WHERE user_id = ?", (old_id,)).fetchone()
+                        old_tg_name = old_user['first_name'] if old_user else None
                         
                         if old_prof:
+                            # Если имя отличается от Telegram first_name — значит оно было введено вручную
+                            is_custom = old_prof['display_name'] and old_prof['display_name'] != old_tg_name
+                            
                             if new_prof:
-                                # У нового аккаунта уже есть профиль (и свое display_name).
-                                # Сохраняем имя нового, дополняем описание и статус онбординга (если нужно)
                                 desc = new_prof['description'] if new_prof['description'] else old_prof['description']
                                 onb = 1 if (new_prof['onboarded'] or old_prof['onboarded']) else 0
-                                conn.execute(
-                                    "UPDATE user_profiles SET description = ?, onboarded = ? WHERE user_id = ?",
-                                    (desc, onb, user_id)
-                                )
+                                # Обновляем только если есть кастомное имя у старого и нет у нового
+                                name_update = "display_name = ?, " if is_custom and not new_prof['display_name'] else ""
+                                params = [old_prof['display_name'], desc, onb, user_id] if name_update else [desc, onb, user_id]
+                                conn.execute(f"UPDATE user_profiles SET {name_update}description = ?, onboarded = ? WHERE user_id = ?", params)
                             else:
-                                # У нового аккаунта профиля нет. 
-                                # Копируем данные старого, но ЯВНО обнуляем display_name (чтобы сработал фолбэк на Telegram first_name)
+                                new_name = old_prof['display_name'] if is_custom else None
                                 conn.execute(
                                     """INSERT INTO user_profiles 
                                        (user_id, display_name, description, onboarded, created_at, updated_at) 
-                                       VALUES (?, NULL, ?, ?, ?, ?)""",
-                                    (user_id, old_prof['description'], old_prof['onboarded'], old_prof['created_at'], old_prof['updated_at'])
+                                       VALUES (?, ?, ?, ?, ?, ?)""",
+                                    (user_id, new_name, old_prof['description'], old_prof['onboarded'], old_prof['created_at'], old_prof['updated_at'])
                                 )
-                            # Удаляем профиль старого аккаунта
                             conn.execute("DELETE FROM user_profiles WHERE user_id = ?", (old_id,))
                         
-                        # Переносим настройки, токены и прочее
-                        for table in ["user_settings", "favorites", "admins", "user_tokens", "user_login_tokens"]:
-                            conn.execute(
-                                f"UPDATE OR REPLACE {table} SET user_id = ? WHERE user_id = ?",
-                                (user_id, old_id)
-                            )
+                        # 2. Настройки (перезаписывают дефолтные настройки нового аккаунта)
+                        for table in ["user_settings", "favorites", "user_tokens", "user_login_tokens"]:
+                            conn.execute(f"UPDATE OR REPLACE {table} SET user_id = ? WHERE user_id = ?", (user_id, old_id))
                         
+                        conn.execute("UPDATE OR REPLACE admins SET user_id = ? WHERE user_id = ?", (user_id, old_id))
+                        conn.execute("UPDATE admins SET added_by = ? WHERE added_by = ?", (user_id, old_id))
+                        
+                        # bot_last_active: сохраняем наиболее свежую дату (MAX)
+                        conn.execute("""
+                            INSERT INTO bot_last_active (user_id, last_active_utc, action)
+                            SELECT ?, last_active_utc, action FROM bot_last_active WHERE user_id = ?
+                            ON CONFLICT(user_id) DO UPDATE SET
+                                last_active_utc = MAX(bot_last_active.last_active_utc, excluded.last_active_utc),
+                                action = excluded.action
+                        """, (user_id, old_id))
+                        
+                        # 3. Контент и уведомления
+                        # Для memories, wishes, scheduled_events нет уникальных констрейнтов на user_id
                         for table in ["memories", "wishes", "scheduled_events"]:
-                            conn.execute(
-                                f"UPDATE {table} SET user_id = ? WHERE user_id = ?",
-                                (user_id, old_id)
-                            )
+                            conn.execute(f"UPDATE {table} SET user_id = ? WHERE user_id = ?", (user_id, old_id))
+                            
+                        # Для event_notifications оставляем простой перенос с игнором, если уже есть (дата не так важна, важен факт)
+                        conn.execute("UPDATE OR IGNORE event_notifications SET user_id = ? WHERE user_id = ?", (user_id, old_id))
+                        conn.execute("DELETE FROM event_notifications WHERE user_id = ?", (old_id,))
                         
+                        # Для memory_views честно суммируем просмотры (views_count)
+                        conn.execute("""
+                            INSERT INTO memory_views (memory_id, user_id, views_count)
+                            SELECT memory_id, ?, views_count FROM memory_views WHERE user_id = ?
+                            ON CONFLICT(memory_id, user_id) DO UPDATE SET
+                                views_count = memory_views.views_count + excluded.views_count
+                        """, (user_id, old_id))
+                        conn.execute("DELETE FROM memory_views WHERE user_id = ?", (old_id,))
+                        
+                        # 4. Данные, привязанные к visitor_id
+                        # REPLACE(visitor_id) безопасен, так как суффиксы устройств уникальны (например _abc123)
+                        for table in ["companion_messages", "devices", "site_visits", "memory_view_sessions", "category_opens", "visitor_site_time"]:
+                            conn.execute(
+                                f"UPDATE OR IGNORE {table} SET visitor_id = REPLACE(visitor_id, ?, ?) WHERE visitor_id LIKE ?",
+                                (f"{old_id}_", f"{user_id}_", f"{old_id}_%")
+                            )
+                            # Удаляем мусор, если вдруг произошел конфликт
+                            conn.execute(f"DELETE FROM {table} WHERE visitor_id LIKE ?", (f"{old_id}_%",))
+                            
+                        # Лимиты и подписки: user_key может быть visitor_id или строковым user_id
+                        
+                        # ai_usage_window (объединяем счетчик сообщений, берем старейшее окно)
                         conn.execute(
-                            "UPDATE companion_messages SET visitor_id = REPLACE(visitor_id, ?, ?) WHERE visitor_id LIKE ?",
+                            "UPDATE OR IGNORE ai_usage_window SET user_key = REPLACE(user_key, ?, ?) WHERE user_key LIKE ?",
                             (f"{old_id}_", f"{user_id}_", f"{old_id}_%")
                         )
+                        conn.execute("""
+                            INSERT INTO ai_usage_window (user_key, window_start, message_count)
+                            SELECT ?, window_start, message_count FROM ai_usage_window WHERE user_key = ?
+                            ON CONFLICT(user_key) DO UPDATE SET
+                                message_count = ai_usage_window.message_count + excluded.message_count,
+                                window_start = MIN(ai_usage_window.window_start, excluded.window_start)
+                        """, (str(user_id), str(old_id)))
+                        conn.execute("DELETE FROM ai_usage_window WHERE user_key LIKE ? OR user_key = ?", (f"{old_id}_%", str(old_id)))
+                        
+                        # user_subscription_tier (берем максимальный тариф и максимальный срок)
                         conn.execute(
-                            "UPDATE devices SET visitor_id = REPLACE(visitor_id, ?, ?) WHERE visitor_id LIKE ?",
+                            "UPDATE OR IGNORE user_subscription_tier SET user_key = REPLACE(user_key, ?, ?) WHERE user_key LIKE ?",
                             (f"{old_id}_", f"{user_id}_", f"{old_id}_%")
                         )
+                        conn.execute("""
+                            INSERT INTO user_subscription_tier (user_key, tier, expires_at)
+                            SELECT ?, tier, expires_at FROM user_subscription_tier WHERE user_key = ?
+                            ON CONFLICT(user_key) DO UPDATE SET
+                                tier = CASE 
+                                    WHEN excluded.tier = 'premium' OR user_subscription_tier.tier = 'premium' THEN 'premium'
+                                    WHEN excluded.tier = 'plus' OR user_subscription_tier.tier = 'plus' THEN 'plus'
+                                    ELSE 'free'
+                                END,
+                                expires_at = CASE 
+                                    WHEN excluded.expires_at IS NULL THEN user_subscription_tier.expires_at
+                                    WHEN user_subscription_tier.expires_at IS NULL THEN excluded.expires_at
+                                    WHEN excluded.expires_at > user_subscription_tier.expires_at THEN excluded.expires_at
+                                    ELSE user_subscription_tier.expires_at
+                                END
+                        """, (str(user_id), str(old_id)))
+                        conn.execute("DELETE FROM user_subscription_tier WHERE user_key LIKE ? OR user_key = ?", (f"{old_id}_%", str(old_id)))
+                        
+                        # Финальная зачистка старого ID
+                        conn.execute("DELETE FROM bot_last_active WHERE user_id = ?", (old_id,))
                     
                     # Если пара стала полной и таймер ещё не запущен - запускаем его
                     conn.execute(

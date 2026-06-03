@@ -1282,6 +1282,15 @@ async def cmd_start(message: Message, state: FSMContext):
             )
             return
 
+        # Пользователь УЖЕ является участником целевой пары (например, сам открыл свою же transfer-ссылку)
+        if target_couple and (u1 == user_id or u2 == user_id):
+            await message.answer(
+                "ℹ️ <b>Этот аккаунт уже является участником данной пары.</b>\n\n"
+                "Использование этого токена не требуется.",
+                parse_mode=ParseMode.HTML
+            )
+            return
+
         # Проверка на токен перепривязки (transfer_invite_code)
         unlink_req = db.get_unlink_request_by_transfer_code(invite_code)
         if unlink_req:

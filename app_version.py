@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.199'
-description = 'Фикс времени "мы вместе" в наша пара'
+version = '1.0.200'
+description = 'Фикс когда бот разрешает вступить по ссылке на перепривязку  на аккаунте в котором уже есть пара'
 
 
 def get_version_metadata() -> tuple[str, str]:

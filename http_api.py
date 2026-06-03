@@ -5176,6 +5176,11 @@ async def profile_page(request: web.Request) -> web.Response:
         logger.warning(f"SERVER REDIRECT: profile_page invalid visitor_id! Headers: {request.headers}")
         raise web.HTTPFound("/404")
 
+    _prof_uid = _visitor_to_user_id(visitor_id)
+    if not _prof_uid or not db.get_couple_by_user(_prof_uid):
+        logger.warning(f"SERVER REDIRECT: profile_page missing couple data for {visitor_id}")
+        raise web.HTTPFound("/404")
+
     project_root = Path(__file__).resolve().parent
     page_path = project_root / "profile.html"
     if not page_path.exists():

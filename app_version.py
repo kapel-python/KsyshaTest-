@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.222'
-description = 'Оптимизация загрузки профиля'
+version = '1.0.223'
+description = 'В профиле перенаправлять на 404 при отсутствии данных'
 
 
 def get_version_metadata() -> tuple[str, str]:

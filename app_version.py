@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.197'
-description = 'Фикс отображения имени в профиле после перепривязки аккаунта'
+version = '1.0.198'
+description = 'Фикс дубля имени в наша пара'
 
 
 def get_version_metadata() -> tuple[str, str]:

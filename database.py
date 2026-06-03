@@ -2894,10 +2894,20 @@ class Database:
                 u1 = row['user1_id']
                 u2 = row['user2_id']
                 
+                # Защита от дублирования участников в одной паре
+                if u1 == user_id or u2 == user_id:
+                    return True
+                
                 old_id = None
                 updated = False
                 
-                if u2 is None or u2 < 0:
+                if u1 == -user_id:
+                    cur = conn.execute('UPDATE couples SET user1_id = ? WHERE id = ?', (user_id, couple_id))
+                    updated = cur.rowcount > 0
+                elif u2 is not None and u2 == -user_id:
+                    cur = conn.execute('UPDATE couples SET user2_id = ? WHERE id = ?', (user_id, couple_id))
+                    updated = cur.rowcount > 0
+                elif u2 is None or u2 < 0:
                     if u2 is not None and u2 < 0:
                         old_id = abs(u2)
                     cur = conn.execute(

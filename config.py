@@ -58,7 +58,6 @@ class Config:
     DATABASE_PATH: str = PRODUCTION_DB_PATH
     HOT_BACKUP_ENABLED: bool = os.getenv("HOT_BACKUP_ENABLED", "1").strip().lower() not in ("0", "false", "no", "off")
     HOT_BACKUP_PATH: str = os.getenv("HOT_BACKUP_PATH", "")
-    DATE_MET: Optional[date] = None
     SITE_OPEN_DATE: Optional[date] = None
     CATEGORIES: Dict[str, Dict[str, str]] = None
     MEDIA_FOLDER: str = os.getenv("MEDIA_FOLDER", "media")
@@ -77,16 +76,6 @@ class Config:
         import sys
 
         os.makedirs(self.MEDIA_FOLDER, exist_ok=True)
-
-        if self.DATE_MET is None:
-            env_date = os.getenv("DATE_MET")
-            if env_date:
-                try:
-                    self.DATE_MET = date.fromisoformat(env_date)
-                except Exception:
-                    pass
-        if self.DATE_MET is None:
-            self.DATE_MET = date(2025, 10, 30)
 
         if self.SITE_OPEN_DATE is None:
             self.SITE_OPEN_DATE = date(2026, 2, 8)

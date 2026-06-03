@@ -946,21 +946,6 @@ class Database:
             except Exception as e:
                 logger.debug("Migration skipped for couples.met_date: %s", e)
 
-            # Заполняем met_date из config.DATE_MET для дефолтной пары (создателя и Ксюши), если у них met_date равен NULL
-            try:
-                creator_id = config.CREATOR_ID
-                ksusha_id = self.get_ksusha_id()
-                date_met = config.DATE_MET
-                if date_met:
-                    date_met_str = date_met.isoformat()
-                    conn.execute(
-                        "UPDATE couples SET met_date = ? "
-                        "WHERE met_date IS NULL AND (user1_id IN (?, ?) OR user2_id IN (?, ?))",
-                        (date_met_str, creator_id, ksusha_id, creator_id, ksusha_id)
-                    )
-            except Exception as e:
-                logger.debug("Failed to migrate met_date for default couple: %s", e)
-
             # Таблица инвайт-кодов
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS invite_codes (

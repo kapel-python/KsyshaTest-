@@ -62,10 +62,6 @@ def _test_config():
     def t_bot_token():
         assert isinstance(config.BOT_TOKEN, str)
 
-    def t_date_met():
-        assert config.DATE_MET is not None
-        assert isinstance(config.DATE_MET, date)
-
     def t_site_open_date():
         assert config.SITE_OPEN_DATE is not None
         assert isinstance(config.SITE_OPEN_DATE, date)
@@ -93,7 +89,6 @@ def _test_config():
         ("Config: CREATOR_ID", t_creator_id),
         ("Config: KSUSHA_ID", t_ksusha_id),
         ("Config: BOT_TOKEN", t_bot_token),
-        ("Config: DATE_MET", t_date_met),
         ("Config: SITE_OPEN_DATE", t_site_open_date),
         ("Config: CATEGORIES structure", t_categories),
         ("Config: media folder created", t_media_folder_created),
@@ -1506,18 +1501,6 @@ def _test_filesystem():
 
 def _test_business_logic():
 
-    def t_date_met_is_before_today():
-        from config import config
-        assert config.DATE_MET < date.today()
-
-    def t_site_open_after_date_met():
-        from config import config
-        assert config.SITE_OPEN_DATE >= config.DATE_MET
-
-    def t_days_together_positive():
-        from config import config
-        delta = date.today() - config.DATE_MET
-        assert delta.days >= 0
 
     def t_parse_ai_date_formats():
         from utils import parse_ai_date_to_db
@@ -1645,9 +1628,7 @@ def _test_business_logic():
         assert kb is not None
 
     for name, fn in [
-        ("Logic: date_met before today", t_date_met_is_before_today),
-        ("Logic: site_open after date_met", t_site_open_after_date_met),
-        ("Logic: days_together positive", t_days_together_positive),
+
         ("Logic: parse_ai_date various formats", t_parse_ai_date_formats),
         ("Logic: parse date validation retry", t_parse_date_validation_retry),
         ("Logic: time_remaining days", t_format_time_remaining_days),

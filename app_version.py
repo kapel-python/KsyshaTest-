@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.210'
-description = 'Добавить в шаг регистрации проверку наличия дата знакомства иначе запросить ее'
+version = '1.0.211'
+description = 'Удаление вшитых значений даты знакомства'
 
 
 def get_version_metadata() -> tuple[str, str]:

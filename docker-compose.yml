@@ -14,8 +14,10 @@ services:
       - RUN_STARTUP_TESTS=0
       - CLOUDFLARED_MANAGED_EXTERNALLY=1
       - CLOUDFLARED_PATH=/app/cloudflared
-    ports:
-      - "25086:25086"
+    # Port 25086 is intentionally NOT published to the host.
+    # cloudflared reaches the app via Docker internal network (ksysha-bot:25086).
+    # To allow temporary direct access for debugging set HTTP_HOST=127.0.0.1 and
+    # add "- 127.0.0.1:25086:25086" here — never "0.0.0.0:25086:25086".
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:25086/"]
       interval: 5s

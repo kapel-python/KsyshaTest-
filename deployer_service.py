@@ -1,4 +1,5 @@
 import asyncio
+import hmac
 import json
 import os
 import time
@@ -325,7 +326,7 @@ async def _run_deploy() -> None:
 
 async def deploy(request: web.Request) -> web.Response:
     provided = (request.headers.get("X-Deploy-Secret") or "").strip()
-    if not DEPLOYER_SECRET or provided != DEPLOYER_SECRET:
+    if not DEPLOYER_SECRET or not hmac.compare_digest(provided, DEPLOYER_SECRET):
         return web.json_response({"ok": False, "error": "forbidden"}, status=403)
 
     if _lock.locked():

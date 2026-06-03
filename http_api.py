@@ -363,8 +363,12 @@ def _ai_hmac_secret() -> bytes:
     raw = (
         (getattr(config, "AI_SESSION_SECRET", "") or "").strip()
         or (getattr(config, "API_SECRET_KEY", "") or "").strip()
-        or "fallback-dev-secret"
     )
+    if not raw:
+        raise RuntimeError(
+            "FATAL: Neither AI_SESSION_SECRET nor API_SECRET_KEY is set. "
+            "Cannot sign session tokens. Set at least one in .env and restart."
+        )
     return raw.encode("utf-8", errors="ignore")
 
 
@@ -5083,6 +5087,310 @@ def _render_maintenance_page() -> str:
 
     return html
 
+def _markdown_to_html(md_text: str, emoji_title: str) -> str:
+    lines = md_text.splitlines()
+    html_lines = []
+    in_list = False
+    in_quote = False
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        if stripped.startswith("- "):
+            if not in_list:
+                if in_quote:
+                    html_lines.append("</blockquote>")
+                    in_quote = False
+                html_lines.append('<ul class="doc-list">')
+                in_list = True
+            content = stripped[2:]
+            content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
+            html_lines.append(f'<li>{content}</li>')
+            continue
+        else:
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
+                
+        if stripped.startswith("> "):
+            if not in_quote:
+                html_lines.append('<blockquote class="doc-quote">')
+                in_quote = True
+            content = stripped[2:]
+            content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
+            html_lines.append(content)
+            continue
+        else:
+            if in_quote:
+                html_lines.append("</blockquote>")
+                in_quote = False
+
+        if not stripped:
+            continue
+            
+        if stripped.startswith("# "):
+            html_lines.append(f'<h1 class="doc-title">{emoji_title}</h1>')
+        elif stripped.startswith("## "):
+            title = stripped[3:]
+            html_lines.append(f'<h2 class="doc-header">{title}</h2>')
+        elif stripped.startswith("### "):
+            title = stripped[4:]
+            html_lines.append(f'<h3 class="doc-subheader">{title}</h3>')
+        elif stripped == "---":
+            html_lines.append('<hr class="doc-divider">')
+        else:
+            content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', stripped)
+            html_lines.append(f'<p class="doc-paragraph">{content}</p>')
+            
+    if in_list:
+        html_lines.append("</ul>")
+    if in_quote:
+        html_lines.append("</blockquote>")
+        
+    body_content = "\n".join(html_lines)
+    
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>{emoji_title}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script>
+    (function(){{
+      var theme = typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme');
+      if (!theme && typeof window.matchMedia === 'function')
+        theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+    }})();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root, html.theme-light {{
+      --bg: #fdf6f9;
+      --surface: #ffffff;
+      --accent: #d43f8d;
+      --accent2: #7c3aed;
+      --accent3: #4158d0;
+      --pink-soft: #fff0f7;
+      --pink-border: #fce4f2;
+      --text: #1a1a2e;
+      --muted: #9b7fa8;
+      --meta: #c4a8cc;
+      --card-shadow: 0 12px 40px rgba(212, 63, 141, 0.08), 0 2px 8px rgba(0,0,0,0.04);
+    }}
+    html.theme-dark {{
+      --bg: #0d0b14;
+      --surface: #18152a;
+      --text: #f0ecff;
+      --muted: #a090b8;
+      --meta: #6a5880;
+      --pink-soft: rgba(212,63,141,0.12);
+      --pink-border: rgba(212,63,141,0.18);
+      --card-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+    }}
+
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+    body {{
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+      position: relative;
+      line-height: 1.6;
+    }}
+
+    .orb {{
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.15;
+      pointer-events: none;
+      z-index: 0;
+    }}
+    .orb-1 {{ width: 400px; height: 400px; background: var(--accent); top: -100px; right: -100px; }}
+    .orb-2 {{ width: 300px; height: 300px; background: var(--accent3); bottom: -100px; left: -100px; }}
+
+    .container {{
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--pink-border);
+      border-radius: 24px;
+      box-shadow: var(--card-shadow);
+      padding: 40px 32px;
+      transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }}
+
+    @media (max-width: 480px) {{
+      body {{ padding: 20px 12px 60px; }}
+      .container {{ padding: 24px 16px; }}
+    }}
+
+    .doc-title {{
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 24px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }}
+
+    .doc-header {{
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 32px;
+      margin-bottom: 16px;
+      border-bottom: 2px solid var(--pink-soft);
+      padding-bottom: 6px;
+    }}
+
+    .doc-subheader {{
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }}
+
+    .doc-paragraph {{
+      margin-bottom: 16px;
+      color: var(--text);
+      opacity: 0.95;
+      font-size: 1.05rem;
+    }}
+
+    .doc-list {{
+      margin-bottom: 20px;
+      padding-left: 24px;
+      list-style-type: none;
+    }}
+
+    .doc-list li {{
+      position: relative;
+      margin-bottom: 8px;
+      font-size: 1.02rem;
+      color: var(--text);
+      opacity: 0.95;
+    }}
+
+    .doc-list li::before {{
+      content: "🌸";
+      position: absolute;
+      left: -24px;
+      top: 2px;
+      font-size: 0.85rem;
+    }}
+
+    .doc-quote {{
+      margin: 24px 0;
+      padding: 16px 20px;
+      background: var(--pink-soft);
+      border-left: 4px solid var(--accent);
+      border-radius: 0 12px 12px 0;
+      font-style: italic;
+      color: var(--text);
+      font-size: 1.05rem;
+    }}
+
+    .doc-divider {{
+      border: 0;
+      height: 1px;
+      background: var(--pink-border);
+      margin: 32px 0;
+    }}
+
+    .back-btn-container {{
+      margin-bottom: 24px;
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      justify-content: flex-start;
+      z-index: 1;
+    }}
+
+    .back-btn {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.95rem;
+      padding: 8px 16px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--pink-border);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }}
+
+    .back-btn:hover {{
+      color: var(--accent);
+      border-color: var(--accent);
+      transform: translateX(-3px);
+    }}
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <div class="back-btn-container">
+    <a href="/" class="back-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      На главную
+    </a>
+  </div>
+
+  <main class="container">
+    {body_content}
+  </main>
+</body>
+</html>
+"""
+
+async def privacy_page(request: web.Request) -> web.Response:
+    project_root = Path(__file__).resolve().parent
+    file_path = project_root / "privacy.md"
+    if not file_path.exists():
+        return web.Response(text="privacy.md not found", status=404)
+    try:
+        md_text = file_path.read_text(encoding="utf-8")
+    except Exception:
+        return web.Response(text="cannot read privacy.md", status=500)
+    
+    html_content = _markdown_to_html(md_text, "🔒 Конфиденциальность")
+    return web.Response(text=html_content, content_type="text/html", charset="utf-8")
+
+async def terms_page(request: web.Request) -> web.Response:
+    project_root = Path(__file__).resolve().parent
+    file_path = project_root / "terms.md"
+    if not file_path.exists():
+        return web.Response(text="terms.md not found", status=404)
+    try:
+        md_text = file_path.read_text(encoding="utf-8")
+    except Exception:
+        return web.Response(text="cannot read terms.md", status=500)
+    
+    html_content = _markdown_to_html(md_text, "📜 Пользовательское соглашение")
+    return web.Response(text=html_content, content_type="text/html", charset="utf-8")
+
 async def index(request: web.Request) -> web.StreamResponse:
 
     """Отдаёт главную страницу или страницу технического перерыва (если включена тест версия)."""
@@ -7498,7 +7806,12 @@ async def serve_settings_js(request: web.Request) -> web.Response:
 
 
 async def serve_avatar(request: web.Request) -> web.Response:
-    """Отдаёт аватарку по имени файла."""
+    """Отдаёт аватарку по имени файла.
+
+    SECURITY: аватары НЕ являются публичными.
+    Доступ разрешён только аутентифицированным участникам пары, которой принадлежит аватар.
+    Та же проверка владения (couple ownership), что и в protected_media (/media/{path}).
+    """
     trusted_vid = _get_trusted_visitor_id(request, payload=None, query_key="v")
     viewer_user_id = _visitor_to_user_id(trusted_vid or "")
     if not viewer_user_id:
@@ -7514,12 +7827,15 @@ async def serve_avatar(request: web.Request) -> web.Response:
         return web.Response(status=400)
     if not path.exists():
         return web.Response(status=404)
+    # Ownership check: the file must belong to the viewer's own couple.
+    # _media_belongs_to_user_couple handles the "avatars/" prefix branch (line ~581).
     if not _media_belongs_to_user_couple(f"avatars/{filename}", viewer_user_id):
         return web.Response(status=403)
     import mimetypes
     ct, _ = mimetypes.guess_type(str(path))
     return web.FileResponse(path, headers={"Content-Type": ct or "image/jpeg",
-                                           "Cache-Control": "public, max-age=86400"})
+                                           "Cache-Control": "private, max-age=86400"})
+
 
 
 async def check_celebrations(request: web.Request) -> web.Response:
@@ -7909,6 +8225,8 @@ def create_app() -> web.Application:
     app.router.add_get("/", index)
     app.router.add_get("/404", not_found_page)
     app.router.add_get("/404.html", not_found_page)
+    app.router.add_get("/privacy", privacy_page)
+    app.router.add_get("/terms", terms_page)
 
     app.router.add_get("/stats", stats_page)
     app.router.add_get("/admin", admin_page)

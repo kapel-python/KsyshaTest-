@@ -1,4 +1,5 @@
 import os
+import sys
 import hashlib
 from dataclasses import dataclass
 from datetime import date
@@ -22,7 +23,7 @@ class Config:
     BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
     BOT_SITE_URL: str = os.getenv("BOT_SITE_URL", "")
     SITE_DIRECT_URL: str = os.getenv("SITE_DIRECT_URL", "")
-    HTTP_HOST: str = os.getenv("HTTP_HOST", "0.0.0.0")
+    HTTP_HOST: str = os.getenv("HTTP_HOST", "0.0.0.0")  # 0.0.0.0 needed for cloudflared container; port NOT published to host (see docker-compose.yml)
     HTTP_PORT: int = int(os.getenv("HTTP_PORT", "25086"))
     BOT_USERNAME: str = os.getenv("BOT_USERNAME", "Akimova_Ksysha_love_bot")
     API_SECRET_KEY: str = os.getenv("API_SECRET_KEY", "")
@@ -32,6 +33,7 @@ class Config:
     DEPLOYER_URL: str = os.getenv("DEPLOYER_URL", "http://deployer:25100/deploy")
     SITE_AUTH_PASSWORD_KSYUSHA: str = os.getenv("SITE_AUTH_PASSWORD_KSYUSHA", "")
     SITE_AUTH_PASSWORD_CREATOR: str = os.getenv("SITE_AUTH_PASSWORD_CREATOR", "")
+    SECRETS_STRICT: bool = os.getenv("SECRETS_STRICT", "1").strip().lower() not in ("0", "false", "no", "off")
     
     
     TEXT_MARCH_8: str = """Привет! С праздником! 🎉
@@ -71,9 +73,33 @@ class Config:
                 h.update(chunk)
         return h.hexdigest()
     
+    def _check_required_secrets(self) -> None:
+        import logging
+        _REQUIRED = [
+            ("BOT_TOKEN",      self.BOT_TOKEN,      "Telegram Bot API token"),
+            ("API_SECRET_KEY", self.API_SECRET_KEY,  "API secret key for session signing"),
+        ]
+        # AI_SESSION_SECRET is optional only if API_SECRET_KEY is set (used as HMAC fallback)
+        hmac_ok = bool(self.AI_SESSION_SECRET.strip() or self.API_SECRET_KEY.strip())
+        missing = [name for name, val, _ in _REQUIRED if not (val or "").strip()]
+        if not hmac_ok:
+            missing.append("AI_SESSION_SECRET or API_SECRET_KEY (needed for HMAC token signing)")
+
+        if missing:
+            msg = (
+                "FATAL: Required secrets are not set:\n"
+                + "\n".join(f"  - {m}" for m in missing)
+                + "\nSet them in .env and restart. Refusing to start with SECRETS_STRICT=1."
+            )
+            print(msg, file=sys.stderr)
+            logging.critical(msg)
+            sys.exit(1)
+
     def __post_init__(self):
         import logging
-        import sys
+
+        if self.SECRETS_STRICT:
+            self._check_required_secrets()
 
         os.makedirs(self.MEDIA_FOLDER, exist_ok=True)
 

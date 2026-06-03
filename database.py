@@ -5746,12 +5746,22 @@ class Database:
             logger.exception("Ошибка set_unlink_status: %s", e)
             return False
 
-    def revoke_all_user_sessions(self, user_id: int, visitor_id_base: str) -> None:
+    def revoke_all_user_sessions(self, user_id: int, visitor_id_base: str, token_user_id: Optional[int] = None) -> None:
+        """
+        Отзывает все активные сессии и login-токены пользователя.
+
+        user_id / visitor_id_base — для удаления devices (всегда старый Telegram ID).
+        token_user_id — user_id, под которым хранятся user_login_tokens и user_tokens
+            в момент вызова. В сценарии transfer отличается от user_id: join_couple
+            уже перенёс токены с old_id → new_id до вызова этой функции.
+            Если None — используется user_id (обычный logout/deny).
+        """
+        effective_token_uid = token_user_id if token_user_id is not None else user_id
         try:
             with self._get_connection() as conn:
                 conn.execute("DELETE FROM devices WHERE visitor_id = ? OR visitor_id LIKE ?", (visitor_id_base, f"{visitor_id_base}_%"))
-                conn.execute("UPDATE user_login_tokens SET is_revoked = 1 WHERE user_id = ?", (user_id,))
-                conn.execute("DELETE FROM user_tokens WHERE user_id = ?", (user_id,))
+                conn.execute("UPDATE user_login_tokens SET is_revoked = 1 WHERE user_id = ?", (effective_token_uid,))
+                conn.execute("DELETE FROM user_tokens WHERE user_id = ?", (effective_token_uid,))
                 conn.commit()
         except Exception as e:
             logger.exception("Ошибка revoke_all_user_sessions: %s", e)

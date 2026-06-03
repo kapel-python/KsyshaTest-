@@ -1274,6 +1274,23 @@ async def cmd_start(message: Message, state: FSMContext):
             db.unlink_user_from_couple(unlink_req["couple_id"], old_user_id)
             used_couple_id = db.use_invite_code(invite_code, user_id)
             if used_couple_id and db.join_couple(used_couple_id, user_id):
+                # Отзываем все сессии и login-токены старого аккаунта.
+                # Делается ПОСЛЕ join_couple, чтобы старый владелец не потерял доступ
+                # в процессе трансфера — только по его завершении.
+                #
+                # join_couple уже перенёс user_login_tokens и user_tokens с
+                # old_user_id → user_id (новый Telegram ID). Поэтому:
+                #   - devices удаляем по old_user_id (visitor_id_base),
+                #   - токены ревоцируем по user_id (новый владелец, куда они переехали).
+                # Новый токен для нового аккаунта создаётся ниже (get_or_create_user_token).
+                visitor_base = f"{old_user_id}_"
+                db.revoke_all_user_sessions(old_user_id, visitor_base, token_user_id=user_id)
+                try:
+                    from http_api import _notify_force_logout
+                    import asyncio
+                    asyncio.create_task(_notify_force_logout(old_user_id))
+                except Exception:
+                    pass
                 db.add_admin(user_id, added_by=user_id)
                 site_url = (getattr(config, "BOT_SITE_URL", "") or getattr(config, "SITE_DIRECT_URL", "")).strip().rstrip("/")
                 site_kb_rows = []

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.223'
-description = 'В профиле перенаправлять на 404 при отсутствии данных'
+version = '1.0.224'
+description = 'Страницы /privacy и /terms'
 
 
 def get_version_metadata() -> tuple[str, str]:

@@ -8020,6 +8020,37 @@
         }
         aiHistoryLoaded = true;
       }
+      function updateAILimitsUI() {
+          const el = document.getElementById('aiDaysCounter');
+          if (!el) return;
+          const usage = (window.APP_DATA && window.APP_DATA.ai_usage) ? window.APP_DATA.ai_usage : null;
+          if (!usage || usage.remaining === undefined || usage.remaining === null) {
+             el.textContent = "Безлимитный доступ";
+             return;
+          }
+          if (usage.remaining > 0) {
+             el.textContent = `Осталось сообщений: ${usage.remaining}`;
+          } else {
+             if (usage.resets_at) {
+                const resetTime = new Date(usage.resets_at + 'Z');
+                const now = new Date();
+                const diffMs = resetTime - now;
+                if (diffMs > 0) {
+                   const diffMins = Math.ceil(diffMs / 60000);
+                   const hours = Math.floor(diffMins / 60);
+                   const mins = diffMins % 60;
+                   let timeStr = "";
+                   if (hours > 0) timeStr += hours + " ч. ";
+                   timeStr += mins + " мин.";
+                   el.textContent = `Лимит исчерпан. Обновление через ${timeStr.trim()}`;
+                } else {
+                   el.textContent = "Лимит восстанавливается...";
+                }
+             } else {
+                el.textContent = "Лимит исчерпан";
+             }
+          }
+      }
 
       function openAI() {
 
@@ -8048,19 +8079,8 @@
         const wt = document.getElementById('welcomeTime');
         if (wt && wt.textContent === '--:--') wt.textContent = aiNowTime();
 
-        // Счётчик дней
-        (function() {
-          const el = document.getElementById('aiDaysCounter');
-          if (!el) return;
-          const metRaw = (window.APP_DATA && window.APP_DATA.date_met) ? window.APP_DATA.date_met : null;
-          if (!metRaw) { el.textContent = "Дата не указана"; return; }
-          const met = new Date(metRaw);
-          const now = new Date();
-          const days = Math.floor((now - met) / 86400000);
-          const _dStr = (I18N[_stgState && _stgState.lang || 'ru'] || I18N.ru);
-          const _dayWord = _dStr.dayWord ? _dStr.dayWord(days) : (days % 10 === 1 && days % 100 !== 11 ? 'день' : (days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 10 || days % 100 >= 20) ? 'дня' : 'дней'));
-          el.textContent = days + ' ' + _dayWord + ' ' + (_dStr.togetherSuffix || 'вместе');
-        })();
+        // Обновляем счётчик при открытии
+        updateAILimitsUI();
 
         // Проставляем дату над welcome-сообщением
         const welcomeSep = document.getElementById('welcomeDateSep');
@@ -8895,6 +8915,9 @@
         // --- Показываем окошко с галочкой ---
         const done = document.createElement('div');
         done.className = 'ai-clear-done';
+        done.style.position = 'absolute';
+        done.style.zIndex = '999';
+        done.style.borderRadius = 'inherit';
         done.innerHTML =
           '<div class="ai-clear-done-inner">' +
             '<svg class="ai-clear-done-svg" viewBox="0 0 100 100">' +
@@ -8904,12 +8927,16 @@
             '<div class="ai-clear-done-title">' + _ui('aiHistoryDeleted') + '</div>' +
             '<div class="ai-clear-done-sub">' + _ui('aiHistoryReloading') + '</div>' +
           '</div>';
-        document.body.appendChild(done);
+        if (modal) {
+           modal.appendChild(done);
+        } else {
+           document.body.appendChild(done);
+        }
 
-        // 3 секунды — потом reload
-        await new Promise(r => setTimeout(r, 3000));
+        // 1 секунда — потом reload
+        await new Promise(r => setTimeout(r, 1000));
         closeAI();
-        await new Promise(r => setTimeout(r, 350));
+        await new Promise(r => setTimeout(r, 150));
         location.reload();
       }
 
@@ -9702,6 +9729,10 @@
               if (bubble) bubble.innerHTML = parseMarkdown(fullReply);
             }
             if (suggestions.length) addAISuggestions(suggestions);
+            if (window.APP_DATA && window.APP_DATA.ai_usage && window.APP_DATA.ai_usage.remaining > 0) {
+               window.APP_DATA.ai_usage.remaining--;
+               if (typeof updateAILimitsUI === 'function') updateAILimitsUI();
+            }
             success = true;
 
           } catch (e) {

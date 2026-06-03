@@ -2131,7 +2131,20 @@ def _collect_site_data(
     if wants_profile_stats:
         profile_stats = _build_profile_stats_for_visitor(visitor_id, timezone_id)
 
+    ai_usage = {}
+    if visitor_id:
+        try:
+            _limit_key = _get_companion_limit_key(visitor_id)
+            if _limit_key:
+                from constants import COMPANION_LIMIT_BY_TIER
+                _tier  = db.get_user_tier(_limit_key)
+                _limit = COMPANION_LIMIT_BY_TIER.get(_tier, 50)
+                ai_usage = db.get_ai_usage_status(_limit_key, _limit)
+        except Exception as e:
+            logger.error("Failed to get ai_usage for visitor %s: %s", visitor_id, e)
+
     return {
+        "ai_usage": ai_usage,
 
         "creator_id": creator_id,
 

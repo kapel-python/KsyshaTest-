@@ -14,8 +14,6 @@ services:
       - RUN_STARTUP_TESTS=0
       - CLOUDFLARED_MANAGED_EXTERNALLY=1
       - CLOUDFLARED_PATH=/app/cloudflared
-      - DATABASE_PATH=/app/data/memories.db
-      - MEDIA_FOLDER=/app/media
     ports:
       - "25086:25086"
     healthcheck:
@@ -26,11 +24,11 @@ services:
       start_period: 40s
     stop_grace_period: 30s
     volumes:
-      - /workspace/data:/app/data
-      - /workspace/media:/app/media
       - /var/run/docker.sock:/var/run/docker.sock
-      - /root/KsyshaTest:/workspace
       - ~/.ssh:/root/.ssh:ro
+      - /root/KsyshaTest:/workspace
+      - /workspace/data:/workspace/data
+      - /workspace/media:/workspace/media
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: ksysha-cloudflared

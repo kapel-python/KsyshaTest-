@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="/root/KsyshaTest"
 LOG_DIR="$ROOT_DIR/backups"
 LOG_FILE="$LOG_DIR/backup.log"
-DB_PATH="${DATABASE_PATH:-/workspace/data/memories.db}"
+DB_PATH="/workspace/data/memories.db"
 
 mkdir -p "$LOG_DIR"
 

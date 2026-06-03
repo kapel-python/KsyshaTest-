@@ -8,6 +8,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Single canonical Production database path.
+# This is the ONLY path that Production will ever use.
+# To change it you must edit this constant explicitly — there is no automatic selection.
+PRODUCTION_DB_PATH = "/workspace/data/memories.db"
+
 
 @dataclass
 class Config:
@@ -45,7 +50,10 @@ class Config:
     TEXT_FOR_OTHER_USERS: str = """Этот бот имеет ограниченный доступ.
 Если хочешь чтобы тебе открыли доступ — обратись к создателю."""
     
-    DATABASE_PATH: str = os.getenv("DATABASE_PATH", "memories.db")
+    # DATABASE_PATH is always PRODUCTION_DB_PATH.
+    # It is a field (not a constant) so that future TEST MODE can override it
+    # explicitly via an admin command — never automatically.
+    DATABASE_PATH: str = PRODUCTION_DB_PATH
     HOT_BACKUP_ENABLED: bool = os.getenv("HOT_BACKUP_ENABLED", "1").strip().lower() not in ("0", "false", "no", "off")
     HOT_BACKUP_PATH: str = os.getenv("HOT_BACKUP_PATH", "")
     DATE_MET: Optional[date] = None
@@ -63,104 +71,64 @@ class Config:
         return h.hexdigest()
     
     def __post_init__(self):
+        import logging
+        import sys
+
         os.makedirs(self.MEDIA_FOLDER, exist_ok=True)
 
         if self.SITE_OPEN_DATE is None:
             self.SITE_OPEN_DATE = date(2026, 2, 8)
 
-        # Standardize single canonical database location based on environment
-        import logging
-        import sys
-        
-        ALLOWED_PRODUCTION_PATHS = {
-            "/app/data/memories.db",
-            "/root/KsyshaTest/data/memories.db",
-            "/workspace/data/memories.db"
-        }
-        
-        allow_dev = os.getenv("ALLOW_DEVELOPMENT_DB", "0").strip().lower() in ("1", "true", "yes", "on")
-        app_env = os.getenv("APP_ENV", "").strip().lower()
-        is_dev_mode = allow_dev or (app_env in ("development", "test", "demo"))
-        self.IS_DEV_MODE = is_dev_mode
-        
-        is_docker = os.path.exists("/.dockerenv")
-        canonical_host_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/memories.db"))
-        
-        env_db_path = os.getenv("DATABASE_PATH")
-        if env_db_path:
-            resolved_path = env_db_path
-        else:
-            if is_docker:
-                resolved_path = "/app/data/memories.db"
-            else:
-                resolved_path = canonical_host_path
-            
-        self.DATABASE_PATH = resolved_path
-        
-        mode_str = "DEVELOPMENT" if is_dev_mode else "PRODUCTION"
+        # DATABASE_PATH is unconditionally set to the single canonical Production path.
+        # There is no environment variable override, no docker/host detection,
+        # no whitelist of multiple paths, and no automatic fallback.
+        # Future TEST MODE must set self.DATABASE_PATH explicitly via an admin command.
+        self.DATABASE_PATH = PRODUCTION_DB_PATH
+
         print(f"ACTIVE DATABASE: {self.DATABASE_PATH}")
-        print(f"DATABASE MODE: {mode_str}")
+        print(f"DATABASE MODE: PRODUCTION")
         logging.info(f"ACTIVE DATABASE: {self.DATABASE_PATH}")
-        logging.info(f"DATABASE MODE: {mode_str}")
-        
-        if not is_dev_mode:
-            abs_resolved_path = os.path.abspath(self.DATABASE_PATH)
-            if abs_resolved_path not in ALLOWED_PRODUCTION_PATHS:
-                msg = f"CRITICAL ERROR: Active database path '{abs_resolved_path}' is not in the whitelist of allowed production paths. Exiting."
-                print(msg, file=sys.stderr)
-                logging.critical(msg)
-                sys.exit(1)
-        
-        # Check for ghost databases and issue a warning
-        potential_ghosts = [
+        logging.info(f"DATABASE MODE: PRODUCTION")
+
+        # Abort if the canonical path is somehow overridden to something unexpected.
+        # This is a defence-in-depth check — it should never fire under normal operation.
+        if os.path.abspath(self.DATABASE_PATH) != os.path.abspath(PRODUCTION_DB_PATH):
+            msg = (
+                f"FATAL: DATABASE_PATH was mutated to '{self.DATABASE_PATH}' "
+                f"which differs from PRODUCTION_DB_PATH '{PRODUCTION_DB_PATH}'. "
+                "This is not allowed. Exiting."
+            )
+            print(msg, file=sys.stderr)
+            logging.critical(msg)
+            sys.exit(1)
+
+        # Warn about any other memories.db files found outside the canonical path.
+        # These are treated as orphans — they are never used, never switched to.
+        _ghost_candidates = [
             "/app/data/memories.db",
             "/root/KsyshaTest/data/memories.db",
-            "/workspace/data/memories.db",
-            canonical_host_path
+            "/root/KsyshaTest/memories.db",
         ]
-        
-        found_dbs = []
-        for p in set(potential_ghosts):
+        canonical_abs = os.path.abspath(self.DATABASE_PATH)
+        for ghost_path in _ghost_candidates:
             try:
-                if os.path.exists(p) and os.path.isfile(p):
-                    found_dbs.append(p)
-            except Exception:
-                pass
-                
-        if len(found_dbs) > 1:
-            details = []
-            for p in sorted(found_dbs):
-                try:
-                    st = os.stat(p)
-                    details.append({
-                        "path": p,
-                        "size": int(st.st_size),
-                        "mtime": int(st.st_mtime),
-                        "sha256": self._file_sha256(p),
-                    })
-                except Exception:
-                    details.append({"path": p, "error": "stat_failed"})
-
-            unique_fingerprints = {
-                (d.get("size"), d.get("sha256"))
-                for d in details
-                if d.get("sha256")
-            }
-
-            if len(unique_fingerprints) > 1:
+                ghost_abs = os.path.abspath(ghost_path)
+                if ghost_abs == canonical_abs:
+                    continue
+                if not (os.path.exists(ghost_abs) and os.path.isfile(ghost_abs)):
+                    continue
+                ghost_size = os.path.getsize(ghost_abs)
+                if ghost_size == 0:
+                    continue
                 msg = (
-                    "CRITICAL: Multiple divergent memories.db files detected. "
-                    f"Canonical DATABASE_PATH={self.DATABASE_PATH}. Details={details}."
-                )
-                print(msg)
-                logging.critical(msg)
-            else:
-                msg = (
-                    "INFO: Multiple memories.db paths detected but contents match. "
-                    f"Canonical DATABASE_PATH={self.DATABASE_PATH}. Details={details}"
+                    f"WARNING: Orphan database file detected at '{ghost_path}' "
+                    f"(size={ghost_size} bytes). "
+                    f"This file is NOT used. Canonical DB is '{canonical_abs}'."
                 )
                 print(msg)
                 logging.warning(msg)
+            except Exception:
+                pass
 
         self.CATEGORIES = {
             "important_moments": {

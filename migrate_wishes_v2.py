@@ -10,9 +10,8 @@ import sqlite3
 import sys
 import os
 
-DATABASE_PATH = os.environ.get("DATABASE_PATH") or os.path.join(
-    os.path.dirname(__file__), "data", "bot.db"
-)
+PRODUCTION_DB_PATH = "/workspace/data/memories.db"
+DATABASE_PATH = os.environ.get("DATABASE_PATH") or PRODUCTION_DB_PATH
 
 
 def _table_has_unique_on_wish_number(conn: sqlite3.Connection) -> bool:

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.201'
-description = 'При любой неизвестной ссылки перенаправлять на 404'
+version = '1.0.202'
+description = 'Фикс использования нескольких (3 или 4) баз данных вместо 1 боевой'
 
 
 def get_version_metadata() -> tuple[str, str]:

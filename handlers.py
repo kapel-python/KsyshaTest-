@@ -320,24 +320,24 @@ class BotActivityMiddleware(BaseMiddleware):
                             new_user_id = rebound_info["user_id"]
                             new_first_name = rebound_info.get("first_name") or "нового аккаунта"
                             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-                        from aiogram.enums import ParseMode
-                        import html
-                        
-                        safe_name = html.escape(new_first_name)
-                        text = (
-                            f"🔐 Этот аккаунт перепривязан к <a href='tg://user?id={new_user_id}'>{safe_name}</a>. "
-                            f"Хочешь создать новый аккаунт?"
-                        )
-                        kb = InlineKeyboardMarkup(inline_keyboard=[
-                            [InlineKeyboardButton(text="🫪 Создать", callback_data="rebound_create_new")]
-                        ])
-                        
-                        if event.message:
-                            await event.message.answer(text, reply_markup=kb, parse_mode=ParseMode.HTML)
-                        elif event.callback_query:
-                            await event.callback_query.message.answer(text, reply_markup=kb, parse_mode=ParseMode.HTML)
-                            await event.callback_query.answer()
-                        return
+                            from aiogram.enums import ParseMode
+                            import html
+                            
+                            safe_name = html.escape(new_first_name)
+                            text = (
+                                f"🔐 Этот аккаунт перепривязан к <a href='tg://user?id={new_user_id}'>{safe_name}</a>. "
+                                f"Хочешь создать новый аккаунт?"
+                            )
+                            kb = InlineKeyboardMarkup(inline_keyboard=[
+                                [InlineKeyboardButton(text="🫪 Создать", callback_data="rebound_create_new")]
+                            ])
+                            
+                            if event.message:
+                                await event.message.answer(text, reply_markup=kb, parse_mode=ParseMode.HTML)
+                            elif event.callback_query:
+                                await event.callback_query.message.answer(text, reply_markup=kb, parse_mode=ParseMode.HTML)
+                                await event.callback_query.answer()
+                            return
 
         # Жесткий gate: если пользователь не авторизован, блокируем любой доступ
         # к функционалу кроме /start (вход/привязка пары).

@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.221'
-description = 'Название Sure Memory + удаление блока статистики из олавньй'
+version = '1.0.222'
+description = 'Оптимизация загрузки профиля'
 
 
 def get_version_metadata() -> tuple[str, str]:

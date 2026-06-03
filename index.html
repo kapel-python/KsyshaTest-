@@ -9855,8 +9855,28 @@
             throw new Error('Invalid bootstrap payload');
           }
           window.APP_DATA = data;
-          if (typeof applyI18n === 'function') {
-            applyI18n(_stgState.lang);
+          const welcomeTitleEl = document.querySelector('[data-i18n="welcomeTitle"]');
+          if (welcomeTitleEl) {
+            const vidCookie = getCookie('visitor_id');
+            let loggedInUserId = vidCookie ? vidCookie.split('_')[0] : null;
+            if (loggedInUserId === 'ksyusha' || loggedInUserId === 'partner') {
+              loggedInUserId = String(data.partner_id);
+            } else if (loggedInUserId === 'creator') {
+              loggedInUserId = String(data.creator_id);
+            }
+            const isCreator = loggedInUserId && String(data.creator_id) === loggedInUserId;
+            const isPartner = loggedInUserId && String(data.partner_id) === loggedInUserId;
+            const users = data.users || {};
+            const creator = users.creator || {};
+            const partner = users.ksyusha || users.partner || {};
+            const myInfo = isCreator ? creator : (isPartner ? partner : creator);
+            const myName = myInfo.display || myInfo.first_name || '';
+            if (myName) {
+              const lang = (_stgState && _stgState.lang) || 'ru';
+              const tr = I18N[lang] || I18N.ru;
+              const baseText = (tr.welcomeTitle || 'Привет').replace(/[!,.]/g, '').trim();
+              welcomeTitleEl.textContent = baseText + ', ' + myName + '!';
+            }
           }
 
           const respEtag = resp.headers.get('ETag') || cachedEtag;
@@ -14532,12 +14552,23 @@
       function closeAddModal() {
         const modal = document.getElementById('addModal');
         const sheet = document.getElementById('addModalSheet');
-        sheet.style.transition = 'transform 0.25s ease, opacity 0.2s ease';
-        sheet.style.transform  = 'scale(0.92)';
-        sheet.style.opacity    = '0';
+        if (modal) {
+          modal.style.transition = 'opacity 0.24s ease';
+          modal.style.opacity = '0';
+        }
+        if (sheet) {
+          sheet.style.transition = 'transform 0.24s ease, opacity 0.2s ease';
+          sheet.style.transform  = 'scale(0.92)';
+          sheet.style.opacity    = '0';
+        }
         setTimeout(() => {
-          modal.classList.remove('open');
-          sheet.style.cssText = '';
+          if (modal) {
+            modal.classList.remove('open');
+            modal.style.cssText = '';
+          }
+          if (sheet) {
+            sheet.style.cssText = '';
+          }
           document.body.style.overflow = '';
         }, 240);
       }

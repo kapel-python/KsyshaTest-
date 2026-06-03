@@ -1288,288 +1288,156 @@ async def info(request: web.Request) -> web.Response:
     return _add_cors_headers(resp)
 
 def _parse_user_agent(user_agent: str) -> str:
-
-    """Ставит человекопонятный вид вида 'Android 10, Chrome' вместо длинной UA-строки."""
-
+    """Парсит User-Agent в простую и легко читаемую строку (например, Android 16, Chrome)."""
     if not user_agent:
-
         return "Неизвестное устройство"
 
     ua = user_agent
-
     ua_l = ua.lower()
 
+    # Вспомогательная функция для мажорной версии
+    def get_major(v_str: str) -> str:
+        if not v_str:
+            return ""
+        parts = v_str.replace("_", ".").split(".")
+        return parts[0] if parts else ""
+
     # Определяем ОС
-
-    os = "Неизвестная ОС"
-
+    os = ""
     if "android" in ua_l:
-
         m = re.search(r"Android\s+([\d\.]+)", ua, re.IGNORECASE)
-
-        os = f"Android {m.group(1)}" if m else "Android"
-
+        os = f"Android {get_major(m.group(1))}" if m else "Android"
     elif "iphone" in ua_l or "ipad" in ua_l or "cpu iphone os" in ua_l:
-
         m = re.search(r"OS\s+([\d_]+)", ua)
-
-        if m:
-
-            ver = m.group(1).replace("_", ".")
-
-            os = f"iOS {ver}"
-
-        else:
-
-            os = "iOS"
-
+        os = f"iOS {get_major(m.group(1))}" if m else "iOS"
     elif "windows nt" in ua_l:
-
-        nt_map = {
-
-            "10.0": "Windows 10/11",
-
-            "6.3": "Windows 8.1",
-
-            "6.2": "Windows 8",
-
-            "6.1": "Windows 7",
-
-        }
-
         m = re.search(r"Windows NT\s+([\d\.]+)", ua, re.IGNORECASE)
-
-        if m:
-
-            ver = m.group(1)
-
-            os = nt_map.get(ver, f"Windows {ver}")
-
-        else:
-
-            os = "Windows"
-
+        nt_ver = m.group(1) if m else ""
+        os = "Windows 10/11" if nt_ver == "10.0" else ("Windows 8.1" if nt_ver == "6.3" else ("Windows 8" if nt_ver == "6.2" else ("Windows 7" if nt_ver == "6.1" else "Windows")))
     elif "mac os x" in ua_l:
-
         m = re.search(r"Mac OS X\s+([\d_]+)", ua, re.IGNORECASE)
-
-        if m:
-
-            ver = m.group(1).replace("_", ".")
-
-            os = f"macOS {ver}"
-
-        else:
-
-            os = "macOS"
-
+        os = f"macOS {get_major(m.group(1))}" if m else "macOS"
     elif "linux" in ua_l:
-
         os = "Linux"
+    else:
+        os = "Другая ОС"
 
-    browser = "Неизвестный браузер"
-
+    # Определяем Браузер
+    browser = ""
     if "samsungbrowser/" in ua_l:
-
         m = re.search(r"SamsungBrowser/([\d\.]+)", ua, re.IGNORECASE)
-
-        browser = f"Samsung Browser {m.group(1)}" if m else "Samsung Browser"
-
+        browser = f"Samsung Browser {get_major(m.group(1))}" if m else "Samsung Browser"
     elif "edg/" in ua_l or "edga/" in ua_l or "edgios/" in ua_l:
-
         m = re.search(r"Edg[aAios]?/([\d\.]+)", ua, re.IGNORECASE)
-
-        browser = f"Edge {m.group(1)}" if m else "Edge"
-
+        browser = f"Edge {get_major(m.group(1))}" if m else "Edge"
     elif "opr/" in ua_l or "opera/" in ua_l:
-
         m = re.search(r"(?:OPR|Opera)/([\d\.]+)", ua, re.IGNORECASE)
-
-        browser = f"Opera {m.group(1)}" if m else "Opera"
-
+        browser = f"Opera {get_major(m.group(1))}" if m else "Opera"
     elif "yabrowser/" in ua_l:
-
         m = re.search(r"YaBrowser/([\d\.]+)", ua, re.IGNORECASE)
-
-        browser = f"Яндекс Браузер {m.group(1)}" if m else "Яндекс Браузер"
-
+        browser = f"Yandex {get_major(m.group(1))}" if m else "Yandex"
     elif "chrome/" in ua_l and "chromium/" not in ua_l:
-
         m = re.search(r"Chrome/([\d\.]+)", ua)
-
-        browser = f"Chrome {m.group(1)}" if m else "Chrome"
-
+        browser = f"Chrome {get_major(m.group(1))}" if m else "Chrome"
+    elif "chromium/" in ua_l:
+        m = re.search(r"Chromium/([\d\.]+)", ua)
+        browser = f"Chrome {get_major(m.group(1))}" if m else "Chrome"
     elif "firefox/" in ua_l:
-
         m = re.search(r"Firefox/([\d\.]+)", ua)
-
-        browser = f"Firefox {m.group(1)}" if m else "Firefox"
-
+        browser = f"Firefox {get_major(m.group(1))}" if m else "Firefox"
     elif "safari/" in ua_l and "chrome/" not in ua_l:
-
         m = re.search(r"Version/([\d\.]+)", ua)
+        browser = f"Safari {get_major(m.group(1))}" if m else "Safari"
+    else:
+        browser = "Браузер"
 
-        browser = f"Safari {m.group(1)}" if m else "Safari"
-
-    # Тип устройства
-
-    device = "Desktop"
-
-    if "mobile" in ua_l or "android" in ua_l or "iphone" in ua_l:
-
-        device = "Mobile"
-
-    elif "ipad" in ua_l or "tablet" in ua_l:
-
-        device = "Tablet"
-
-    # Пытаемся вытащить модель устройства (для Android это, как правило, строка вида SM-XXXX)
-
+    # Модель устройства (упрощённая)
     model = ""
-
     if "android" in ua_l:
-
-        # Пример: "... Android 10; SM-A515F Build/..."
-
         m = re.search(r"Android\s+[\d\.]+;\s*([^;]+?)\s+Build", ua, re.IGNORECASE)
-
         if m:
-
             model = m.group(1).strip()
-
-    elif "iphone" in ua_l or "cpu iphone os" in ua_l:
-
-        # Для iPhone из UA нельзя достоверно узнать конкретную модель (11/12/13 и т.п.)
-
-        # Поэтому оставляем просто "iPhone".
-
+            model = model.split(" ")[0]
+    elif "iphone" in ua_l:
         model = "iPhone"
-
     elif "ipad" in ua_l:
-
         model = "iPad"
 
-    base = f"{os}, {browser} ({device})"
-
-    if model:
-
-        return f"{base}, {model}"
-
-    return base
+    parts = []
+    if os and os != "Другая ОС":
+        parts.append(os)
+    if browser and browser != "Браузер":
+        parts.append(browser)
+    if model and model not in parts and not any(model.lower() in p.lower() for p in parts):
+        parts.append(model)
+        
+    if not parts:
+        return "Устройство"
+    return ", ".join(parts)
 
 def _format_device_info(user_agent_raw: str, ua_hints: dict | None) -> str:
-
-    """
-
-    Более современный формат описания устройства:
-
-    - Пытаемся использовать User-Agent Client Hints (то, что пришло с фронта),
-
-      чтобы показать реальную платформу, версию и модель (Pixel 8, и т.п.)
-
-    - Если hints нет или они пустые — возвращаем парсинг обычного UA.
-
-    """
-
+    """Форматирует информацию об устройстве в простой и легко читаемый вид."""
     if not ua_hints or not isinstance(ua_hints, dict):
-
         return _parse_user_agent(user_agent_raw)
 
     platform = (ua_hints.get("platform") or "").strip()
-
     platform_ver = (ua_hints.get("platformVersion") or "").strip()
-
     model = (ua_hints.get("model") or "").strip()
-
-    arch = (ua_hints.get("architecture") or "").strip()
-
-    bitness = (ua_hints.get("bitness") or "").strip()
-
-    mobile = bool(ua_hints.get("mobile"))
-
     full_list = ua_hints.get("fullVersionList") or ua_hints.get("full_version_list") or []
 
-    # ОС
+    # Упрощаем версию ОС
+    if platform_ver:
+        platform_ver = platform_ver.split(".")[0]
 
     os_str = platform or "Неизвестная платформа"
-
     if platform_ver:
-
         os_str = f"{os_str} {platform_ver}"
 
     # Браузер
-
-    browser_str = "Неизвестный браузер"
-
-    if isinstance(full_list, list):
-
-        # Ищем запись с Chrome/Chromium, иначе берём первую
-
+    browser_str = "Браузер"
+    if isinstance(full_list, list) and full_list:
         chrome_entry = None
-
-        if full_list:
-
-            for item in full_list:
-
-                try:
-
-                    brand = (item.get("brand") or "").lower()
-
-                    if "chrome" in brand or "chromium" in brand:
-
-                        chrome_entry = item
-
-                        break
-
-                except Exception:
-
-                    continue
-
-        entry = chrome_entry or (full_list[0] if full_list else None)
-
+        for item in full_list:
+            try:
+                brand = (item.get("brand") or "").lower()
+                if "chrome" in brand or "chromium" in brand:
+                    chrome_entry = item
+                    break
+            except Exception:
+                continue
+        entry = chrome_entry or full_list[0]
         if entry:
-
             brand = entry.get("brand") or "Браузер"
-
+            # Упрощаем бренд
+            if "chromium" in brand.lower() or "chrome" in brand.lower():
+                brand = "Chrome"
+            elif "edge" in brand.lower():
+                brand = "Edge"
+            elif "opera" in brand.lower():
+                brand = "Opera"
+            elif "yandex" in brand.lower():
+                brand = "Yandex"
+            
             version = entry.get("version") or ""
+            version_major = version.split(".")[0] if version else ""
+            if version_major:
+                browser_str = f"{brand} {version_major}"
+            else:
+                browser_str = brand
 
-            browser_str = f"{brand} {version}".strip()
-
-    # Тип устройства
-
-    device_type = "Desktop"
-
-    if mobile or platform.lower() in ("android", "ios"):
-
-        device_type = "Mobile"
-
-    base = f"{os_str}, {browser_str} ({device_type})"
-
-    extra_bits = []
-
-    if arch:
-
-        if bitness:
-
-            extra_bits.append(f"{arch}/{bitness}")
-
-        else:
-
-            extra_bits.append(arch)
-
-    elif bitness:
-
-        extra_bits.append(f"{bitness}-bit")
-
+    parts = []
+    if os_str and os_str != "Неизвестная платформа":
+        parts.append(os_str)
+    if browser_str and browser_str != "Браузер":
+        parts.append(browser_str)
     if model:
+        model_clean = model.split(" ")[0]
+        if model_clean not in parts and not any(model_clean.lower() in p.lower() for p in parts):
+            parts.append(model_clean)
 
-        extra_bits.append(model)
-
-    if extra_bits:
-
-        return f"{base}, " + ", ".join(extra_bits)
-
-    return base
+    if not parts:
+        return "Устройство"
+    return ", ".join(parts)
 
 def _is_private_ip(ip: str) -> bool:
 
@@ -5660,7 +5528,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
             "page_title":      "Твоя статистика",
             "hero_badge":      "✨ Только для тебя",
             "hero_title":      "Твоя<br><em>статистика</em>",
-            "hero_sub":        "Тут ты увидишь свою статистику сайта",
+            "hero_sub":        "Статистика использования сайта",
             "counter_from":    "С",
             "counter_days":    lambda d: f"· {d} дн.",
             "counter_no_data": "Ещё нет ни одного визита",

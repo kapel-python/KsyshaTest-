@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.219'
-description = 'Неправильная подстановка даты в созданных моментах, улучшение текста и фикс кастомных категорий'
+version = '1.0.220'
+description = 'Фикс отсутствия кнопки добавить момент на сайте'
 
 
 def get_version_metadata() -> tuple[str, str]:

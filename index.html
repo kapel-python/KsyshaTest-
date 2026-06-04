@@ -9855,7 +9855,7 @@
           
           const errMsg = String(e.message || e || '');
           if (errMsg.includes('HTTP 403') || errMsg.includes('HTTP 401') || errMsg.includes('token_invalid') || errMsg.includes('token_expired') || errMsg.includes('invalid_token')) {
-            window.location.replace('/404');
+            window.location.replace('/main');
             return;
           } else if (errMsg.includes('HTTP 502') || errMsg.includes('HTTP 503') || errMsg.includes('HTTP 504')) {
             reason = t.errMaintenanceReason;
@@ -12672,7 +12672,7 @@
               try {
                 const msg = JSON.parse(e.data);
                 if (msg.type === 'force_logout') {
-                  window.location.replace('/404');
+                  window.location.replace('/main');
                   return;
                 }
                 if (msg.type === 'notification' && msg.notification) {
@@ -13526,7 +13526,7 @@
           if (!_vid) {
             setCookie(ROLE_COOKIE_NAME, '', -1);
             setCookie(AUTH_COOKIE_NAME, '', -1);
-            window.location.replace('/404');
+            window.location.replace('/main');
             return;
           }
           window.__visitorId = _vid;
@@ -13549,7 +13549,7 @@
         } else {
 
           // Нет токена и нет сохранённой сессии — отправляем на страницу регистрации
-          window.location.replace('/404');
+          window.location.replace('/main');
 
         }
 

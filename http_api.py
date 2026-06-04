@@ -4590,7 +4590,7 @@ async def api_sky_cfg(request: web.Request) -> web.Response:
 async def sky_page(request: web.Request) -> web.Response:
     """Отдаёт страницу /sky (sky.html). Требует зарегистрированную пару."""
     if not _get_registered_couple(request):
-        raise web.HTTPFound("/404")
+        raise web.HTTPFound("/main")
 
     if db.get_setting("test_version") == "1":
         html = _render_maintenance_page()
@@ -5700,7 +5700,7 @@ async def index(request: web.Request) -> web.StreamResponse:
     if not has_token:
         visitor_id = _get_trusted_visitor_id(request)
         if not visitor_id:
-            raise web.HTTPFound("/404")
+            raise web.HTTPFound("/main")
 
     if db.get_setting("test_version") == "1":
 
@@ -5765,6 +5765,27 @@ async def not_found_page(request: web.Request, status_code: int = 200) -> web.Re
     return web.Response(text=html, content_type="text/html", charset="utf-8", status=status_code)
 
 
+async def main_page(request: web.Request) -> web.Response:
+    """Отдаёт публичную главную страницу (/main) для неавторизованных пользователей."""
+    project_root = Path(__file__).resolve().parent
+    page_path = project_root / "main.html"
+    if not page_path.exists():
+        return web.Response(text="main.html not found", status=404)
+    try:
+        html = page_path.read_text(encoding="utf-8")
+    except Exception:
+        logger.exception("Cannot read main.html")
+        return web.Response(text="cannot read main.html", status=500)
+    bot_username = (getattr(config, "BOT_USERNAME", "") or "Akimova_Ksysha_love_bot").strip()
+    html = html.replace("{{BOT_USERNAME}}", bot_username)
+    return web.Response(
+        text=html,
+        content_type="text/html",
+        charset="utf-8",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
 async def profile_page(request: web.Request) -> web.Response:
     """Отдаёт страницу профиля (/profile).
 
@@ -5776,7 +5797,7 @@ async def profile_page(request: web.Request) -> web.Response:
     visitor_id = _get_trusted_visitor_id(request)
     if not visitor_id:
         logger.warning(f"SERVER REDIRECT: profile_page invalid visitor_id! Headers: {request.headers}")
-        raise web.HTTPFound("/404")
+        raise web.HTTPFound("/main")
 
     if db.get_setting("test_version") == "1":
         html = _render_maintenance_page()
@@ -5785,7 +5806,7 @@ async def profile_page(request: web.Request) -> web.Response:
     _prof_uid = _visitor_to_user_id(visitor_id)
     if not _prof_uid or not db.get_couple_by_user(_prof_uid):
         logger.warning(f"SERVER REDIRECT: profile_page missing couple data for {visitor_id}")
-        raise web.HTTPFound("/404")
+        raise web.HTTPFound("/main")
 
     project_root = Path(__file__).resolve().parent
     page_path = project_root / "profile.html"
@@ -6041,10 +6062,10 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     # (query-параметры нужны для Telegram WebView, где cookies недоступны).
     session_vid = _get_trusted_visitor_id(request)
     if not session_vid:
-        raise web.HTTPFound("/404")
+        raise web.HTTPFound("/main")
     _stats_uid = _visitor_to_user_id(session_vid)
     if not _stats_uid or not db.get_couple_by_user(_stats_uid):
-        raise web.HTTPFound("/404")
+        raise web.HTTPFound("/main")
 
     if db.get_setting("test_version") == "1":
         html = _render_maintenance_page()
@@ -8537,6 +8558,7 @@ def create_app() -> web.Application:
     )
 
     app.router.add_get("/", index)
+    app.router.add_get("/main", main_page)
     app.router.add_get("/404", not_found_page)
     app.router.add_get("/404.html", not_found_page)
     app.router.add_get("/privacy", privacy_page)

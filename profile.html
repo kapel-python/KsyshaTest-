@@ -1166,7 +1166,7 @@ function _checkAuthAndLoad() {
   const vid = _getCookie('visitor_id');
 
   if (!vid) {
-    window.location.replace('/404');
+    window.location.replace('/main');
     return;
   }
 
@@ -1176,14 +1176,14 @@ function _checkAuthAndLoad() {
   })
   .then(r => {
     if (r.status === 403 || r.status === 401) {
-      window.location.replace('/404');
+      window.location.replace('/main');
       return null;
     }
     return r.json();
   })
   .then(data => {
     if (!data || typeof data !== 'object' || data.error || !data.creator_id) {
-      window.location.replace('/404');
+      window.location.replace('/main');
       return;
     }
     _populateProfile(data);

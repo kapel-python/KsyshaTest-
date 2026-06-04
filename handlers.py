@@ -6216,7 +6216,7 @@ async def admin_create_release(callback: CallbackQuery, state: FSMContext):
     rb_active = db.get_setting("rollback_active") == "1"
     warn_msg = ""
     if rb_active:
-        warn_msg += "⚠️ <b>Внимание:</b> Активен откат. Создание нового релиза автоматически завершит откат.\n\n"
+        warn_msg += "⚠️ <b>Внимание:</b> Активен откат. Релиз будет создан поверх текущей активной версии (база отката) + ваши изменения. Номер версии увеличится относительно максимальной существующей версии. Откат будет завершён.\n\n"
         
     dirty_files = status_info.get("modified_files", [])
     if dirty_files:
@@ -6271,7 +6271,21 @@ async def admin_release_description_received(message: Message, state: FSMContext
     await state.update_data(release_description=description)
     
     from app_version import get_version_metadata
-    current_ver, _ = get_version_metadata()
+    rb_active_preview = db.get_setting("rollback_active") == "1"
+    if rb_active_preview:
+        _hist = db.get_version_history()
+        if _hist:
+            def _ver_tuple_p(v: str):
+                try:
+                    return tuple(int(x) for x in v.strip().split("."))
+                except Exception:
+                    return (0, 0, 0)
+            _max_ver = max((_e.get("version", "") for _e in _hist), key=_ver_tuple_p)
+            current_ver = _max_ver
+        else:
+            current_ver, _ = get_version_metadata()
+    else:
+        current_ver, _ = get_version_metadata()
     new_version = increment_patch_version(current_ver)
     
     text = (
@@ -6322,9 +6336,7 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Описание релиза не найдено. Начните сначала.", show_alert=True)
         return
         
-    if db.get_setting("rollback_active") == "1":
-        await callback.answer("Ошибка: нельзя создать релиз во время активного отката.", show_alert=True)
-        return
+    is_rollback_release = db.get_setting("rollback_active") == "1"
         
     await callback_edit_or_answer(callback, "🚀 <b>Запуск создания релиза...</b>\n\nВыполняю проверку репозитория...", parse_mode=ParseMode.HTML)
     
@@ -6358,19 +6370,30 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
                 await callback.message.answer("✅ Успешно переключено на ветку main.")
             
         # 2. Verify branch is known and not detached
+        # During rollback the workspace is in detached HEAD — that is expected and allowed.
         if not branch or branch in ("—", "HEAD"):
-            raise Exception("Ветка репозитория не определена (HEAD detached). Пожалуйста, вернитесь на ветку main перед созданием релиза.")
-            
+            if not is_rollback_release:
+                raise Exception("Ветка репозитория не определена (HEAD detached). Пожалуйста, вернитесь на ветку main перед созданием релиза.")
+            # Rollback-release: stay on detached HEAD, will commit on top of it.
+            await callback.message.answer("ℹ️ Репозиторий находится в detached HEAD (состояние отката). Создаю релиз поверх текущего активного состояния...")
+
         # 3. Verify there are changes to commit
         is_clean = status_info.get("is_clean", True)
         history = db.get_version_history()
-        last_release_commit = history[0].get("git_commit") if history else None
         current_commit = status_info.get("commit")
         has_new_commits = False
-        if current_commit and last_release_commit:
-            current_commit_short = current_commit[:7]
-            last_release_short = last_release_commit[:7]
-            has_new_commits = current_commit_short != last_release_short
+        if is_rollback_release:
+            # Compare against the rollback target commit (i.e. the version we rolled back TO),
+            # not against history[0] which is the latest-released but not active version.
+            rollback_target_commit = db.get_setting("rollback_target_commit") or ""
+            if current_commit and rollback_target_commit:
+                has_new_commits = current_commit[:7] != rollback_target_commit[:7]
+            else:
+                has_new_commits = not is_clean
+        else:
+            last_release_commit = history[0].get("git_commit") if history else None
+            if current_commit and last_release_commit:
+                has_new_commits = current_commit[:7] != last_release_commit[:7]
 
         if is_clean and not has_new_commits:
             await callback_edit_or_answer(callback,
@@ -6381,10 +6404,23 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
                 parse_mode=ParseMode.HTML
             )
             return
-            
-        # 4. Increment patch version automatically
-        current_ver, _ = get_version_metadata()
-        new_version = increment_patch_version(current_ver)
+
+        # 4. Increment patch version automatically.
+        # When releasing from rollback the active app_version.py reflects the rolled-back
+        # version (e.g. 1.0.232), but the new release must be numbered higher than the
+        # maximum version ever released (e.g. 1.0.234 → 1.0.235).
+        if is_rollback_release and history:
+            all_versions = [entry.get("version", "") for entry in history]
+            def _ver_tuple(v: str):
+                try:
+                    return tuple(int(x) for x in v.strip().split("."))
+                except Exception:
+                    return (0, 0, 0)
+            max_ver = max(all_versions, key=_ver_tuple)
+            new_version = increment_patch_version(max_ver)
+        else:
+            current_ver, _ = get_version_metadata()
+            new_version = increment_patch_version(current_ver)
         
         await callback.message.answer(f"📈 <b>Новая версия: {new_version}</b>\nНастраиваю Git...")
         
@@ -6407,10 +6443,17 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         commit_msg = f"Release v{new_version}: {description}"
         await callback.message.answer(f"💾 Создаю коммит: '{commit_msg}'...")
         subprocess.run(["git", "commit", "-m", commit_msg], cwd=repo_root, check=True)
-        
-        # 8. Git push
+
+        # 8. Git push.
+        # When releasing from rollback we are in detached HEAD.
+        # Move the main branch pointer to this new commit, then push.
         await callback.message.answer("📤 Отправляю изменения на GitHub (git push)...")
-        res_push = subprocess.run(["git", "push"], cwd=repo_root, capture_output=True, text=True)
+        if is_rollback_release:
+            # Point main branch at the new detached-HEAD commit, then push it.
+            subprocess.run(["git", "branch", "-f", "main", "HEAD"], cwd=repo_root, check=True)
+            res_push = subprocess.run(["git", "push", "origin", "main"], cwd=repo_root, capture_output=True, text=True)
+        else:
+            res_push = subprocess.run(["git", "push"], cwd=repo_root, capture_output=True, text=True)
         if res_push.returncode != 0:
             raise Exception(f"git push завершился ошибкой:\nStdout: {res_push.stdout}\nStderr: {res_push.stderr}")
             

@@ -8291,6 +8291,18 @@ async def serve_logger_js(request: web.Request) -> web.Response:
         charset="utf-8",
         headers={"Cache-Control": "public, max-age=3600"},
     )
+async def serve_memory_card_js(request: web.Request) -> web.Response:
+    """Отдаёт memory_card.js — общий модуль карточек воспоминаний."""
+    p = Path(__file__).resolve().parent / "memory_card.js"
+    if not p.exists():
+        return web.Response(status=404, text="memory_card.js not found")
+    text = p.read_text(encoding="utf-8")
+    return web.Response(
+        text=text,
+        content_type="application/javascript",
+        charset="utf-8",
+        headers={"Cache-Control": "public, max-age=60"},
+    )
 
 
 async def client_log(request: web.Request) -> web.Response:
@@ -8775,6 +8787,7 @@ def create_app() -> web.Application:
         return web.Response(text="ok")
     app.router.add_post("/api/nav_debug", nav_debug)
 
+    app.router.add_get("/memory-card.js", serve_memory_card_js)
     app.router.add_post("/api/log", client_log)
     app.router.add_get("/logger.js", serve_logger_js)
 

@@ -4078,7 +4078,7 @@ async def admin_challenge_verify(request: web.Request) -> web.Response:
         admin_pwd = (getattr(config, "ADMIN_PASSWORD", "") or "").strip()
         if not admin_pwd:
             return _add_cors_headers(web.json_response({"ok": False, "error": "no_password_configured"}, status=500))
-        if not password or not hmac.compare_digest(password, admin_pwd):
+        if not password or not hmac.compare_digest(password.encode('utf-8'), admin_pwd.encode('utf-8')):
             detail_str = f"visitor_id:{visitor_id}" if visitor_id else "bad_password"
             db.log_security_event("admin_brute", ip=ip_raw, ua=(request.headers.get("User-Agent") or "")[:256], detail=detail_str)
             

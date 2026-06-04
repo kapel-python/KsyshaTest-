@@ -5637,7 +5637,12 @@
           if (metaHtml) metaHtml += '<br>';
           metaHtml += _i('metaAdded') + ' ' + escapeHtml(formatDateTimeLocal(createdAt));
           if (updatedAt && updatedAt !== createdAt) {
-            metaHtml += ' ' + _i('metaEdited') + ' ' + escapeHtml(formatDateTimeLocal(updatedAt));
+            const tCreated = parseUtcDate(createdAt);
+            const tUpdated = parseUtcDate(updatedAt);
+            const diffSeconds = tCreated && tUpdated ? Math.round((tUpdated - tCreated) / 1000) : 0;
+            if (diffSeconds >= 60) {
+              metaHtml += ' ' + _i('metaEdited') + ' ' + escapeHtml(formatDateTimeLocal(updatedAt));
+            }
           }
         }
         metaDiv.innerHTML = metaHtml;

@@ -5489,20 +5489,23 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>{emoji_title}</title>
+  <title>{emoji_title} · SureMemory</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script>
     (function(){{
-      var theme = typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme');
-      if (!theme && typeof window.matchMedia === 'function')
-        theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+      try {{
+        var theme = localStorage.getItem('memories_theme');
+        if (!theme && typeof window.matchMedia === 'function')
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        if (theme === 'dark') document.documentElement.classList.add('theme-dark');
+        document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
+      }} catch(e) {{}}
     }})();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root, html.theme-light {{
+    :root {{
       --bg: #fdf6f9;
       --surface: #ffffff;
       --accent: #d43f8d;
@@ -5514,19 +5517,27 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
       --muted: #9b7fa8;
       --meta: #c4a8cc;
       --card-shadow: 0 12px 40px rgba(212, 63, 141, 0.08), 0 2px 8px rgba(0,0,0,0.04);
+      --divider: rgba(212, 63, 141, 0.12);
+      --nav-border: rgba(212, 63, 141, 0.12);
     }}
     html.theme-dark {{
-      --bg: #0d0b14;
-      --surface: #18152a;
-      --text: #f0ecff;
-      --muted: #a090b8;
-      --meta: #6a5880;
-      --pink-soft: rgba(212,63,141,0.12);
-      --pink-border: rgba(212,63,141,0.18);
-      --card-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+      --bg: #090914;
+      --surface: #181828;
+      --text: #f0f0ff;
+      --muted: #b3b3d4;
+      --meta: #9292ba;
+      --pink-soft: rgba(255,155,205,0.08);
+      --pink-border: rgba(255,155,205,0.14);
+      --card-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+      --divider: rgba(255,155,205,0.10);
+      --nav-border: rgba(255,155,205,0.10);
     }}
 
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    html {{ color-scheme: light; }}
+    html.theme-dark {{ color-scheme: dark; }}
+
+    html, body {{ overflow-x: hidden; }}
 
     body {{
       font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -5535,38 +5546,100 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 40px 16px 80px;
-      position: relative;
       line-height: 1.6;
     }}
 
-    .orb {{
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(100px);
-      opacity: 0.15;
-      pointer-events: none;
-      z-index: 0;
+    html.theme-transitioning,
+    html.theme-transitioning *,
+    html.theme-transitioning ::before,
+    html.theme-transitioning ::after {{
+      transition:
+        background-color 0.28s cubic-bezier(.22,1,.36,1),
+        color 0.28s cubic-bezier(.22,1,.36,1),
+        border-color 0.28s cubic-bezier(.22,1,.36,1) !important;
     }}
-    .orb-1 {{ width: 400px; height: 400px; background: var(--accent); top: -100px; right: -100px; }}
-    .orb-2 {{ width: 300px; height: 300px; background: var(--accent3); bottom: -100px; left: -100px; }}
+
+    /* ── Top nav ── */
+    .doc-nav {{
+      border-bottom: 1px solid var(--nav-border);
+      background: var(--bg);
+      position: sticky; top: 0; z-index: 10;
+    }}
+    .doc-nav-inner {{
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }}
+    .doc-back {{
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1.5px solid var(--pink-border);
+      transition: color 0.18s, border-color 0.18s;
+    }}
+    .doc-back:hover {{ color: var(--accent); border-color: var(--accent); }}
+    .doc-logo {{
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      letter-spacing: -0.02em;
+    }}
+    .doc-logo-dot {{
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }}
+    .doc-theme-btn {{
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      border: 1.5px solid var(--pink-border);
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.18s, color 0.18s;
+    }}
+    .doc-theme-btn:hover {{ border-color: var(--accent); color: var(--accent); }}
+    .icon-sun, .icon-moon {{ line-height: 1; }}
+    html:not(.theme-dark) .icon-moon {{ display: none; }}
+    html.theme-dark .icon-sun {{ display: none; }}
+
+    /* ── Content ── */
+    .doc-wrap {{
+      flex: 1;
+      padding: 48px 20px 64px;
+    }}
 
     .container {{
-      position: relative;
-      z-index: 1;
       width: 100%;
       max-width: 680px;
+      margin: 0 auto;
       background: var(--surface);
       border: 1px solid var(--pink-border);
       border-radius: 24px;
       box-shadow: var(--card-shadow);
       padding: 40px 32px;
-      transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }}
 
     @media (max-width: 480px) {{
-      body {{ padding: 20px 12px 60px; }}
+      .doc-wrap {{ padding: 24px 12px 48px; }}
       .container {{ padding: 24px 16px; }}
     }}
 
@@ -5646,15 +5719,105 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
       background: var(--pink-border);
       margin: 32px 0;
     }}
+
+    /* ── Footer ── */
+    .doc-footer {{
+      border-top: 1px solid var(--divider);
+      padding: 18px 20px;
+    }}
+    .doc-footer-inner {{
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }}
+    .doc-footer-logo {{
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }}
+    .doc-footer-links {{ display: flex; gap: 18px; }}
+    .doc-footer-link {{
+      font-size: 0.84rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.18s;
+    }}
+    .doc-footer-link:hover {{ color: var(--accent); }}
   </style>
 </head>
 <body>
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
 
-  <main class="container">
-    {body_content}
-  </main>
+  <!-- NAV -->
+  <header class="doc-nav">
+    <div class="doc-nav-inner">
+      <a class="doc-back" href="/main" id="doc-back-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        На главную
+      </a>
+      <a class="doc-logo" href="/main">
+        <div class="doc-logo-dot"></div>
+        SureMemory
+      </a>
+      <button class="doc-theme-btn" id="docThemeBtn" aria-label="Переключить тему">
+        <span class="icon-sun">☀️</span>
+        <span class="icon-moon">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="doc-wrap">
+    <main class="container">
+      {body_content}
+    </main>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="doc-footer">
+    <div class="doc-footer-inner">
+      <a class="doc-footer-logo" href="/main">
+        <div class="doc-logo-dot"></div>
+        SureMemory
+      </a>
+      <div class="doc-footer-links">
+        <a class="doc-footer-link" href="/privacy">Конфиденциальность</a>
+        <a class="doc-footer-link" href="/terms">Условия</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+  (function() {{
+    var btn = document.getElementById('docThemeBtn');
+    if (btn) {{
+      btn.addEventListener('click', function() {{
+        var isDark = document.documentElement.classList.contains('theme-dark');
+        document.documentElement.classList.add('theme-transitioning');
+        if (isDark) {{
+          document.documentElement.classList.remove('theme-dark');
+          document.documentElement.dataset.theme = 'light';
+          try {{ localStorage.setItem('memories_theme', 'light'); }} catch(e) {{}}
+        }} else {{
+          document.documentElement.classList.add('theme-dark');
+          document.documentElement.dataset.theme = 'dark';
+          try {{ localStorage.setItem('memories_theme', 'dark'); }} catch(e) {{}}
+        }}
+        setTimeout(function() {{
+          document.documentElement.classList.remove('theme-transitioning');
+        }}, 350);
+      }});
+    }}
+  }})();
+  </script>
+
 </body>
 </html>
 """

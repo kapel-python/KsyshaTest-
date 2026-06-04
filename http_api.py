@@ -5341,7 +5341,7 @@ def _render_maintenance_page() -> str:
 
     html = html.replace("{{MAINTENANCE_START_SCRIPT}}", f"window.MAINTENANCE_START_MS={start_ms};")
 
-    html = html.replace("{{MAINTENANCE_SUBTITLE}}", "Чо то какие-то у меня технические шоколадки<br>Немного падажди")
+    html = html.replace("{{MAINTENANCE_SUBTITLE}}", "Сайт временно недоступен<br>Ведутся технические работы")
 
     visits = db.get_setting("maintenance_visits") or "0"
 

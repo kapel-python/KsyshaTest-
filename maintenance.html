@@ -45,9 +45,6 @@ html.theme-light .bg-orb.o2 { background: radial-gradient(circle, rgba(65,88,208
 html.theme-light .bg-orb.o3 { background: radial-gradient(circle, rgba(124,58,237,0.06), transparent); }
 html.theme-light .timer-bar-bg { background: rgba(0,0,0,0.08); }
 html.theme-light .fact-box { border-color: rgba(212,63,141,0.2); }
-html.theme-light .game-btn { border-color: rgba(0,0,0,0.1); }
-html.theme-light .game-btn:hover { border-color: rgba(212,63,141,0.45); background: rgba(212,63,141,0.1); }
-html.theme-light .game-score { border-top-color: rgba(0,0,0,0.08); }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -368,71 +365,6 @@ body {
 }
 .fact-btn:hover { background: rgba(212,63,141,0.22); }
 
-/* ── Мини-игра: угадай ── */
-.game-card {
-  width: 100%;
-  background: var(--surface);
-  border-radius: 24px;
-  padding: 22px 20px;
-  border: 1px solid var(--border);
-}
-
-.game-question {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 14px;
-  line-height: 1.4;
-  text-align: center;
-}
-
-.game-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.game-btn {
-  padding: 12px 10px;
-  border-radius: 14px;
-  border: 1.5px solid rgba(255,255,255,0.08);
-  background: var(--surface2);
-  color: var(--text);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
-  text-align: center;
-  line-height: 1.3;
-}
-.game-btn:hover { border-color: rgba(212,63,141,0.4); background: rgba(212,63,141,0.08); }
-.game-btn.correct { border-color: #16a34a; background: rgba(22,163,74,0.15); color: #4ade80; }
-.game-btn.wrong   { border-color: #dc2626; background: rgba(220,38,38,0.12); color: #f87171; }
-.game-btn:disabled { cursor: default; }
-
-.game-result {
-  text-align: center;
-  font-size: 0.88rem;
-  color: var(--muted);
-  min-height: 20px;
-}
-
-.game-score {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-}
-.game-score-label { font-size: 0.75rem; color: var(--muted); }
-.game-score-num {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--accent);
-}
 
 /* ── Статус ── */
 .status-card {
@@ -486,8 +418,7 @@ body {
 .timer-card    { animation: fadeUp 0.4s 0.2s ease both; }
 .status-card   { animation: fadeUp 0.4s 0.26s ease both; }
 .while-card    { animation: fadeUp 0.4s 0.32s ease both; }
-.game-card     { animation: fadeUp 0.4s 0.38s ease both; }
-.back-hint     { animation: fadeUp 0.4s 0.44s ease both; }
+.back-hint     { animation: fadeUp 0.4s 0.38s ease both; }
 </style>
 </head>
 <body>
@@ -557,23 +488,6 @@ body {
     </div>
   </div>
 
-  <!-- Мини-игра -->
-  <div class="game-card">
-    <div class="while-header">
-      <div class="while-icon">🎮</div>
-      <div>
-        <div class="while-title">Мини-викторина</div>
-        <div class="while-sub">Угадай правильный ответ</div>
-      </div>
-    </div>
-    <div class="game-question" id="gameQuestion"></div>
-    <div class="game-options" id="gameOptions"></div>
-    <div class="game-result" id="gameResult"></div>
-    <div class="game-score">
-      <span class="game-score-label">Правильных ответов</span>
-      <span class="game-score-num" id="gameScore">0 / 0</span>
-    </div>
-  </div>
 
   <!-- Назад -->
   <div class="back-hint">
@@ -697,83 +611,6 @@ setInterval(() => {
 
 showFact(0);
 
-// ── Мини-викторина ──
-var questions = [
-  {
-    q: '🤔 В каком году мы познакомились?',
-    options: ['2026', '2024', '2024', '2023'],
-    answer: 1,
-    explanation: 'Мы познакомились 15 мая 2024 года ❤️'
-  },
-  {
-    q: '💋 Как тебе больше всего нравится когда я тебя называю?',
-    options: ['Фуфырка', 'Ангелочек', 'Заечка', 'Солнышко'],
-    answer: 2,
-    explanation: 'Ну конечно же заечка! 🙄'
-  },
-  {
-    q: '👶 Что ты делаешь с детьми?',
-    options: ['любишь их и укладываешь спать', 'бьешь', 'орешь на них', 'ничего 🙄'],
-    answer: 0,
-    explanation: 'цитирую твои слова "очень люблю детей особенно играть с ними или укладывать из спать."'
-  },
-  {
-    q: 'Какое слово придумала именно ТЫ которое ассоциируется с любовью)? Но прочитай внимательно именно придумала слово значит тут может быть подвох 😁',
-    options: ['любими', 'любишься', 'отмашивается', 'ублю'],
-    answer: 1,
-    explanation: 'Конечно же любишься) Я же говорил тут будет подвох'
-  },
-  {
-    q: '❤️ Сколько ударов в день делает сердце человека?',
-    options: ['~10 000', '~50 000', '~100 000', '~500 000'],
-    answer: 2,
-    explanation: 'Около 100 000 ударов в день — примерно 35 миллионов в год, прикольно да)?'
-  },
-];
-questions.sort(function() { return Math.random() - 0.5; });
-
-let qIndex = 0;
-let score = 0;
-let total = 0;
-let answered = false;
-
-function renderQuestion() {
-  const q = questions[qIndex % questions.length];
-  answered = false;
-  document.getElementById('gameQuestion').textContent = q.q;
-  document.getElementById('gameResult').textContent = '';
-
-  const optEl = document.getElementById('gameOptions');
-  optEl.innerHTML = '';
-  q.options.forEach((opt, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'game-btn';
-    btn.textContent = opt;
-    btn.addEventListener('click', () => {
-      if (answered) return;
-      answered = true;
-      total++;
-      const btns = optEl.querySelectorAll('.game-btn');
-      btns.forEach(b => b.disabled = true);
-      btns[q.answer].classList.add('correct');
-      if (i === q.answer) {
-        score++;
-        document.getElementById('gameResult').textContent = '✅ Правильно! ' + q.explanation;
-      } else {
-        btn.classList.add('wrong');
-        document.getElementById('gameResult').textContent = '❌ Неа, ' + q.explanation;
-      }
-      document.getElementById('gameScore').textContent = score + ' / ' + total;
-      setTimeout(() => {
-        qIndex++;
-        renderQuestion();
-      }, 5000);
-    });
-    optEl.appendChild(btn);
-  });
-}
-
-renderQuestion();
 
 // ── WebSocket: автообновление при смене режима (вкл/выкл техперерыв) ──
 (function() {

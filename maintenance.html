@@ -429,6 +429,42 @@ body {
   color: var(--text);
 }
 
+/* ── Темы ── */
+.stg-lbl {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  width: 100%;
+  text-align: left;
+}
+.stg-pills { display: flex; gap: 7px; width: 100%; margin-bottom: 8px; }
+.stg-pill {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.stg-pill.active {
+  background: rgba(212,63,141,0.15);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.stg-pill:hover:not(.active) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+html.theme-light .stg-pill.active { background: rgba(212,63,141,0.1); }
+html.theme-light .stg-pill { border-color: rgba(0,0,0,0.08); }
+
 /* ── Анимации появления ── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(20px); }
@@ -511,7 +547,15 @@ body {
   </div>
 
 
+  <!-- Тема -->
+  <div class="stg-lbl" data-i18n="sTheme">Тема</div>
+  <div class="stg-pills theme-switcher">
+    <button class="stg-pill active" data-theme="dark"><span data-i18n="tDark">🌙 Тёмная</span></button>
+    <button class="stg-pill" data-theme="light"><span data-i18n="tLight">☀️ Светлая</span></button>
+  </div>
+
   <!-- Языки -->
+  <div class="stg-lbl" data-i18n="sLang" style="margin-top: 12px;">Язык</div>
   <div class="stg-lang lang-switcher">
     <button class="stg-lang-btn active" data-lang="ru">
       <div class="stg-flag">🇷🇺</div>
@@ -546,7 +590,11 @@ const I18N = {
     whileSub: "Интересный факт чтобы не скучать",
     factNext: "Следующий →",
     visitsCountLabel: "За время перерыва зашли на сайт",
-    visitsCountUnit: "человек"
+    visitsCountUnit: "человек",
+    sTheme: "Тема",
+    tLight: "☀️ Светлая",
+    tDark: "🌙 Тёмная",
+    sLang: "Язык"
   },
   en: {
     pageTitle: "Maintenance Break",
@@ -561,7 +609,11 @@ const I18N = {
     whileSub: "Interesting fact to pass the time",
     factNext: "Next →",
     visitsCountLabel: "Visitors during the break",
-    visitsCountUnit: "people"
+    visitsCountUnit: "people",
+    sTheme: "Theme",
+    tLight: "☀️ Light",
+    tDark: "🌙 Dark",
+    sLang: "Language"
   },
   de: {
     pageTitle: "Wartungspause",
@@ -576,7 +628,11 @@ const I18N = {
     whileSub: "Interessanter Fakt zum Zeitvertreib",
     factNext: "Nächster →",
     visitsCountLabel: "Besucher während der Pause",
-    visitsCountUnit: "Personen"
+    visitsCountUnit: "Personen",
+    sTheme: "Thema",
+    tLight: "☀️ Hell",
+    tDark: "🌙 Dunkel",
+    sLang: "Sprache"
   }
 };
 
@@ -611,6 +667,33 @@ document.querySelectorAll('.stg-lang-btn').forEach(btn => {
     updateLangUI();
   });
 });
+
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.classList.remove('theme-dark');
+    document.documentElement.classList.add('theme-light');
+  } else {
+    document.documentElement.classList.remove('theme-light');
+    document.documentElement.classList.add('theme-dark');
+  }
+  document.querySelectorAll('.theme-switcher .stg-pill').forEach(b => {
+    if(b.getAttribute('data-theme') === theme) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+  if (typeof localStorage !== 'undefined') localStorage.setItem('memories_theme', theme);
+}
+
+document.querySelectorAll('.theme-switcher .stg-pill').forEach(b => {
+  b.addEventListener('click', () => {
+    applyTheme(b.getAttribute('data-theme'));
+  });
+});
+
+let initTheme = (typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme')) || 'dark';
+applyTheme(initTheme);
 
 updateLangUI();
 

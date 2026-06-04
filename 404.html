@@ -2,10 +2,18 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>Страница не найдена</title>
+  <title data-i18n="pageTitle">Страница не найдена</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+(function(){
+  var theme = typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme');
+  if (!theme && typeof window.matchMedia === 'function')
+    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+})();
+</script>
   <style>
-    :root {
+    :root, html.theme-light {
       --bg: #fafafa;
       --accent: #d43f8d;
       --accent-soft: #fff0f5;
@@ -15,16 +23,14 @@
       --border: #ffd6e7;
     }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1a1a2e;
-        --accent: #e85da0;
-        --accent-soft: #2d1a26;
-        --text: #f0e6ec;
-        --muted: #a888a0;
-        --card-bg: #241830;
-        --border: #4a2a3a;
-      }
+    html.theme-dark {
+      --bg: #1a1a2e;
+      --accent: #e85da0;
+      --accent-soft: #2d1a26;
+      --text: #f0e6ec;
+      --muted: #a888a0;
+      --card-bg: #241830;
+      --border: #4a2a3a;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -267,6 +273,81 @@
       .error-code { font-size: 4.2rem; }
       .title { font-size: 1.15rem; }
     }
+
+    /* ── Языки и Темы ── */
+    .stg-lbl {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      margin-top: 24px;
+      width: 100%;
+      text-align: left;
+    }
+    .stg-pills { display: flex; gap: 7px; width: 100%; margin-bottom: 8px; }
+    .stg-pill {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .stg-pill.active {
+      background: rgba(212,63,141,0.15);
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .stg-pill:hover:not(.active) {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    html.theme-light .stg-pill.active { background: rgba(212,63,141,0.1); }
+    html.theme-light .stg-pill { border-color: rgba(0,0,0,0.08); }
+
+    .stg-lang {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      width: 100%;
+    }
+    .stg-lang-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--muted);
+    }
+    .stg-lang-btn .stg-flag { font-size: 1.4rem; }
+    .stg-lang-btn .stg-lang-label { font-size: 0.75rem; font-weight: 600; }
+    .stg-lang-btn.active {
+      background: rgba(212,63,141,0.15);
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .stg-lang-btn:hover:not(.active) {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    html.theme-light .stg-lang-btn.active { background: rgba(212,63,141,0.1); }
+    html.theme-light .stg-lang-btn { border-color: rgba(0,0,0,0.08); }
+    
+    .lang-switcher, .theme-switcher, .stg-lbl {
+      animation: btnIn 0.5s 0.6s cubic-bezier(.22,.9,.36,1) both;
+    }
+
   </style>
 </head>
 <body>
@@ -280,8 +361,8 @@
   <div class="card">
     <div class="icon-wrap">💌</div>
     <div class="error-code">404</div>
-    <h1 class="title">Страница не найдена</h1>
-    <p class="description">
+    <h1 class="title" data-i18n="pageTitle">Страница не найдена</h1>
+    <p class="description" data-i18n-html="desc">
       Этот сайт создан <strong>для пар</strong>.<br>
       Чтобы попасть сюда, нужно сначала зарегистрироваться в боте — он сам выдаст персональную ссылку.
     </p>
@@ -289,27 +370,153 @@
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
-        <div class="step-text">Открой бота в Telegram и нажми <b>«Старт»</b></div>
+        <div class="step-text" data-i18n-html="step1">Открой бота в Telegram и нажми <b>«Старт»</b></div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
-        <div class="step-text">Создай или прими приглашение в пару</div>
+        <div class="step-text" data-i18n-html="step2">Создай или прими приглашение в пару</div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
-        <div class="step-text">Перейди на сайт по <b>персональной ссылке</b> из бота</div>
+        <div class="step-text" data-i18n-html="step3">Перейди на сайт по <b>персональной ссылке</b> из бота</div>
       </div>
     </div>
 
     <a class="btn-bot" href="https://t.me/{{BOT_USERNAME}}" target="_blank" rel="noopener">
       <span class="btn-icon">✈️</span>
-      Открыть бота
+      <span data-i18n="btnOpenBot">Открыть бота</span>
     </a>
 
     <p class="footer-note">@{{BOT_USERNAME}}</p>
+
+    <!-- Тема -->
+    <div class="stg-lbl" data-i18n="sTheme">Тема</div>
+    <div class="stg-pills theme-switcher">
+      <button class="stg-pill active" data-theme="dark"><span data-i18n="tDark">🌙 Тёмная</span></button>
+      <button class="stg-pill" data-theme="light"><span data-i18n="tLight">☀️ Светлая</span></button>
+    </div>
+
+    <!-- Языки -->
+    <div class="stg-lbl" data-i18n="sLang" style="margin-top: 12px;">Язык</div>
+    <div class="stg-lang lang-switcher">
+      <button class="stg-lang-btn active" data-lang="ru">
+        <div class="stg-flag">🇷🇺</div>
+        <div class="stg-lang-label">Русский</div>
+      </button>
+      <button class="stg-lang-btn" data-lang="en">
+        <div class="stg-flag">🇬🇧</div>
+        <div class="stg-lang-label">English</div>
+      </button>
+      <button class="stg-lang-btn" data-lang="de">
+        <div class="stg-flag">🇩🇪</div>
+        <div class="stg-lang-label">Deutsch</div>
+      </button>
+    </div>
+
   </div>
 
   <script>
+    // ── I18N ──
+    const I18N = {
+      ru: {
+        pageTitle: "Страница не найдена",
+        desc: "Этот сайт создан <strong>для пар</strong>.<br>Чтобы попасть сюда, нужно сначала зарегистрироваться в боте — он сам выдаст персональную ссылку.",
+        step1: "Открой бота в Telegram и нажми <b>«Старт»</b>",
+        step2: "Создай или прими приглашение в пару",
+        step3: "Перейди на сайт по <b>персональной ссылке</b> из бота",
+        btnOpenBot: "Открыть бота",
+        sTheme: "Тема",
+        tLight: "☀️ Светлая",
+        tDark: "🌙 Тёмная",
+        sLang: "Язык"
+      },
+      en: {
+        pageTitle: "Page not found",
+        desc: "This site is made <strong>for couples</strong>.<br>To access it, you need to register in the bot first — it will give you a personal link.",
+        step1: "Open the bot in Telegram and press <b>Start</b>",
+        step2: "Create or accept an invitation to a couple",
+        step3: "Go to the site using your <b>personal link</b> from the bot",
+        btnOpenBot: "Open bot",
+        sTheme: "Theme",
+        tLight: "☀️ Light",
+        tDark: "🌙 Dark",
+        sLang: "Language"
+      },
+      de: {
+        pageTitle: "Seite nicht gefunden",
+        desc: "Diese Seite ist <strong>für Paare</strong> gemacht.<br>Um hierher zu gelangen, musst du dich zuerst im Bot registrieren — er gibt dir einen persönlichen Link.",
+        step1: "Öffne den Bot in Telegram und drücke <b>Start</b>",
+        step2: "Erstelle oder akzeptiere eine Einladung zu einem Paar",
+        step3: "Gehe über deinen <b>persönlichen Link</b> aus dem Bot auf die Seite",
+        btnOpenBot: "Bot öffnen",
+        sTheme: "Thema",
+        tLight: "☀️ Hell",
+        tDark: "🌙 Dunkel",
+        sLang: "Sprache"
+      }
+    };
+
+    let currentLang = (typeof localStorage !== 'undefined' && localStorage.getItem('memories_lang')) || 'ru';
+    if (!I18N[currentLang]) currentLang = 'ru';
+
+    function updateLangUI() {
+      const t = I18N[currentLang];
+      if (!t) return;
+      document.title = t.pageTitle || t.pageTitle;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key]) el.textContent = t[key];
+      });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        const key = el.getAttribute('data-i18n-html');
+        if (t[key]) el.innerHTML = t[key];
+      });
+      document.querySelectorAll('.stg-lang-btn').forEach(btn => {
+        if (btn.getAttribute('data-lang') === currentLang) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+
+    document.querySelectorAll('.stg-lang-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentLang = btn.getAttribute('data-lang');
+        if (typeof localStorage !== 'undefined') localStorage.setItem('memories_lang', currentLang);
+        updateLangUI();
+      });
+    });
+
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.classList.remove('theme-dark');
+        document.documentElement.classList.add('theme-light');
+      } else {
+        document.documentElement.classList.remove('theme-light');
+        document.documentElement.classList.add('theme-dark');
+      }
+      document.querySelectorAll('.theme-switcher .stg-pill').forEach(b => {
+        if(b.getAttribute('data-theme') === theme) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+      if (typeof localStorage !== 'undefined') localStorage.setItem('memories_theme', theme);
+    }
+
+    document.querySelectorAll('.theme-switcher .stg-pill').forEach(b => {
+      b.addEventListener('click', () => {
+        applyTheme(b.getAttribute('data-theme'));
+      });
+    });
+
+    let initTheme = (typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme')) || 'dark';
+    applyTheme(initTheme);
+
+    updateLangUI();
+
     // Generate floating heart particles
     const bg = document.getElementById('heartsBg');
     const symbols = ['💕', '❤️', '🌸', '💗', '✨', '💖', '🫶', '💝'];

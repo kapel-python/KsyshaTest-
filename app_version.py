@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.256'
-description = 'Тех перерыв должен распространяться на все страницы а не только главную'
+version = '1.0.257'
+description = 'Мультиязычность и разная тема для 404 и технического перерыва'
 
 
 def get_version_metadata() -> tuple[str, str]:

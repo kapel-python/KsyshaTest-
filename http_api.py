@@ -3706,23 +3706,19 @@ async def ai_companion_history(request: web.Request) -> web.Response:
 # ═══════════════════════════════════════════════════════════════
 
 async def admin_check(request: web.Request) -> web.Response:
-    """Проверяет роль — только creator получает ok:true."""
-    if not _check_api_secret(request):
+    ok = _check_api_secret(request)
+    if not ok:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
-    user_id = _visitor_to_user_id(visitor_id or "")
-    is_creator = bool(user_id and db.is_creator(user_id))
-    return _add_cors_headers(web.json_response({"ok": True, "is_creator": is_creator}))
+    
+    # If the user has a valid admin_session or API_SECRET_KEY, they are the creator.
+    return _add_cors_headers(web.json_response({"ok": True, "is_creator": True}))
 
 
 async def admin_stats(request: web.Request) -> web.Response:
     """Сводная статистика для админ-панели."""
     if not _check_api_secret(request):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
-    user_id = _visitor_to_user_id(visitor_id or "")
-    if not user_id or not db.is_creator(user_id):
-        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
 
     stats = db.get_admin_stats()
     partner_info = db.get_partner_info(
@@ -3747,10 +3743,7 @@ async def admin_health_metrics(request: web.Request) -> web.Response:
     """Runtime-метрики для прод-диагностики (только авторизованный участник пары)."""
     if not _check_api_secret(request):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
-    user_id = _visitor_to_user_id(visitor_id or "")
-    if not user_id or not db.is_creator(user_id):
-        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
 
     uptime_sec = max(0, int(time.time() - float(_metrics.get("started_at", time.time()))))
     lat_cnt = int(_metrics.get("latency_count", 0) or 0)
@@ -3790,10 +3783,7 @@ async def admin_version_history(request: web.Request) -> web.Response:
     """Возвращает полную историю версий (только creator)."""
     if not _check_api_secret(request):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
-    user_id = _visitor_to_user_id(visitor_id or "")
-    if not user_id or not db.is_creator(user_id):
-        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
     history = db.get_version_history()
     return _add_cors_headers(web.json_response({"ok": True, "history": history}))
 
@@ -4561,10 +4551,7 @@ async def upload_notification_media(request: web.Request) -> web.Response:
     if not _check_api_secret(request):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
-    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
-    user_id = _visitor_to_user_id(visitor_id or "")
-    if not user_id or not db.is_creator(user_id):
-        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
 
     try:
         reader = await request.multipart()

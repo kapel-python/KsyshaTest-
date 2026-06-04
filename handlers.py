@@ -6449,7 +6449,7 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         if is_rollback_release:
             # Point main branch at the new detached-HEAD commit, then push it.
             subprocess.run(["git", "branch", "-f", "main", "HEAD"], cwd=repo_root, check=True)
-            res_push = subprocess.run(["git", "push", "origin", "main"], cwd=repo_root, capture_output=True, text=True)
+            res_push = subprocess.run(["git", "push", "-f", "origin", "main"], cwd=repo_root, capture_output=True, text=True)
         else:
             res_push = subprocess.run(["git", "push"], cwd=repo_root, capture_output=True, text=True)
         if res_push.returncode != 0:
@@ -6463,7 +6463,7 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         # 9a. Create git tag for the new version (protects commit from gc)
         tag_name = f"v{new_version}"
         subprocess.run(["git", "tag", "-f", tag_name, new_commit], cwd=repo_root, capture_output=True)
-        subprocess.run(["git", "push", "origin", tag_name], cwd=repo_root, capture_output=True)
+        subprocess.run(["git", "push", "-f", "origin", tag_name], cwd=repo_root, capture_output=True)
 
         # 9b. During rollback-release: tag ALL history versions that are missing a tag.
         # This prevents git gc from collecting commits of versions 1.0.233–1.0.250 that are
@@ -6495,7 +6495,7 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
                     continue  # already tagged correctly
                 subprocess.run(["git", "tag", "-f", h_tag, full_h_commit], cwd=repo_root, capture_output=True)
                 push_tag = subprocess.run(
-                    ["git", "push", "origin", h_tag],
+                    ["git", "push", "-f", "origin", h_tag],
                     cwd=repo_root, capture_output=True, text=True
                 )
                 if push_tag.returncode != 0:

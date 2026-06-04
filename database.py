@@ -2270,6 +2270,59 @@ class Database:
             logger.exception("save_admin_login_metadata error: %s", e)
             return False
 
+    def check_admin_lockout(self, ip: str, visitor_id: Optional[str]) -> tuple[bool, int, str]:
+        """Возвращает (is_locked, retry_after_seconds, lockout_msg)"""
+        from datetime import datetime, timezone, timedelta
+        try:
+            now = datetime.now(timezone.utc)
+            since = (now - timedelta(hours=1)).isoformat()
+            
+            with self._get_connection() as conn:
+                if visitor_id:
+                    cur = conn.execute(
+                        "SELECT created_at FROM security_events WHERE type='admin_brute' AND (ip=? OR detail LIKE ?) AND created_at > ? ORDER BY created_at DESC",
+                        (ip, f"%visitor_id:{visitor_id}%", since)
+                    )
+                else:
+                    cur = conn.execute(
+                        "SELECT created_at FROM security_events WHERE type='admin_brute' AND ip=? AND created_at > ? ORDER BY created_at DESC",
+                        (ip, since)
+                    )
+                
+                rows = cur.fetchall()
+                errors = len(rows)
+                if errors == 0:
+                    return False, 0, ""
+                
+                lockout_sec = 0
+                if errors >= 20:
+                    lockout_sec = 3600
+                elif errors >= 10:
+                    lockout_sec = 300
+                elif errors >= 5:
+                    lockout_sec = 30
+                
+                if lockout_sec == 0:
+                    return False, 0, ""
+                
+                last_error_dt = datetime.fromisoformat(rows[0]['created_at'].replace('Z', '+00:00'))
+                elapsed = (now - last_error_dt).total_seconds()
+                
+                if elapsed < lockout_sec:
+                    remaining = int(lockout_sec - elapsed)
+                    m = remaining // 60
+                    s = remaining % 60
+                    msg = "Слишком много неверных попыток входа.\\nПовторите через "
+                    if m > 0:
+                        msg += f"{m} минут "
+                    msg += f"{s} секунд."
+                    return True, remaining, msg
+                    
+                return False, 0, ""
+        except Exception as e:
+            logger.exception("check_admin_lockout error: %s", e)
+            return False, 0, ""
+
     def count_security_events_by_ip(
         self, ip: str, event_type: str, hours: int = 24
     ) -> int:

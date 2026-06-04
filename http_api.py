@@ -3990,6 +3990,15 @@ async def admin_challenge_init(request: web.Request) -> web.Response:
     ua = (request.headers.get("User-Agent") or "")[:512]
     fingerprint = _pstr(payload.get("fingerprint")).strip() or None
 
+    is_locked, retry_after, lockout_msg = db.check_admin_lockout(ip_raw, visitor_id)
+    if is_locked:
+        return _add_cors_headers(web.json_response({
+            "ok": False,
+            "error": "locked",
+            "retry_after": retry_after,
+            "lockout_msg": lockout_msg.replace("\\n", "\n")
+        }))
+
     trust_score, trust_flags = _compute_admin_trust_score(request, visitor_id, user_id)
     need_password = trust_score < 70
 
@@ -4048,6 +4057,18 @@ async def admin_challenge_verify(request: web.Request) -> web.Response:
     if not challenge:
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_token"}, status=400))
 
+    ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+    visitor_id = challenge.get("visitor_id")
+
+    is_locked, retry_after, lockout_msg = db.check_admin_lockout(ip_raw, visitor_id)
+    if is_locked:
+        return _add_cors_headers(web.json_response({
+            "ok": False,
+            "error": "locked",
+            "retry_after": retry_after,
+            "lockout_msg": lockout_msg.replace("\\n", "\n")
+        }))
+
     status = challenge.get("status", "")
     if status not in ("pending_password", "pending_tg"):
         return _add_cors_headers(web.json_response({"ok": False, "error": "wrong_status"}, status=400))
@@ -4057,9 +4078,9 @@ async def admin_challenge_verify(request: web.Request) -> web.Response:
         admin_pwd = (getattr(config, "ADMIN_PASSWORD", "") or "").strip()
         if not admin_pwd:
             return _add_cors_headers(web.json_response({"ok": False, "error": "no_password_configured"}, status=500))
-        ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
         if not password or not hmac.compare_digest(password, admin_pwd):
-            db.log_security_event("admin_brute", ip=ip_raw, ua=(request.headers.get("User-Agent") or "")[:256], detail="bad_password")
+            detail_str = f"visitor_id:{visitor_id}" if visitor_id else "bad_password"
+            db.log_security_event("admin_brute", ip=ip_raw, ua=(request.headers.get("User-Agent") or "")[:256], detail=detail_str)
             return _add_cors_headers(web.json_response({"ok": False, "error": "wrong_password"}, status=403))
         db.update_admin_challenge(token, "pending_tg")
 

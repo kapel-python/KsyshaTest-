@@ -214,7 +214,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <span class="denied-icon">🔐</span>
     <div class="denied-title" id="challengeTitle">Проверка безопасности</div>
     <div class="denied-sub" id="challengeSub" style="margin-bottom:15px">Инициализация...</div>
-    <input type="password" id="challengePwd" style="display:none;width:100%;margin-bottom:20px;padding:12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text);outline:none;font-size:0.9rem;text-align:center;" placeholder="Пароль">
+    <div id="challengePwdWrap" style="display:none;position:relative;width:100%;margin-bottom:20px;">
+      <input type="password" id="challengePwd" style="width:100%;padding:12px;padding-right:45px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text);outline:none;font-size:0.9rem;text-align:center;" placeholder="Пароль">
+      <button type="button" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;padding:5px;" onclick="const p=document.getElementById('challengePwd'); if(p.type==='password'){p.type='text';this.textContent='🙈';}else{p.type='password';this.textContent='👁️';}">👁️</button>
+    </div>
     <button class="amodal-btn ok-purple" id="challengeBtn" style="display:none;width:100%;padding:12px;" onclick="window.submitChallengePwd()">Продолжить</button>
     <div id="challengeSpinner" class="loading-spinner" style="display:block;margin:10px auto"></div>
   </div>
@@ -441,11 +444,54 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   </div>
 </div>
 
+<div class="amodal-wrap" id="lockoutModal">
+  <div class="amodal-overlay"></div>
+  <div class="amodal-card">
+    <div class="amodal-icon">🚫</div>
+    <div class="amodal-title">Доступ временно заблокирован</div>
+    <div class="amodal-text" id="lockoutText">Слишком много неверных попыток входа.<br>Повторите через ...</div>
+    <div class="amodal-btns">
+      <button type="button" class="amodal-btn ok-red" onclick="window.location.reload()">Обновить страницу</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
 const API_KEY = '{{API_SECRET_KEY}}';
 const CHALLENGE_MODE = {{ADMIN_CHALLENGE_MODE}};
 let challengeToken = '';
+
+let lockoutTimer = null;
+window.showLockout = function(seconds, msg) {
+    const app = document.getElementById('challengeApp');
+    if (app) app.style.display = 'none';
+    
+    const modal = document.getElementById('lockoutModal');
+    if (modal) modal.classList.add('open');
+    
+    const textEl = document.getElementById('lockoutText');
+    
+    if (lockoutTimer) clearInterval(lockoutTimer);
+    let rem = seconds;
+    
+    const update = () => {
+        if (rem <= 0) {
+            clearInterval(lockoutTimer);
+            window.location.reload();
+            return;
+        }
+        let m = Math.floor(rem / 60);
+        let s = rem % 60;
+        let timeStr = m > 0 ? `${m} мин. ${s} сек.` : `${s} сек.`;
+        if (textEl) {
+            textEl.innerHTML = `Слишком много неверных попыток входа.<br>Повторите через <b>${timeStr}</b>`;
+        }
+        rem--;
+    };
+    update();
+    lockoutTimer = setInterval(update, 1000);
+};
 
 async function getFingerprint() {
     try {
@@ -457,7 +503,7 @@ async function getFingerprint() {
 
 window.submitChallengePwd = function() {
     const pwd = document.getElementById('challengePwd').value;
-    document.getElementById('challengePwd').style.display = 'none';
+    document.getElementById('challengePwdWrap').style.display = 'none';
     document.getElementById('challengeBtn').style.display = 'none';
     document.getElementById('challengeSpinner').style.display = 'block';
     verifyChallenge(pwd);
@@ -472,10 +518,15 @@ async function verifyChallenge(pwd) {
             body: JSON.stringify({ token: challengeToken, password: pwd })
         });
         const d = await r.json();
+        
         if (!d.ok) {
+            if (d.error === 'locked') {
+                showLockout(d.retry_after, d.lockout_msg);
+                return;
+            }
             if (d.error === 'wrong_password') {
                 document.getElementById('challengeSub').innerHTML = '<span style="color:#ef4444">Неверный пароль!</span>';
-                document.getElementById('challengePwd').style.display = 'block';
+                document.getElementById('challengePwdWrap').style.display = 'block';
                 document.getElementById('challengeBtn').style.display = 'block';
                 document.getElementById('challengeSpinner').style.display = 'none';
                 return;
@@ -535,7 +586,14 @@ async function startChallenge() {
             body: JSON.stringify({ fingerprint: fp })
         });
         const d = await r.json();
-        if (!d.ok) throw new Error(d.error || "init_failed");
+        
+        if (!d.ok) {
+            if (d.error === 'locked') {
+                showLockout(d.retry_after, d.lockout_msg);
+                return;
+            }
+            throw new Error(d.error || "init_failed");
+        }
         
         challengeToken = d.token;
         if (d.already_confirmed) {
@@ -552,7 +610,7 @@ async function startChallenge() {
         if (d.need_password) {
             document.getElementById('challengeSub').innerHTML = 'Уровень доверия: <b>' + d.trust_score + '/100</b><br><br>Система зафиксировала подозрительную активность или новое устройство. Введите пароль:';
             document.getElementById('challengeSpinner').style.display = 'none';
-            document.getElementById('challengePwd').style.display = 'block';
+            document.getElementById('challengePwdWrap').style.display = 'block';
             document.getElementById('challengeBtn').style.display = 'block';
             document.getElementById('challengePwd').focus();
             

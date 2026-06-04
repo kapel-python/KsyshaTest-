@@ -3,8 +3,8 @@
 import subprocess
 import os
 
-version = '1.0.242'
-description = 'Фикс дублирования логики доступа'
+version = '1.0.243'
+description = 'Анти брутфорс подбора паролей'
 
 
 def get_version_metadata() -> tuple[str, str]:

@@ -983,6 +983,30 @@ async def on_startup(bot):
     except Exception as e:
         logger.error(f"Rollback Branch Recovery Hook error: {e}")
 
+    # app_version.py integrity check — DIAGNOSTIC ONLY, no rollback side-effects
+    try:
+        from app_version import check_version_integrity
+        from database import db as _idb
+        integrity = check_version_integrity(db=_idb)
+        if not integrity["ok"]:
+            for w in integrity["warnings"]:
+                logger.warning("[version_integrity] %s", w)
+            logger.warning(
+                "[version_integrity] SUMMARY: app_version.py file=%r, "
+                "version_history max=%r, git_commit=%r. "
+                "System continues WITHOUT rollback or git changes.",
+                integrity["file_ver"], integrity["history_max"], integrity["git_commit"],
+            )
+        else:
+            logger.info(
+                "[version_integrity] OK: app_version.py=%r matches version_history max=%r",
+                integrity["file_ver"], integrity["history_max"],
+            )
+    except Exception as e:
+        logger.error("[version_integrity] Integrity check failed (non-fatal): %s", e)
+
+
+
     # Определяем внешний IP в отдельном потоке чтобы не блокировать event loop
     external_ip = await asyncio.get_event_loop().run_in_executor(None, _get_external_ip)
 

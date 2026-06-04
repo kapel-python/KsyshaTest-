@@ -6270,22 +6270,18 @@ async def admin_release_description_received(message: Message, state: FSMContext
         
     await state.update_data(release_description=description)
     
-    from app_version import get_version_metadata
-    rb_active_preview = db.get_setting("rollback_active") == "1"
-    if rb_active_preview:
-        _hist = db.get_version_history()
-        if _hist:
-            def _ver_tuple_p(v: str):
-                try:
-                    return tuple(int(x) for x in v.strip().split("."))
-                except Exception:
-                    return (0, 0, 0)
-            _max_ver = max((_e.get("version", "") for _e in _hist), key=_ver_tuple_p)
-            current_ver = _max_ver
-        else:
-            current_ver, _ = get_version_metadata()
+    # Version numbering: always based on version_history (authoritative), never on app_version.py file.
+    from app_version import get_version_metadata as _get_ver_meta_fallback
+    _hist_preview = db.get_version_history()
+    def _ver_tuple_p(v: str):
+        try:
+            return tuple(int(x) for x in v.strip().split("."))
+        except Exception:
+            return (0, 0, 0)
+    if _hist_preview:
+        current_ver = max((_e.get("version", "") for _e in _hist_preview), key=_ver_tuple_p)
     else:
-        current_ver, _ = get_version_metadata()
+        current_ver, _ = _get_ver_meta_fallback()
     new_version = increment_patch_version(current_ver)
     
     text = (
@@ -6341,7 +6337,7 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
     await callback_edit_or_answer(callback, "🚀 <b>Запуск создания релиза...</b>\n\nВыполняю проверку репозитория...", parse_mode=ParseMode.HTML)
     
     try:
-        from app_version import get_git_status_info, _get_repo_root, get_version_metadata
+        from app_version import get_git_status_info, _get_repo_root
         status_info = get_git_status_info()
         repo_root = _get_repo_root()
         
@@ -6406,21 +6402,23 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
             return
 
         # 4. Increment patch version automatically.
-        # When releasing from rollback the active app_version.py reflects the rolled-back
-        # version (e.g. 1.0.232), but the new release must be numbered higher than the
-        # maximum version ever released (e.g. 1.0.234 → 1.0.235).
-        if is_rollback_release and history:
+        # Version numbering is ALWAYS based on version_history (authoritative source),
+        # never on app_version.py which is display-only metadata.
+        # This prevents a manually edited app_version.py from producing wrong version numbers.
+        from app_version import get_version_metadata as _get_ver_meta_fallback
+        history = db.get_version_history()
+        def _ver_tuple(v: str):
+            try:
+                return tuple(int(x) for x in v.strip().split("."))
+            except Exception:
+                return (0, 0, 0)
+        if history:
             all_versions = [entry.get("version", "") for entry in history]
-            def _ver_tuple(v: str):
-                try:
-                    return tuple(int(x) for x in v.strip().split("."))
-                except Exception:
-                    return (0, 0, 0)
             max_ver = max(all_versions, key=_ver_tuple)
             new_version = increment_patch_version(max_ver)
         else:
-            current_ver, _ = get_version_metadata()
-            new_version = increment_patch_version(current_ver)
+            current_ver_fallback, _ = _get_ver_meta_fallback()
+            new_version = increment_patch_version(current_ver_fallback)
         
         await callback.message.answer(f"📈 <b>Новая версия: {new_version}</b>\nНастраиваю Git...")
         
@@ -6891,9 +6889,21 @@ async def admin_confirm_rollback(callback: CallbackQuery):
     await callback_edit_or_answer(callback, "🚀 <b>Запуск отката...</b>\n\nВыполняю checkout и деплой...", parse_mode=ParseMode.HTML)
     
     try:
-        from app_version import _get_repo_root, version as current_ver, get_git_commit
+        from app_version import _get_repo_root, get_git_commit
         repo_root = _get_repo_root()
         current_commit = get_git_commit() or "—"
+        # current_ver: from version_history (authoritative), not from app_version.py file
+        _hist_rb = db.get_version_history()
+        def _ver_tuple_rb(v: str):
+            try:
+                return tuple(int(x) for x in str(v).strip().split("."))
+            except Exception:
+                return (0, 0, 0)
+        if _hist_rb:
+            current_ver = max((_e.get("version", "") for _e in _hist_rb), key=_ver_tuple_rb)
+        else:
+            from app_version import version as _av_fallback
+            current_ver = _av_fallback or "unknown"
         # -1. Verify rollback compatibility
         def _parse_version(v_str):
             try:

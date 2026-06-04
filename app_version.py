@@ -1,10 +1,16 @@
-"""Single source of truth for application version metadata."""
+"""Application version metadata — display-only, NOT source of truth for rollback.
+
+app_version.py is updated only during a release (by the release handler).
+It is NEVER used to trigger rollbacks or to determine the "current" version
+for release numbering.  Rollback state is controlled exclusively through
+DB settings: rollback_active / rollback_target_commit / rollback_previous_commit.
+"""
 
 import subprocess
 import os
 
-version = '1.0.251'
-description = 'Beta система релиза во время отката'
+version = '1.0.252'
+description = 'Beta система чтобы файл app version не мог сам поменять версию проекта'
 
 
 def get_version_metadata() -> tuple[str, str]:
@@ -157,3 +163,50 @@ def get_git_status_info() -> dict:
 
     return info
 
+
+def check_version_integrity(db=None) -> dict:
+    """Checks whether app_version.py is consistent with the authoritative sources.
+
+    Returns a dict:
+        ok          – bool, True if no mismatch detected
+        file_ver    – version string currently in app_version.py
+        git_commit  – current git commit (short)
+        history_max – max version in version_history (or None)
+        warnings    – list[str] of human-readable warning messages
+
+    This function NEVER triggers rollback, git checkout, or any state change.
+    It is purely diagnostic.
+    """
+    result = {
+        "ok": True,
+        "file_ver": version,
+        "git_commit": get_git_commit(),
+        "history_max": None,
+        "warnings": [],
+    }
+
+    if db is not None:
+        try:
+            history = db.get_version_history()
+            if history:
+                def _ver_tuple(v: str):
+                    try:
+                        return tuple(int(x) for x in str(v).strip().split("."))
+                    except Exception:
+                        return (0, 0, 0)
+                max_ver = max((e.get("version", "") for e in history), key=_ver_tuple)
+                result["history_max"] = max_ver
+
+                file_t = _ver_tuple(version or "")
+                max_t = _ver_tuple(max_ver)
+                if file_t != max_t:
+                    result["ok"] = False
+                    result["warnings"].append(
+                        f"app_version mismatch: file={version!r}, "
+                        f"version_history max={max_ver!r}. "
+                        "Treating app_version as stale metadata — NO rollback performed."
+                    )
+        except Exception as exc:
+            result["warnings"].append(f"check_version_integrity: could not read version_history: {exc}")
+
+    return result

@@ -666,7 +666,7 @@ class Database:
                 )
             ''')
 
-            # История версий приложения (источник version/description — app_version.py)
+            # История версий приложения (авторитетный источник версии — version_history, не app_version.py)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS version_history (
                     version TEXT PRIMARY KEY,
@@ -1156,8 +1156,45 @@ class Database:
         )
 
     def _register_current_app_version(self, conn: sqlite3.Connection) -> None:
+        """Idempotently register the version from app_version.py on startup.
+
+        IMPORTANT: app_version.py is display metadata updated only by the release
+        handler.  If version_history already has entries and the file's version
+        does NOT match the max known version, we treat the file as stale/corrupted
+        (e.g. manually edited).  We log a WARNING but do NOT insert a new record
+        and do NOT perform any rollback or git operation.
+        """
         version, description = get_version_metadata()
         git_commit = get_git_commit()
+
+        # Check authoritative history first
+        existing = conn.execute(
+            "SELECT version FROM version_history ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+
+        if existing is not None:
+            def _ver_tuple(v: str):
+                try:
+                    return tuple(int(x) for x in str(v).strip().split("."))
+                except Exception:
+                    return (0, 0, 0)
+
+            # Find the actual max version in history (newest by semver)
+            all_rows = conn.execute(
+                "SELECT version FROM version_history"
+            ).fetchall()
+            if all_rows:
+                max_ver = max((row["version"] for row in all_rows), key=_ver_tuple)
+                if _ver_tuple(version) != _ver_tuple(max_ver):
+                    logger.warning(
+                        "[version_integrity] app_version.py contains %r but version_history max is %r. "
+                        "Treating app_version as stale/corrupted metadata. "
+                        "NO rollback will be performed. "
+                        "Update app_version.py via the release flow only.",
+                        version, max_ver,
+                    )
+                    return  # skip registration — do NOT trust the file
+
         self._register_version_history_entry(conn, version, description, git_commit=git_commit)
 
     def get_version_history(self) -> list[dict]:

@@ -4544,6 +4544,11 @@ async def sky_page(request: web.Request) -> web.Response:
     """Отдаёт страницу /sky (sky.html). Требует зарегистрированную пару."""
     if not _get_registered_couple(request):
         raise web.HTTPFound("/404")
+
+    if db.get_setting("test_version") == "1":
+        html = _render_maintenance_page()
+        return web.Response(text=html, content_type="text/html", charset="utf-8")
+
     project_root = Path(__file__).resolve().parent
     sky_path = project_root / "sky.html"
     if not sky_path.exists():
@@ -5726,6 +5731,10 @@ async def profile_page(request: web.Request) -> web.Response:
         logger.warning(f"SERVER REDIRECT: profile_page invalid visitor_id! Headers: {request.headers}")
         raise web.HTTPFound("/404")
 
+    if db.get_setting("test_version") == "1":
+        html = _render_maintenance_page()
+        return web.Response(text=html, content_type="text/html", charset="utf-8")
+
     _prof_uid = _visitor_to_user_id(visitor_id)
     if not _prof_uid or not db.get_couple_by_user(_prof_uid):
         logger.warning(f"SERVER REDIRECT: profile_page missing couple data for {visitor_id}")
@@ -5989,6 +5998,10 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     _stats_uid = _visitor_to_user_id(session_vid)
     if not _stats_uid or not db.get_couple_by_user(_stats_uid):
         raise web.HTTPFound("/404")
+
+    if db.get_setting("test_version") == "1":
+        html = _render_maintenance_page()
+        return web.Response(text=html, content_type="text/html", charset="utf-8")
 
     project_root = Path(__file__).resolve().parent
 

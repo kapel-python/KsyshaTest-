@@ -29,3 +29,4 @@ test_rollback_workflow.py
 test_version_ux.py
 create_custom_release.py
 test_health_url.py
+frontend_debug.log

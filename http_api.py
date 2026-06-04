@@ -8305,6 +8305,20 @@ async def serve_memory_card_js(request: web.Request) -> web.Response:
     )
 
 
+async def serve_memory_card_css(request: web.Request) -> web.Response:
+    """Отдаёт memory_card.css — общие стили карточек воспоминаний."""
+    p = Path(__file__).resolve().parent / "memory_card.css"
+    if not p.exists():
+        return web.Response(status=404, text="memory_card.css not found")
+    text = p.read_text(encoding="utf-8")
+    return web.Response(
+        text=text,
+        content_type="text/css",
+        charset="utf-8",
+        headers={"Cache-Control": "public, max-age=60"},
+    )
+
+
 async def client_log(request: web.Request) -> web.Response:
     """
     Принимает пакет клиентских логов и пересылает их создателю в Telegram.
@@ -8788,6 +8802,7 @@ def create_app() -> web.Application:
     app.router.add_post("/api/nav_debug", nav_debug)
 
     app.router.add_get("/memory-card.js", serve_memory_card_js)
+    app.router.add_get("/memory-card.css", serve_memory_card_css)
     app.router.add_post("/api/log", client_log)
     app.router.add_get("/logger.js", serve_logger_js)
 

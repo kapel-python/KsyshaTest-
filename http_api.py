@@ -4081,6 +4081,17 @@ async def admin_challenge_verify(request: web.Request) -> web.Response:
         if not password or not hmac.compare_digest(password, admin_pwd):
             detail_str = f"visitor_id:{visitor_id}" if visitor_id else "bad_password"
             db.log_security_event("admin_brute", ip=ip_raw, ua=(request.headers.get("User-Agent") or "")[:256], detail=detail_str)
+            
+            # Сразу проверяем блокировку, чтобы вернуть её без перезагрузки, если это была пограничная попытка
+            is_locked_now, retry_after_now, lockout_msg_now = db.check_admin_lockout(ip_raw, visitor_id)
+            if is_locked_now:
+                return _add_cors_headers(web.json_response({
+                    "ok": False,
+                    "error": "locked",
+                    "retry_after": retry_after_now,
+                    "lockout_msg": lockout_msg_now.replace("\\n", "\n")
+                }))
+                
             return _add_cors_headers(web.json_response({"ok": False, "error": "wrong_password"}, status=403))
         db.update_admin_challenge(token, "pending_tg")
 

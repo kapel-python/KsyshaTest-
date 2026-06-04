@@ -4003,7 +4003,7 @@ async def admin_challenge_init(request: web.Request) -> web.Response:
     trust_score, trust_flags = _compute_admin_trust_score(request, visitor_id, user_id)
     need_password = trust_score < 70
 
-    token = secrets.token_hex(32)
+    token = secrets.token_hex(16)
     ok = db.create_admin_challenge(
         token=token,
         visitor_id=visitor_id,

@@ -5959,16 +5959,7 @@ class Database:
             logger.exception("Ошибка invalidate_transfer_invites_for_user: %s", e)
             return 0
 
-    def log_security_event(self, type: str, user_id: Optional[int], ip: str, ua: str, country: str, city: str, detail: str) -> None:
-        try:
-            with self._get_connection() as conn:
-                conn.execute(
-                    "INSERT INTO security_events (type, user_id, ip, ua, country, city, detail) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (type, user_id, ip, ua, country, city, detail)
-                )
-                conn.commit()
-        except Exception as e:
-            logger.exception("Ошибка log_security_event: %s", e)
+
 
     def get_recent_unlink_denied(self, user_id: int, within_seconds: int = 3600) -> bool:
         try:

@@ -538,89 +538,188 @@ html.theme-light .stg-pill { border-color: rgba(0,0,0,0.08); }
   to { transform: rotate(360deg); }
 }
 
-/* ── Карточка воспоминания ── */
-.memory-recall-card {
-  width: 100%;
-  background: var(--surface);
-  border-radius: 24px;
-  border: 1px solid var(--border);
-  overflow: hidden;
-  display: none;
+/* ── CSS-переменные карточек (из index.html) ── */
+:root {
+  --card-bg: #ffffff;
+  --card-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  --muted-text: #666;
+  --text-color: #333;
+  --accent-color: #d43f8d;
+  --border-color: #ffb6c1;
+  --meta-text: #999;
 }
-.memory-recall-card.visible {
+html.theme-dark {
+  --card-bg: #181828;
+  --card-shadow: 0 6px 18px rgba(0,0,0,0.55);
+  --muted-text: #b3b3d4;
+  --text-color: #f0f0ff;
+  --accent-color: #ff9bcd;
+  --border-color: rgba(255,155,205,0.85);
+  --meta-text: #9292ba;
+}
+
+/* ── Карточка воспоминания (точные стили из index.html) ── */
+.memory {
+  background: var(--card-bg);
+  border-left: 5px solid #ff69b4;
+  margin: 16px 0 0;
+  padding: 16px 14px 14px;
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  color: var(--text-color);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 1rem;
+  word-wrap: break-word;
+}
+.memory .category {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffb6c1;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+  color: #333;
+}
+html.theme-dark .memory .category {
+  background: rgba(255,138,195,0.25);
+  color: #f0f0ff;
+}
+.memory .title {
+  font-size: 1.15rem;
+  color: #c71585;
+  margin: 4px 0;
+  word-wrap: break-word;
+}
+html.theme-dark .memory .title { color: #ff9bcd; }
+.memory .date {
+  color: var(--muted-text);
+  font-style: italic;
+  margin: 4px 0;
+  font-size: 0.9rem;
+}
+.memory .content {
+  margin: 10px 0 12px;
+  line-height: 1.6;
+  font-size: 0.96rem;
+  word-wrap: break-word;
+  white-space: pre-line;
+}
+.memory .content--collapsed {
+  max-height: 6.5em;
+  overflow: hidden;
+  position: relative;
+}
+.memory .content--collapsed::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2.2em;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), var(--card-bg));
+}
+html.theme-dark .memory .content--collapsed::after {
+  background: linear-gradient(to bottom, rgba(24,24,40,0), var(--card-bg));
+}
+.memory .content-toggle {
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #d43f8d;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.memory .meta {
+  font-size: 0.8rem;
+  color: var(--meta-text);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.memory .media {
+  max-width: 100%;
+  border-radius: 10px;
+  margin: 8px 0 6px;
   display: block;
-  animation: memoryReveal 0.7s cubic-bezier(0.22,1,0.36,1) both;
+  cursor: pointer;
+}
+.memory-media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 6px;
+}
+.memory-media-grid--single { grid-template-columns: 1fr; }
+.memory-media-grid--single .memory-media-item { min-height: 0; }
+.memory-media-grid--single .memory-media-item--single-viewport {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(0,0,0,0.04);
+  width: 100%;
+  max-height: 70vh;
+}
+.memory-media-grid--single .memory-media-item--single-viewport .media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+.memory-media-grid .media, .memory-media-grid audio { width: 100%; margin: 0; }
+.memory-media-item { min-width: 0; }
+.memory-media-item .media { aspect-ratio: 1/1; object-fit: cover; border-radius: 10px; }
+.memory-media-video-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  aspect-ratio: 1/1;
+  background: #1a1a1a;
+}
+.memory-media-video-wrap .media {
+  display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 0;
+}
+.memory-media-video-badge {
+  position: absolute; top: 8px; left: 8px;
+  background: rgba(0,0,0,0.75); color: #fff;
+  font-size: 13px; font-weight: 600;
+  padding: 4px 9px; border-radius: 6px;
+  line-height: 1.4; pointer-events: none; z-index: 1;
+}
+.memory-media-video-play {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.memory-media-video-play::after {
+  content: '';
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") no-repeat center / 22px;
+}
+.memory-media-item--full { grid-column: 1/-1; }
+.memory-media-file-link {
+  display: inline-block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(127,127,127,0.12);
+  color: inherit;
+  text-decoration: none;
+  word-break: break-word;
+  cursor: pointer;
+}
+
+/* ── Анимация появления карточки воспоминания ── */
+#recallCardSlot .memory {
+  animation: memoryReveal 0.65s cubic-bezier(0.22,1,0.36,1) both;
 }
 @keyframes memoryReveal {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.97);
-    filter: blur(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
+  from { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(5px); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    filter: blur(0); }
 }
-.recall-card-header {
-  padding: 18px 20px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.recall-card-icon {
-  width: 40px; height: 40px;
-  background: linear-gradient(135deg, rgba(212,63,141,0.2), rgba(124,58,237,0.2));
-  border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
-.recall-card-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-.recall-card-category {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  background: linear-gradient(135deg, #ff9fd4, #7c3aed);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.recall-card-date {
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-.recall-card-body {
-  padding: 18px 20px 20px;
-}
-.recall-card-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.4;
-  margin-bottom: 10px;
-  animation: textReveal 0.9s 0.25s ease both;
-}
-.recall-card-content {
-  font-size: 0.9rem;
-  color: var(--muted);
-  line-height: 1.65;
-  animation: textReveal 0.9s 0.4s ease both;
-}
-@keyframes textReveal {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+
+/* ── Пустое состояние ── */
 .recall-empty-msg {
   text-align: center;
   padding: 28px 20px;
@@ -630,8 +729,6 @@ html.theme-light .stg-pill { border-color: rgba(0,0,0,0.08); }
   display: none;
 }
 .recall-empty-msg.visible { display: block; }
-html.theme-light .recall-card-header { border-bottom-color: rgba(0,0,0,0.06); }
-html.theme-light .recall-card-icon { background: linear-gradient(135deg, rgba(212,63,141,0.12), rgba(124,58,237,0.12)); }
 </style>
 </head>
 <body>
@@ -711,19 +808,7 @@ html.theme-light .recall-card-icon { background: linear-gradient(135deg, rgba(21
         <span data-i18n="recallBtn">Случайное воспоминание</span>
       </button>
     </div>
-    <div class="memory-recall-card" id="recallCard">
-      <div class="recall-card-header">
-        <div class="recall-card-icon" id="recallIcon">💫</div>
-        <div class="recall-card-meta">
-          <div class="recall-card-category" id="recallCategory"></div>
-          <div class="recall-card-date" id="recallDate"></div>
-        </div>
-      </div>
-      <div class="recall-card-body">
-        <div class="recall-card-title" id="recallTitle"></div>
-        <div class="recall-card-content" id="recallContent"></div>
-      </div>
-    </div>
+    <div id="recallCardSlot"></div>
     <div class="recall-empty-msg" id="recallEmpty">
       <span data-i18n="recallEmpty">Когда здесь появятся ваши воспоминания, мы сможем показать одно из них случайным образом.</span>
     </div>
@@ -1001,43 +1086,319 @@ setInterval(() => {
 
 showFact(0);
 
-// ── Случайное воспоминание ──
+// ── Случайное воспоминание: точные хелперы + createMemoryElement из index.html ──
 (function() {
-  var CATEGORY_ICONS = {
-    important_moments: '⭐',
-    memories: '💝',
-    important_dates: '📅'
+  // ── Минимальная i18n-функция для карточки (совместима с _i/_ui из index.html) ──
+  var _CARD_I18N = {
+    ru: {
+      catImportantMoments: '💫 Важные моменты', catMemories: '📖 Воспоминания', catDates: '📅 Важные даты',
+      memoryNoTitle: '(без названия)',
+      metaAddedBy: '👤 Добавил(а):', metaAdded: '📌 Добавлено:', metaEdited: '• отредактировано:',
+      mediaOpenFull: 'Открыть полностью', mediaCollapse: 'Свернуть',
+      mediaOpenFile: 'Открыть файл', mediaOpenMedia: 'Открыть медиа',
+      atWord: 'в',
+      monthJan:'января',monthFeb:'февраля',monthMar:'марта',monthApr:'апреля',monthMay:'мая',monthJun:'июня',
+      monthJul:'июля',monthAug:'августа',monthSep:'сентября',monthOct:'октября',monthNov:'ноября',monthDec:'декабря'
+    },
+    de: {
+      catImportantMoments: '💫 Wichtige Momente', catMemories: '📖 Erinnerungen', catDates: '📅 Wichtige Daten',
+      memoryNoTitle: '(ohne Titel)',
+      metaAddedBy: '👤 Hinzugefügt von:', metaAdded: '📌 Hinzugefügt:', metaEdited: '• bearbeitet:',
+      mediaOpenFull: 'Vollständig öffnen', mediaCollapse: 'Einklappen',
+      mediaOpenFile: 'Datei öffnen', mediaOpenMedia: 'Medien öffnen',
+      atWord: 'um',
+      monthJan:'Januar',monthFeb:'Februar',monthMar:'März',monthApr:'April',monthMay:'Mai',monthJun:'Juni',
+      monthJul:'Juli',monthAug:'August',monthSep:'September',monthOct:'Oktober',monthNov:'November',monthDec:'Dezember'
+    },
+    en: {
+      catImportantMoments: '💫 Important moments', catMemories: '📖 Memories', catDates: '📅 Important dates',
+      memoryNoTitle: '(untitled)',
+      metaAddedBy: '👤 Added by:', metaAdded: '📌 Added:', metaEdited: '• edited:',
+      mediaOpenFull: 'Open full', mediaCollapse: 'Collapse',
+      mediaOpenFile: 'Open file', mediaOpenMedia: 'Open media',
+      atWord: 'at',
+      monthJan:'January',monthFeb:'February',monthMar:'March',monthApr:'April',monthMay:'May',monthJun:'June',
+      monthJul:'July',monthAug:'August',monthSep:'September',monthOct:'October',monthNov:'November',monthDec:'December'
+    }
   };
-
-  var seenIds = [];
-  var MAX_SEEN = 20;
-
-  var btn = document.getElementById('recallBtn');
-  var card = document.getElementById('recallCard');
-  var emptyMsg = document.getElementById('recallEmpty');
-  var recallIcon = document.getElementById('recallIcon');
-  var recallCategory = document.getElementById('recallCategory');
-  var recallDate = document.getElementById('recallDate');
-  var recallTitle = document.getElementById('recallTitle');
-  var recallContent = document.getElementById('recallContent');
-
-  function getCatLabel(cat) {
-    var t = I18N[currentLang];
-    return (t && t.recallCats && t.recallCats[cat]) || cat || '';
+  function _ci(key) {
+    var l = currentLang || 'ru';
+    var tr = _CARD_I18N[l] || _CARD_I18N.ru;
+    return tr[key] || _CARD_I18N.ru[key] || key;
   }
 
+  // ── Утилиты (копия из index.html) ──
+  function escapeHtml(text) {
+    return String(text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+  function getUserTimezone() {
+    try {
+      var stored = localStorage.getItem('memories_tz_override');
+      if (stored && stored !== '__auto__') return stored;
+    } catch(e){}
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch(e){ return ''; }
+  }
+  function parseUtcDate(str) {
+    if (!str) return null;
+    var iso = str.trim();
+    if (iso.length === 10) iso += 'T00:00:00Z';
+    else {
+      if (iso.indexOf('T') === -1) iso = iso.replace(' ','T');
+      var tp = iso.substring(10);
+      if (!iso.endsWith('Z') && tp.indexOf('+') === -1 && tp.indexOf('-') === -1) iso += 'Z';
+    }
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function formatDateTimeLocal(utcStr) {
+    if (!utcStr) return '';
+    var d = parseUtcDate(utcStr);
+    if (!d) return utcStr;
+    var tz = getUserTimezone();
+    var lang = currentLang || 'ru';
+    var day, monthIdx, year, hours, minutes;
+    try {
+      var parts = new Intl.DateTimeFormat('en-US',{
+        timeZone: tz || undefined,
+        year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',hour12:false
+      }).formatToParts(d);
+      var pm = {}; parts.forEach(function(p){ pm[p.type]=p.value; });
+      day = Number(pm.day); monthIdx = Number(pm.month)-1; year = Number(pm.year);
+      hours = String(pm.hour).padStart(2,'0'); if (hours==='24') hours='00';
+      minutes = String(pm.minute).padStart(2,'0');
+    } catch(e) {
+      day=d.getDate(); monthIdx=d.getMonth(); year=d.getFullYear();
+      hours=String(d.getHours()).padStart(2,'0'); minutes=String(d.getMinutes()).padStart(2,'0');
+    }
+    var timeStr = hours+':'+minutes;
+    var mk = 'month'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][monthIdx];
+    var mn = _ci(mk), atW = _ci('atWord');
+    if (lang==='en') return mn+' '+day+', '+year+' '+atW+' '+timeStr;
+    if (lang==='de') return day+'. '+mn+' '+year+' '+atW+' '+timeStr;
+    return day+' '+mn+' '+year+' '+atW+' '+timeStr;
+  }
+  function renderMetaElement(metaDiv) {
+    var who = metaDiv.dataset.who || '';
+    var createdAt = metaDiv.dataset.createdAt || '';
+    var updatedAt = metaDiv.dataset.updatedAt || '';
+    var html = '';
+    if (who) html += _ci('metaAddedBy')+' '+escapeHtml(who);
+    if (createdAt) {
+      if (html) html += '<br>';
+      html += _ci('metaAdded')+' '+escapeHtml(formatDateTimeLocal(createdAt));
+      if (updatedAt && updatedAt !== createdAt)
+        html += ' '+_ci('metaEdited')+' '+escapeHtml(formatDateTimeLocal(updatedAt));
+    }
+    metaDiv.innerHTML = html;
+  }
+
+  // ── Медиа-хелперы (копия из index.html) ──
+  var _IMG_EX = new Set(['jpg','jpeg','png','gif','webp','avif','bmp','svg']);
+  var _VID_EX = new Set(['mp4','mov','webm','mkv','m4v','avi']);
+  var _AUD_EX = new Set(['mp3','ogg','oga','wav','aac','m4a','flac','opus']);
+  function _mediaPathToUrl(path) {
+    var raw = String(path||'').trim();
+    if (!raw) return '';
+    var idx = raw.lastIndexOf('/media/');
+    if (idx >= 0) return '/'+raw.slice(idx+1);
+    return '/media/'+raw.split('/').pop();
+  }
+  function _mediaThumbUrl(item) {
+    if (!item||typeof item!=='object') return '';
+    return _mediaPathToUrl(String(item.preview_url||item.thumb_url||item.thumb_path||item.url||item.media_url||'').trim());
+  }
+  function _mediaOriginalUrl(item) {
+    if (!item||typeof item!=='object') return '';
+    return _mediaPathToUrl(String(item.original_url||item.url||item.media_url||item.media_path||item.path||'').trim());
+  }
+  function _mediaFileNameFromUrl(url) {
+    var raw = String(url||'').trim();
+    if (!raw) return '';
+    try { return decodeURIComponent((new URL(raw,location.origin).pathname.split('/').pop()||'').trim()); }
+    catch(_) { return (raw.split('?')[0].split('#')[0].split('/').pop()||'').trim(); }
+  }
+  function _mediaExtFromName(name) {
+    var raw = String(name||'').trim().toLowerCase();
+    if (!raw) return '';
+    var idx = raw.lastIndexOf('.');
+    return idx<=0 ? '' : raw.slice(idx+1);
+  }
+  function _mediaKindFromType(type,ext) {
+    var e=String(ext||'').toLowerCase(), t=String(type||'').toLowerCase();
+    if (_IMG_EX.has(e)) return 'photo';
+    if (_VID_EX.has(e)) return 'video';
+    if (_AUD_EX.has(e)) return 'audio';
+    if (t==='photo') return 'photo';
+    if (t==='video'||t==='video_note') return 'video';
+    if (t==='audio'||t==='voice') return 'audio';
+    return 'file';
+  }
+  function _normalizeMediaItem(item) {
+    if (!item||typeof item!=='object') return null;
+    var src = _mediaOriginalUrl(item)||_mediaThumbUrl(item)||_mediaPathToUrl(String(item.src||item.url||item.media_url||item.media_path||item.path||'').trim());
+    if (!src) return null;
+    var thumb = _mediaThumbUrl(item)||src;
+    var type = String(item.type||item.media_type||'').trim().toLowerCase();
+    var name = String(item.name||item.filename||item.media_name||'').trim()||_mediaFileNameFromUrl(src);
+    var ext = _mediaExtFromName(name||src);
+    var kind = _mediaKindFromType(type,ext,name);
+    return {src:src,thumb:thumb,type:type,name:name,ext:ext,kind:kind};
+  }
+  function _attachMediaOpenHandler(el, item) {
+    // На странице техперерыва открываем медиа напрямую в новой вкладке
+    var media = _normalizeMediaItem(item);
+    if (!el||!media) return;
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', function(e) {
+      e.preventDefault();
+      window.open(media.src, '_blank', 'noopener');
+    });
+  }
+  function _createVideoPreview(media) {
+    var wrap = document.createElement('div');
+    wrap.className = 'memory-media-video-wrap';
+    var img = document.createElement('img');
+    img.className = 'media'; img.loading = 'lazy'; img.decoding = 'async'; img.alt = '';
+    if (media.thumb && media.thumb !== media.src) img.src = media.thumb;
+    else img.style.display = 'none';
+    wrap.appendChild(img);
+    var play = document.createElement('div');
+    play.className = 'memory-media-video-play';
+    wrap.appendChild(play);
+    _attachMediaOpenHandler(wrap, media);
+    return wrap;
+  }
+
+  // ── createMemoryElement (точная копия из index.html, строки 6749-6951) ──
+  function createMemoryElement(m) {
+    var categoriesMap = {}; // нет кастомных категорий на maintenance
+    var div = document.createElement('div');
+    div.className = 'memory';
+    div.dataset.memoryId = String(m.id);
+    if (m.category) div.dataset.category = m.category;
+    var _catKeys = {important_moments:'catImportantMoments',memories:'catMemories',important_dates:'catDates'};
+    var _catI18nKey = _catKeys[m.category];
+    var catTitle = _catI18nKey ? _ci(_catI18nKey) : (m.category||'');
+    var categorySpan = document.createElement('span');
+    categorySpan.className = 'category';
+    categorySpan.dataset.catKey = m.category||'';
+    categorySpan.textContent = catTitle.trim();
+    div.appendChild(categorySpan);
+    var titleDiv = document.createElement('div');
+    titleDiv.className = 'title';
+    titleDiv.textContent = m.title || _ci('memoryNoTitle');
+    div.appendChild(titleDiv);
+    var dateDiv = document.createElement('div');
+    dateDiv.className = 'date';
+    var humanDate = m.date_human||m.date_resolved||m.date;
+    dateDiv.textContent = humanDate ? ('📅 '+humanDate) : '';
+    div.appendChild(dateDiv);
+    var contentDiv = document.createElement('div');
+    contentDiv.className = 'content';
+    contentDiv.innerHTML = m.content_html||'';
+    div.appendChild(contentDiv);
+    var fullTextLength = (contentDiv.textContent||'').trim().length;
+    var MAX_CHARS_COLLAPSED = 500;
+    if (fullTextLength > MAX_CHARS_COLLAPSED) {
+      contentDiv.classList.add('content--collapsed');
+      var toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'content-toggle';
+      toggleBtn.textContent = _ci('mediaOpenFull');
+      toggleBtn.addEventListener('click', function() {
+        var isCollapsed = contentDiv.classList.toggle('content--collapsed');
+        toggleBtn.textContent = isCollapsed ? _ci('mediaOpenFull') : _ci('mediaCollapse');
+      });
+      div.appendChild(toggleBtn);
+    }
+    var mediaItems = Array.isArray(m.media_items) ? m.media_items.slice(0,6) : [];
+    if (mediaItems.length > 0) {
+      var grid = document.createElement('div');
+      grid.className = 'memory-media-grid';
+      mediaItems.forEach(function(mi) {
+        var media = _normalizeMediaItem(mi);
+        if (!media) return;
+        var item = document.createElement('div');
+        item.className = 'memory-media-item';
+        if (media.kind==='photo') {
+          var img = document.createElement('img');
+          img.className='media'; img.loading='lazy'; img.decoding='async';
+          img.src=media.src||media.thumb; img.alt='';
+          _attachMediaOpenHandler(img,media); item.appendChild(img);
+        } else if (media.kind==='video') {
+          item.appendChild(_createVideoPreview(media));
+        } else if (media.kind==='audio') {
+          item.classList.add('memory-media-item--full');
+          var audio = document.createElement('audio');
+          audio.controls=true; audio.preload='none'; audio.src=media.src;
+          _attachMediaOpenHandler(audio,media); item.appendChild(audio);
+        } else {
+          item.classList.add('memory-media-item--full');
+          var link = document.createElement('a');
+          link.textContent = media.kind==='file' ? _ci('mediaOpenFile') : _ci('mediaOpenMedia');
+          link.className = 'memory-media-file-link';
+          _attachMediaOpenHandler(link,media); item.appendChild(link);
+        }
+        grid.appendChild(item);
+      });
+      if (grid.children.length > 0) {
+        if (grid.children.length===1) grid.classList.add('memory-media-grid--single');
+        div.appendChild(grid);
+      }
+    } else if (m.media_url) {
+      var media2 = _normalizeMediaItem({
+        url:m.media_url, original_url:m.original_url||m.media_url,
+        thumb_url:m.thumb_url||m.media_url, type:m.media_type,
+        name:m.name||m.filename||m.media_name||''
+      });
+      if (media2) {
+        var sg = document.createElement('div');
+        sg.className = 'memory-media-grid memory-media-grid--single';
+        var si = document.createElement('div');
+        si.className = 'memory-media-item memory-media-item--single-viewport';
+        if (media2.kind==='photo') {
+          var img2 = document.createElement('img');
+          img2.className='media'; img2.loading='lazy'; img2.decoding='async';
+          img2.src=media2.src||media2.thumb; img2.alt='';
+          _attachMediaOpenHandler(img2,media2); si.appendChild(img2);
+        } else if (media2.kind==='video') {
+          si.appendChild(_createVideoPreview(media2));
+        } else if (media2.kind==='audio') {
+          si.classList.add('memory-media-item--full');
+          var au2 = document.createElement('audio');
+          au2.controls=true; au2.preload='none'; au2.src=media2.src;
+          _attachMediaOpenHandler(au2,media2); si.appendChild(au2);
+        } else {
+          si.classList.add('memory-media-item--full');
+          var lk2 = document.createElement('a');
+          lk2.textContent = _ci('mediaOpenFile');
+          lk2.className = 'memory-media-file-link';
+          _attachMediaOpenHandler(lk2,media2); si.appendChild(lk2);
+        }
+        sg.appendChild(si); div.appendChild(sg);
+      }
+    }
+    var metaDiv = document.createElement('div');
+    metaDiv.className = 'meta';
+    metaDiv.dataset.who = m.display_name||(m.first_name?(m.last_name?m.first_name+' '+m.last_name:m.first_name):null)||(m.username?'@'+m.username:null)||'';
+    metaDiv.dataset.createdAt = m.created_at||'';
+    metaDiv.dataset.updatedAt = m.updated_at||'';
+    renderMetaElement(metaDiv);
+    div.appendChild(metaDiv);
+    return div;
+  }
+
+  // ── Логика кнопки ──
+  var seenIds = [];
+  var MAX_SEEN = 20;
+  var btn = document.getElementById('recallBtn');
+  var slot = document.getElementById('recallCardSlot');
+  var emptyMsg = document.getElementById('recallEmpty');
+
   function showMemory(m) {
-    var cat = m.category || '';
-    recallIcon.textContent = CATEGORY_ICONS[cat] || '💫';
-    recallCategory.textContent = getCatLabel(cat);
-    recallDate.textContent = m.date_human || m.date_resolved || m.date || '';
-    recallTitle.textContent = m.title || '';
-    // content_html безопасен (прошёл через _safe_html на сервере)
-    recallContent.innerHTML = m.content_html || '';
-    // Перезапуск анимаций
-    card.classList.remove('visible');
-    void card.offsetWidth;
-    card.classList.add('visible');
+    var el = createMemoryElement(m);
+    slot.innerHTML = '';
+    slot.appendChild(el);
     emptyMsg.classList.remove('visible');
   }
 
@@ -1045,27 +1406,24 @@ showFact(0);
     btn.disabled = true;
     btn.classList.add('loading');
     var exclude = seenIds.slice(-MAX_SEEN).join(',');
-    var url = '/api/random_memory' + (exclude ? '?exclude=' + encodeURIComponent(exclude) : '');
-    fetch(url, { credentials: 'same-origin' })
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        btn.disabled = false;
-        btn.classList.remove('loading');
+    var url = '/api/random_memory'+(exclude?'?exclude='+encodeURIComponent(exclude):'');
+    fetch(url,{credentials:'same-origin'})
+      .then(function(r){return r.json();})
+      .then(function(data){
+        btn.disabled=false; btn.classList.remove('loading');
         if (!data.ok) return;
         if (!data.memory) {
-          card.classList.remove('visible');
+          slot.innerHTML='';
           emptyMsg.classList.add('visible');
           return;
         }
         var m = data.memory;
-        // Добавляем в историю показанных
-        if (seenIds.indexOf(m.id) === -1) seenIds.push(m.id);
-        if (seenIds.length > MAX_SEEN) seenIds = seenIds.slice(-MAX_SEEN);
+        if (seenIds.indexOf(m.id)===-1) seenIds.push(m.id);
+        if (seenIds.length>MAX_SEEN) seenIds=seenIds.slice(-MAX_SEEN);
         showMemory(m);
       })
-      .catch(function() {
-        btn.disabled = false;
-        btn.classList.remove('loading');
+      .catch(function(){
+        btn.disabled=false; btn.classList.remove('loading');
       });
   }
 

@@ -5354,17 +5354,11 @@ def _render_maintenance_page() -> str:
         n = 0
 
     if n > 0:
-
         visits_block = (
-
             '<div class="timer-card" style="margin-bottom:12px">'
-
-            '<div class="timer-label">За время перерыва зашли на сайт</div>'
-
+            '<div class="timer-label" data-i18n="visitsCountLabel">За время перерыва зашли на сайт</div>'
             f'<div class="timer-num" style="font-size:1.8rem;margin:0">{n}</div>'
-
-            '<div class="timer-unit-label">человек</div></div>'
-
+            '<div class="timer-unit-label" data-i18n="visitsCountUnit">человек</div></div>'
         )
 
     else:

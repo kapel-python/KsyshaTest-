@@ -5170,6 +5170,66 @@ class Database:
             logger.exception(f"Ошибка при получении последних воспоминаний: {e}")
             return []
 
+    def get_random_memory_for_couple(self, couple_id: int, exclude_ids: Optional[List[int]] = None) -> Optional["Memory"]:
+        """Возвращает случайное воспоминание пары, избегая ID из exclude_ids."""
+        try:
+            with self._get_connection() as conn:
+                exclude = [int(x) for x in (exclude_ids or []) if x]
+                if exclude:
+                    placeholders = ",".join("?" * len(exclude))
+                    cursor = conn.execute(
+                        f"""
+                        SELECT m.*, u.username, u.first_name, u.last_name
+                        FROM memories m
+                        LEFT JOIN users u ON m.user_id = u.user_id
+                        WHERE m.couple_id = ? AND m.id NOT IN ({placeholders})
+                        AND (m.privacy_type IS NULL OR m.privacy_type = '')
+                        ORDER BY RANDOM()
+                        LIMIT 1
+                        """,
+                        [couple_id] + exclude,
+                    )
+                else:
+                    cursor = conn.execute(
+                        """
+                        SELECT m.*, u.username, u.first_name, u.last_name
+                        FROM memories m
+                        LEFT JOIN users u ON m.user_id = u.user_id
+                        WHERE m.couple_id = ?
+                        AND (m.privacy_type IS NULL OR m.privacy_type = '')
+                        ORDER BY RANDOM()
+                        LIMIT 1
+                        """,
+                        (couple_id,),
+                    )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                return Memory(
+                    id=row["id"],
+                    user_id=row["user_id"],
+                    username=row["username"],
+                    first_name=row["first_name"],
+                    last_name=row["last_name"],
+                    category=row["category"],
+                    title=row["title"],
+                    date=row["date"],
+                    content=row["content"],
+                    media_type=row["media_type"],
+                    media_file_id=row["media_file_id"],
+                    media_path=row["media_path"],
+                    media_items=self._decode_media_items(row["media_items"] if "media_items" in row.keys() else None),
+                    created_at=row["created_at"],
+                    updated_at=row["updated_at"],
+                    privacy_type=row["privacy_type"] if "privacy_type" in row.keys() else None,
+                    privacy_views_limit=row["privacy_views_limit"] if "privacy_views_limit" in row.keys() else None,
+                    privacy_question=row["privacy_question"] if "privacy_question" in row.keys() else None,
+                    privacy_answer=row["privacy_answer"] if "privacy_answer" in row.keys() else None,
+                )
+        except Exception:
+            logger.exception("Ошибка при получении случайного воспоминания")
+            return None
+
     def get_memories_count(self, couple_id: Optional[int] = None) -> int:
         """Получает общее количество воспоминаний, опционально фильтруя по паре."""
         try:

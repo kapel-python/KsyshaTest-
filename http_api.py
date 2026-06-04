@@ -1749,6 +1749,51 @@ async def memories_data(request: web.Request) -> web.Response:
     }
     return _json_response_with_etag(request, payload)
 
+async def random_memory(request: web.Request) -> web.Response:
+    """Возвращает случайное воспоминание пары (для страницы техперерыва)."""
+
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    timezone_id = (request.rel_url.query.get("tz") or "").strip() or None
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    if not visitor_id:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    visitor_user_id = _visitor_to_user_id(visitor_id)
+    couple = db.get_couple_by_user(visitor_user_id) if visitor_user_id else None
+    if not couple:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "no_couple"}, status=403))
+
+    couple_id = couple["id"]
+
+    # Клиент передаёт список недавно показанных ID через ?exclude=1,2,3
+    exclude_raw = (request.rel_url.query.get("exclude") or "").strip()
+    exclude_ids: list[int] = []
+    if exclude_raw:
+        for part in exclude_raw.split(","):
+            try:
+                exclude_ids.append(int(part.strip()))
+            except ValueError:
+                pass
+    # Ограничиваем до 20 последних, чтобы не передавать бесконечный список
+    exclude_ids = exclude_ids[:20]
+
+    total = db.get_memories_count(couple_id=couple_id)
+    if total == 0:
+        return _add_cors_headers(web.json_response({"ok": True, "memory": None, "total": 0}))
+
+    m = db.get_random_memory_for_couple(couple_id, exclude_ids=exclude_ids)
+    # Если все воспоминания в exclude — берём без ограничений
+    if m is None and exclude_ids:
+        m = db.get_random_memory_for_couple(couple_id, exclude_ids=None)
+
+    if m is None:
+        return _add_cors_headers(web.json_response({"ok": True, "memory": None, "total": total}))
+
+    payload = {"ok": True, "memory": _memory_to_public_dict(m, timezone_id), "total": total}
+    return _add_cors_headers(web.json_response(payload))
+
 async def events_data(request: web.Request) -> web.Response:
 
     """Отдаёт только события (для отладки и возможного использования ИИ)."""
@@ -1756,6 +1801,8 @@ async def events_data(request: web.Request) -> web.Response:
     if not _check_api_secret(request):
 
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+
 
     timezone_id = (request.rel_url.query.get("tz") or "").strip() or None
     visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
@@ -8618,6 +8665,8 @@ def create_app() -> web.Application:
     app.router.add_get("/api/site_bootstrap", site_bootstrap_data)
 
     app.router.add_get("/api/memories", memories_data)
+    app.router.add_route("OPTIONS", "/api/random_memory", handle_options)
+    app.router.add_get("/api/random_memory", random_memory)
 
     app.router.add_get("/api/events", events_data)
 

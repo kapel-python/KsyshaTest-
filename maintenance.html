@@ -476,7 +476,162 @@ html.theme-light .stg-pill { border-color: rgba(0,0,0,0.08); }
 .timer-card    { animation: fadeUp 0.4s 0.2s ease both; }
 .status-card   { animation: fadeUp 0.4s 0.26s ease both; }
 .while-card    { animation: fadeUp 0.4s 0.32s ease both; }
-.lang-switcher { animation: fadeUp 0.4s 0.38s ease both; }
+.memory-recall-wrap { animation: fadeUp 0.4s 0.38s ease both; }
+.lang-switcher { animation: fadeUp 0.4s 0.44s ease both; }
+
+/* ── Кнопка "Случайное воспоминание" ── */
+.recall-btn-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.recall-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #d43f8d, #7c3aed);
+  border: none;
+  border-radius: 999px;
+  padding: 14px 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(212,63,141,0.35);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+.recall-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.recall-btn:hover:not(:disabled)::before { opacity: 1; }
+.recall-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(212,63,141,0.5);
+}
+.recall-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 6px 16px rgba(212,63,141,0.3);
+}
+.recall-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.recall-btn .recall-spinner {
+  display: none;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.recall-btn.loading .recall-spinner { display: block; }
+.recall-btn.loading .recall-icon { display: none; }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Карточка воспоминания ── */
+.memory-recall-card {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: none;
+}
+.memory-recall-card.visible {
+  display: block;
+  animation: memoryReveal 0.7s cubic-bezier(0.22,1,0.36,1) both;
+}
+@keyframes memoryReveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+.recall-card-header {
+  padding: 18px 20px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.recall-card-icon {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, rgba(212,63,141,0.2), rgba(124,58,237,0.2));
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.recall-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.recall-card-category {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #ff9fd4, #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.recall-card-date {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.recall-card-body {
+  padding: 18px 20px 20px;
+}
+.recall-card-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 10px;
+  animation: textReveal 0.9s 0.25s ease both;
+}
+.recall-card-content {
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.65;
+  animation: textReveal 0.9s 0.4s ease both;
+}
+@keyframes textReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.recall-empty-msg {
+  text-align: center;
+  padding: 28px 20px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.6;
+  display: none;
+}
+.recall-empty-msg.visible { display: block; }
+html.theme-light .recall-card-header { border-bottom-color: rgba(0,0,0,0.06); }
+html.theme-light .recall-card-icon { background: linear-gradient(135deg, rgba(212,63,141,0.12), rgba(124,58,237,0.12)); }
 </style>
 </head>
 <body>
@@ -547,6 +702,33 @@ html.theme-light .stg-pill { border-color: rgba(0,0,0,0.08); }
   </div>
 
 
+  <!-- Случайное воспоминание -->
+  <div class="memory-recall-wrap">
+    <div class="recall-btn-wrap">
+      <button class="recall-btn" id="recallBtn">
+        <span class="recall-icon">✨</span>
+        <span class="recall-spinner"></span>
+        <span data-i18n="recallBtn">Случайное воспоминание</span>
+      </button>
+    </div>
+    <div class="memory-recall-card" id="recallCard">
+      <div class="recall-card-header">
+        <div class="recall-card-icon" id="recallIcon">💫</div>
+        <div class="recall-card-meta">
+          <div class="recall-card-category" id="recallCategory"></div>
+          <div class="recall-card-date" id="recallDate"></div>
+        </div>
+      </div>
+      <div class="recall-card-body">
+        <div class="recall-card-title" id="recallTitle"></div>
+        <div class="recall-card-content" id="recallContent"></div>
+      </div>
+    </div>
+    <div class="recall-empty-msg" id="recallEmpty">
+      <span data-i18n="recallEmpty">Когда здесь появятся ваши воспоминания, мы сможем показать одно из них случайным образом.</span>
+    </div>
+  </div>
+
   <!-- Тема -->
   <div class="stg-lbl" data-i18n="sTheme">Тема</div>
   <div class="stg-pills theme-switcher">
@@ -591,6 +773,9 @@ const I18N = {
     factNext: "Следующий →",
     visitsCountLabel: "За время перерыва зашли на сайт",
     visitsCountUnit: "человек",
+    recallBtn: "Случайное воспоминание",
+    recallEmpty: "Когда здесь появятся ваши воспоминания, мы сможем показать одно из них случайным образом.",
+    recallCats: { important_moments: "Важный момент", memories: "Воспоминание", important_dates: "Важная дата" },
     sTheme: "Тема",
     tLight: "☀️ Светлая",
     tDark: "🌙 Тёмная",
@@ -610,6 +795,9 @@ const I18N = {
     factNext: "Next →",
     visitsCountLabel: "Visitors during the break",
     visitsCountUnit: "people",
+    recallBtn: "Random memory",
+    recallEmpty: "Once your memories are added, we'll be able to show one at random.",
+    recallCats: { important_moments: "Important moment", memories: "Memory", important_dates: "Important date" },
     sTheme: "Theme",
     tLight: "☀️ Light",
     tDark: "🌙 Dark",
@@ -629,6 +817,9 @@ const I18N = {
     factNext: "Nächster →",
     visitsCountLabel: "Besucher während der Pause",
     visitsCountUnit: "Personen",
+    recallBtn: "Zufällige Erinnerung",
+    recallEmpty: "Sobald eure Erinnerungen hinzugefügt werden, können wir eine zufällig anzeigen.",
+    recallCats: { important_moments: "Wichtiger Moment", memories: "Erinnerung", important_dates: "Wichtiges Datum" },
     sTheme: "Thema",
     tLight: "☀️ Hell",
     tDark: "🌙 Dunkel",
@@ -810,6 +1001,76 @@ setInterval(() => {
 
 showFact(0);
 
+// ── Случайное воспоминание ──
+(function() {
+  var CATEGORY_ICONS = {
+    important_moments: '⭐',
+    memories: '💝',
+    important_dates: '📅'
+  };
+
+  var seenIds = [];
+  var MAX_SEEN = 20;
+
+  var btn = document.getElementById('recallBtn');
+  var card = document.getElementById('recallCard');
+  var emptyMsg = document.getElementById('recallEmpty');
+  var recallIcon = document.getElementById('recallIcon');
+  var recallCategory = document.getElementById('recallCategory');
+  var recallDate = document.getElementById('recallDate');
+  var recallTitle = document.getElementById('recallTitle');
+  var recallContent = document.getElementById('recallContent');
+
+  function getCatLabel(cat) {
+    var t = I18N[currentLang];
+    return (t && t.recallCats && t.recallCats[cat]) || cat || '';
+  }
+
+  function showMemory(m) {
+    var cat = m.category || '';
+    recallIcon.textContent = CATEGORY_ICONS[cat] || '💫';
+    recallCategory.textContent = getCatLabel(cat);
+    recallDate.textContent = m.date_human || m.date_resolved || m.date || '';
+    recallTitle.textContent = m.title || '';
+    // content_html безопасен (прошёл через _safe_html на сервере)
+    recallContent.innerHTML = m.content_html || '';
+    // Перезапуск анимаций
+    card.classList.remove('visible');
+    void card.offsetWidth;
+    card.classList.add('visible');
+    emptyMsg.classList.remove('visible');
+  }
+
+  function fetchRandom() {
+    btn.disabled = true;
+    btn.classList.add('loading');
+    var exclude = seenIds.slice(-MAX_SEEN).join(',');
+    var url = '/api/random_memory' + (exclude ? '?exclude=' + encodeURIComponent(exclude) : '');
+    fetch(url, { credentials: 'same-origin' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        if (!data.ok) return;
+        if (!data.memory) {
+          card.classList.remove('visible');
+          emptyMsg.classList.add('visible');
+          return;
+        }
+        var m = data.memory;
+        // Добавляем в историю показанных
+        if (seenIds.indexOf(m.id) === -1) seenIds.push(m.id);
+        if (seenIds.length > MAX_SEEN) seenIds = seenIds.slice(-MAX_SEEN);
+        showMemory(m);
+      })
+      .catch(function() {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+      });
+  }
+
+  btn.addEventListener('click', fetchRandom);
+})();
 
 // ── WebSocket: автообновление при смене режима (вкл/выкл техперерыв) ──
 (function() {

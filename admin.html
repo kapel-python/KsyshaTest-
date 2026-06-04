@@ -484,9 +484,16 @@ async function verifyChallenge(pwd) {
         }
         
         document.getElementById('challengeSub').innerHTML = '✅ Запрос отправлен в Telegram<br>Подтвердите вход с доверенного устройства...';
-        
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(`${protocol}//${window.location.host}/api/admin/challenge/ws?token=${challengeToken}`);
+        
+        ws.onopen = () => {
+            window.wsPing = setInterval(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({type: 'ping'}));
+                }
+            }, 30000);
+        };
         
         ws.onmessage = async (e) => {
             try {
@@ -506,6 +513,7 @@ async function verifyChallenge(pwd) {
             } catch(ex){}
         };
         ws.onclose = () => {
+            if (window.wsPing) clearInterval(window.wsPing);
             if (document.getElementById('challengeSub').textContent.includes('Telegram')) {
                 document.getElementById('challengeSub').innerHTML = '<span style="color:#ef4444">Соединение прервано. Обновите страницу.</span>';
                 document.getElementById('challengeSpinner').style.display = 'none';
@@ -530,6 +538,17 @@ async function startChallenge() {
         if (!d.ok) throw new Error(d.error || "init_failed");
         
         challengeToken = d.token;
+        if (d.already_confirmed) {
+            document.getElementById('challengeSub').textContent = 'Доступ разрешён! Входим...';
+            await fetch('/api/admin/challenge/session', {
+                method: 'POST',
+                headers: _authHeaders({'Content-Type':'application/json'}),
+                body: JSON.stringify({ token: challengeToken })
+            });
+            window.location.reload();
+            return;
+        }
+        
         if (d.need_password) {
             document.getElementById('challengeSub').innerHTML = 'Уровень доверия: <b>' + d.trust_score + '/100</b><br><br>Система зафиксировала подозрительную активность или новое устройство. Введите пароль:';
             document.getElementById('challengeSpinner').style.display = 'none';

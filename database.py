@@ -2172,6 +2172,28 @@ class Database:
             logger.exception("create_admin_challenge error: %s", e)
             return False
 
+    def get_recent_confirmed_challenge(self, visitor_id: str, ip: str) -> Optional[str]:
+        from datetime import datetime, timezone
+        if not visitor_id:
+            return None
+        try:
+            with self._get_connection() as conn:
+                cur = conn.execute(
+                    '''
+                    SELECT token FROM admin_challenges
+                    WHERE visitor_id = ? AND ip = ?
+                      AND status = 'confirmed'
+                      AND expires_at > ?
+                    ORDER BY created_at DESC LIMIT 1
+                    ''',
+                    (visitor_id, ip, datetime.now(timezone.utc).isoformat())
+                )
+                row = cur.fetchone()
+                return row['token'] if row else None
+        except Exception as e:
+            logger.exception("get_recent_confirmed_challenge error: %s", e)
+            return None
+
     def get_admin_challenge(self, token: str) -> Optional[Dict]:
         from datetime import datetime, timezone
         try:

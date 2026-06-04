@@ -4003,6 +4003,17 @@ async def admin_challenge_init(request: web.Request) -> web.Response:
     trust_score, trust_flags = _compute_admin_trust_score(request, visitor_id, user_id)
     need_password = trust_score < 70
 
+    if visitor_id:
+        recent_token = db.get_recent_confirmed_challenge(visitor_id, ip_raw)
+        if recent_token:
+            return _add_cors_headers(web.json_response({
+                "ok": True,
+                "token": recent_token,
+                "need_password": False,
+                "trust_score": 100,
+                "already_confirmed": True
+            }))
+
     token = secrets.token_hex(16)
     ok = db.create_admin_challenge(
         token=token,

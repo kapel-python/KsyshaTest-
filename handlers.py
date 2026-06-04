@@ -6461,7 +6461,55 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         res_hash = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True, check=True)
         new_commit = res_hash.stdout.strip()
         new_commit_short = new_commit[:7]
-        
+
+        # 9a. Create git tag for the new version (protects commit from gc)
+        tag_name = f"v{new_version}"
+        subprocess.run(["git", "tag", "-f", tag_name, new_commit], cwd=repo_root, capture_output=True)
+        subprocess.run(["git", "push", "origin", tag_name], cwd=repo_root, capture_output=True)
+
+        # 9b. During rollback-release: tag ALL history versions that are missing a tag.
+        # This prevents git gc from collecting commits of versions 1.0.233–1.0.250 that are
+        # no longer reachable from the main branch after "git branch -f main HEAD".
+        if is_rollback_release:
+            await callback.message.answer("🏷 Защищаю коммиты всех версий из истории git-тегами...")
+            tag_errors = []
+            for hist_entry in history:
+                h_ver = hist_entry.get("version", "")
+                h_commit = hist_entry.get("git_commit", "")
+                if not h_ver or not h_commit:
+                    continue
+                h_tag = f"v{h_ver}"
+                # Resolve stored commit to full SHA (DB may store short or full hash)
+                resolve_stored = subprocess.run(
+                    ["git", "rev-parse", "--verify", h_commit + "^{commit}"],
+                    cwd=repo_root, capture_output=True, text=True
+                )
+                if resolve_stored.returncode != 0:
+                    tag_errors.append(f"{h_ver} (коммит {h_commit[:7]} не найден локально)")
+                    continue
+                full_h_commit = resolve_stored.stdout.strip()
+                # Check whether an existing tag already points to exactly this commit
+                existing = subprocess.run(
+                    ["git", "rev-parse", "--verify", h_tag + "^{commit}"],
+                    cwd=repo_root, capture_output=True, text=True
+                )
+                if existing.returncode == 0 and existing.stdout.strip() == full_h_commit:
+                    continue  # already tagged correctly
+                subprocess.run(["git", "tag", "-f", h_tag, full_h_commit], cwd=repo_root, capture_output=True)
+                push_tag = subprocess.run(
+                    ["git", "push", "origin", h_tag],
+                    cwd=repo_root, capture_output=True, text=True
+                )
+                if push_tag.returncode != 0:
+                    tag_errors.append(f"{h_ver} (push тега не удался)")
+            if tag_errors:
+                await callback.message.answer(
+                    f"⚠️ Не удалось запушить теги для: {', '.join(tag_errors)}\n"
+                    "Коммиты сохранены локально, но могут быть потеряны после git gc на remote."
+                )
+            else:
+                await callback.message.answer("✅ Все версии из истории защищены git-тегами.")
+
         # 10. Write new version directly to version_history database table and clear rollback settings
         await callback.message.answer("💾 Записываю новый релиз в историю версий БД...")
         with db._get_connection() as conn:

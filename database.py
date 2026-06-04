@@ -2272,9 +2272,9 @@ class Database:
 
     def check_admin_lockout(self, ip: str, visitor_id: Optional[str]) -> tuple[bool, int, str]:
         """Возвращает (is_locked, retry_after_seconds, lockout_msg)"""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
         try:
-            now = datetime.now(timezone.utc)
+            now = datetime.utcnow()
             since = (now - timedelta(hours=1)).isoformat()
             
             with self._get_connection() as conn:
@@ -2305,7 +2305,12 @@ class Database:
                 if lockout_sec == 0:
                     return False, 0, ""
                 
-                last_error_dt = datetime.fromisoformat(rows[0]['created_at'].replace('Z', '+00:00'))
+                dt_str = rows[0]['created_at'].replace('Z', '')
+                last_error_dt = datetime.fromisoformat(dt_str)
+                # If fromisoformat resulted in an offset-aware datetime, make it naive UTC
+                if last_error_dt.tzinfo is not None:
+                    last_error_dt = last_error_dt.replace(tzinfo=None)
+                
                 elapsed = (now - last_error_dt).total_seconds()
                 
                 if elapsed < lockout_sec:

@@ -5948,15 +5948,26 @@
         return Math.round(w) + '×' + Math.round(h);
       }
 
+      function _formatPhotoQuality(width, height) {
+        const w = Number(width), h = Number(height);
+        const maxSide = Math.max(w || 0, h || 0);
+        if (!Number.isFinite(maxSide) || maxSide <= 0) return '';
+        const buckets = [4320, 2160, 1440, 1080, 720, 480, 360, 240];
+        for (const bucket of buckets) {
+          if (maxSide >= bucket) return bucket + 'p';
+        }
+        return Math.round(maxSide) + 'p';
+      }
+
       function _mediaMetaLines(media) {
         if (!media) return [];
         const lines = [];
         const duration = Number.isFinite(media.durationSec) && media.durationSec >= 0 ? _formatVideoDuration(media.durationSec) : '';
         const resolution = _formatMediaResolution(media.width, media.height);
+        const photoQuality = _formatPhotoQuality(media.width, media.height);
         const size = _formatMediaFileSize(media.fileSize);
         if (media.kind === 'photo') {
-          if (resolution) lines.push(resolution);
-          if (size) lines.push(size);
+          if (photoQuality) lines.push(photoQuality);
           return lines;
         }
         if (media.kind === 'video') {
@@ -5972,7 +5983,7 @@
         }
         if (media.name) lines.push(media.name);
         if (size) lines.push(size);
-        if (media.ext) lines.push('.' + media.ext.toUpperCase());
+        else if (media.ext) lines.push('.' + media.ext.toUpperCase());
         if (media.mimeType) lines.push(media.mimeType);
         return lines;
       }
@@ -15048,6 +15059,7 @@
       }
 
       function _buildLocalMediaItems(state) {
+        const _pickValue = (value, fallback = null) => (value === undefined ? fallback : value);
         const arr = state.data._uploaded && (state.data._uploaded['content'] || state.data._uploaded['desc']);
         if (Array.isArray(arr) && arr.length > 1) {
           return arr.map(item => ({
@@ -15058,10 +15070,10 @@
             original_filename: item.original_filename || item.name || item.filename || '',
             stored_filename: item.stored_filename || '',
             mime_type: item.mime_type || '',
-            file_size: item.file_size || null,
-            duration_sec: item.duration_sec || null,
-            width: item.width || null,
-            height: item.height || null,
+            file_size: _pickValue(item.file_size),
+            duration_sec: _pickValue(item.duration_sec),
+            width: _pickValue(item.width),
+            height: _pickValue(item.height),
             name: item.original_filename || item.name || item.filename || (item.media_path ? item.media_path.split('/').pop() : ''),
             filename: item.original_filename || item.name || item.filename || (item.media_path ? item.media_path.split('/').pop() : ''),
             url: _mediaPathToUrl(item.media_path),
@@ -15076,6 +15088,7 @@
       // ── Inject card into DOM without reload ────────────────────
       function _injectNewCard(apiResponse, state, isWish, isEv, mediaResult, vid) {
         try {
+          const _pickValue = (value, fallback = null) => (value === undefined ? fallback : value);
           const id = apiResponse.id || 0;
           const mediaUrl = mediaResult
             ? _mediaPathToUrl(mediaResult.media_path)
@@ -15100,12 +15113,12 @@
               media_type:  mediaType,
               media_name:  mediaName,
               original_filename: mediaResult && mediaResult.original_filename || mediaName,
-              stored_filename: mediaResult && mediaResult.stored_filename || null,
-              mime_type: mediaResult && mediaResult.mime_type || null,
-              file_size: mediaResult && mediaResult.file_size || null,
-              duration_sec: mediaResult && mediaResult.duration_sec || null,
-              width: mediaResult && mediaResult.width || null,
-              height: mediaResult && mediaResult.height || null,
+              stored_filename: mediaResult ? _pickValue(mediaResult.stored_filename) : null,
+              mime_type: mediaResult ? _pickValue(mediaResult.mime_type) : null,
+              file_size: mediaResult ? _pickValue(mediaResult.file_size) : null,
+              duration_sec: mediaResult ? _pickValue(mediaResult.duration_sec) : null,
+              width: mediaResult ? _pickValue(mediaResult.width) : null,
+              height: mediaResult ? _pickValue(mediaResult.height) : null,
               created_at:  new Date().toISOString(),
               created_human: _ui('justNow'),
             };
@@ -15157,12 +15170,12 @@
               media_type:  mediaType,
               media_name:  mediaName,
               original_filename: mediaResult && mediaResult.original_filename || mediaName,
-              stored_filename: mediaResult && mediaResult.stored_filename || null,
-              mime_type: mediaResult && mediaResult.mime_type || null,
-              file_size: mediaResult && mediaResult.file_size || null,
-              duration_sec: mediaResult && mediaResult.duration_sec || null,
-              width: mediaResult && mediaResult.width || null,
-              height: mediaResult && mediaResult.height || null,
+              stored_filename: mediaResult ? _pickValue(mediaResult.stored_filename) : null,
+              mime_type: mediaResult ? _pickValue(mediaResult.mime_type) : null,
+              file_size: mediaResult ? _pickValue(mediaResult.file_size) : null,
+              duration_sec: mediaResult ? _pickValue(mediaResult.duration_sec) : null,
+              width: mediaResult ? _pickValue(mediaResult.width) : null,
+              height: mediaResult ? _pickValue(mediaResult.height) : null,
             };
             const cont = document.getElementById('events_container');
             if (cont) {
@@ -15232,12 +15245,12 @@
                 media_type:  mediaType,
                 media_name:  mediaName,
                 original_filename: mediaResult && mediaResult.original_filename || mediaName,
-                stored_filename: mediaResult && mediaResult.stored_filename || null,
-                mime_type: mediaResult && mediaResult.mime_type || null,
-                file_size: mediaResult && mediaResult.file_size || null,
-                duration_sec: mediaResult && mediaResult.duration_sec || null,
-                width: mediaResult && mediaResult.width || null,
-                height: mediaResult && mediaResult.height || null,
+                stored_filename: mediaResult ? _pickValue(mediaResult.stored_filename) : null,
+                mime_type: mediaResult ? _pickValue(mediaResult.mime_type) : null,
+                file_size: mediaResult ? _pickValue(mediaResult.file_size) : null,
+                duration_sec: mediaResult ? _pickValue(mediaResult.duration_sec) : null,
+                width: mediaResult ? _pickValue(mediaResult.width) : null,
+                height: mediaResult ? _pickValue(mediaResult.height) : null,
                 media_items: _buildLocalMediaItems(state),
                 created_at:  new Date().toISOString(),
                 created_human: _ui('justNow'),
@@ -15405,18 +15418,19 @@
             xhr.onload = () => {
               _uploadAbortController = null;
               try {
+                const _pickValue = (value, fallback = null) => (value === undefined ? fallback : value);
                 const d = JSON.parse(xhr.responseText);
                 if (d.ok && d.path) resolve({
                   media_path: d.path,
                   media_type: d.media_type,
                   thumb_path: d.thumb_path || null,
-                  original_filename: d.original_filename || null,
-                  stored_filename: d.stored_filename || null,
-                  mime_type: d.mime_type || null,
-                  file_size: d.file_size || null,
-                  duration_sec: d.duration_sec || null,
-                  width: d.width || null,
-                  height: d.height || null,
+                  original_filename: _pickValue(d.original_filename),
+                  stored_filename: _pickValue(d.stored_filename),
+                  mime_type: _pickValue(d.mime_type),
+                  file_size: _pickValue(d.file_size),
+                  duration_sec: _pickValue(d.duration_sec),
+                  width: _pickValue(d.width),
+                  height: _pickValue(d.height),
                 });
                 else { console.error('upload_media failed:', d.error); resolve(null); }
               } catch(e) { console.error('upload parse error:', e); resolve(null); }
@@ -15451,6 +15465,7 @@
         const isEv   = s.category === 'event';
         const isWish = s.category === 'wish';
         const vid    = ensureVisitorIdForRole() || '';
+        const _pickValue = (value, fallback = null) => (value === undefined ? fallback : value);
 
         const btn = document.getElementById('addBtnNext');
         btn.disabled  = true;
@@ -15474,12 +15489,12 @@
                   type: item.media_type,
                   path: item.media_path,
                   thumb_path: item.thumb_path || null,
-                  original_filename: item.original_filename || null,
-                  mime_type: item.mime_type || null,
-                  file_size: item.file_size || null,
-                  duration_sec: item.duration_sec || null,
-                  width: item.width || null,
-                  height: item.height || null,
+                  original_filename: _pickValue(item.original_filename),
+                  mime_type: _pickValue(item.mime_type),
+                  file_size: _pickValue(item.file_size),
+                  duration_sec: _pickValue(item.duration_sec),
+                  width: _pickValue(item.width),
+                  height: _pickValue(item.height),
                 }));
                 mediaResult = arr[0];
               }
@@ -15501,12 +15516,12 @@
           if (mediaResult) {
             bodyData.media_path = mediaResult.media_path;
             bodyData.media_type = mediaResult.media_type;
-            bodyData.original_filename = mediaResult.original_filename || null;
-            bodyData.mime_type = mediaResult.mime_type || null;
-            bodyData.file_size = mediaResult.file_size || null;
-            bodyData.duration_sec = mediaResult.duration_sec || null;
-            bodyData.width = mediaResult.width || null;
-            bodyData.height = mediaResult.height || null;
+            bodyData.original_filename = _pickValue(mediaResult.original_filename);
+            bodyData.mime_type = _pickValue(mediaResult.mime_type);
+            bodyData.file_size = _pickValue(mediaResult.file_size);
+            bodyData.duration_sec = _pickValue(mediaResult.duration_sec);
+            bodyData.width = _pickValue(mediaResult.width);
+            bodyData.height = _pickValue(mediaResult.height);
           }
           if (mediaItems) {
             bodyData.media_items = mediaItems;

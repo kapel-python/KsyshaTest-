@@ -291,15 +291,26 @@
     return Math.round(w) + '×' + Math.round(h);
   }
 
+  function _mcFmtPhotoQuality(w, h) {
+    w = Number(w); h = Number(h);
+    var maxSide = Math.max(w || 0, h || 0);
+    if (!isFinite(maxSide) || maxSide <= 0) return '';
+    var buckets = [4320, 2160, 1440, 1080, 720, 480, 360, 240];
+    for (var i = 0; i < buckets.length; i += 1) {
+      if (maxSide >= buckets[i]) return buckets[i] + 'p';
+    }
+    return Math.round(maxSide) + 'p';
+  }
+
   function _mcMetaLines(media) {
     if (!media) return [];
     var lines = [];
     var duration = (isFinite(media.durationSec) && media.durationSec >= 0) ? _mcFmtDuration(media.durationSec) : '';
     var resolution = _mcFmtResolution(media.width, media.height);
+    var photoQuality = _mcFmtPhotoQuality(media.width, media.height);
     var size = _mcFmtSize(media.fileSize);
     if (media.kind === 'photo') {
-      if (resolution) lines.push(resolution);
-      if (size) lines.push(size);
+      if (photoQuality) lines.push(photoQuality);
       return lines;
     }
     if (media.kind === 'video') {
@@ -315,7 +326,7 @@
     }
     if (media.name) lines.push(media.name);
     if (size) lines.push(size);
-    if (media.ext) lines.push('.' + media.ext.toUpperCase());
+    else if (media.ext) lines.push('.' + media.ext.toUpperCase());
     if (media.mimeType) lines.push(media.mimeType);
     return lines;
   }

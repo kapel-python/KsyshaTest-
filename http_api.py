@@ -1617,15 +1617,19 @@ def _memory_to_public_dict(m: Memory, timezone_id: str | None = None) -> dict:
     media_url = f"/media/{Path(m.media_path).name}" if m.media_path else None
     single_display_name = _display_filename_from_path(m.media_path)
     media_items_payload = []
+    first_media_meta: Dict[str, Any] = {}
     if getattr(m, "media_items", None):
         for item in (m.media_items or [])[:6]:
             payload_item = _build_media_payload_item(None, None, item if isinstance(item, dict) else None)
             if payload_item:
                 media_items_payload.append(payload_item)
+                if not first_media_meta:
+                    first_media_meta = payload_item
     if not media_items_payload and m.media_path and m.media_type:
         fallback_item = _build_media_payload_item(m.media_path, m.media_type, None)
         if fallback_item:
             media_items_payload = [fallback_item]
+            first_media_meta = fallback_item
     preview_url = _thumb_url_for(m.media_path) if m.media_type == "photo" else media_url
 
     return {
@@ -1663,6 +1667,12 @@ def _memory_to_public_dict(m: Memory, timezone_id: str | None = None) -> dict:
         "name": single_display_name,
         "filename": single_display_name,
         "stored_filename": Path(m.media_path).name if m.media_path else None,
+        "original_filename": single_display_name,
+        "mime_type": first_media_meta.get("mime_type"),
+        "file_size": first_media_meta.get("file_size"),
+        "duration_sec": first_media_meta.get("duration_sec"),
+        "width": first_media_meta.get("width"),
+        "height": first_media_meta.get("height"),
         "media_items": media_items_payload,
 
         "created_at": m.created_at,

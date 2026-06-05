@@ -8891,12 +8891,21 @@
       // Вызывается при загрузке bootstrap-данных — устанавливает Telegram-аватарку
       function _setTgAvatarFromBootstrap(bootstrapData) {
         try {
-          const vid = (document.cookie.match(/(?:^|; )visitor_id=([^;]*)/) || [])[1] || '';
-          const role = vid.split('_')[0];
           const users = (bootstrapData && bootstrapData.users) || {};
-          let info = null;
-          if (role === 'creator') info = users.creator;
-          else if (role === 'ksyusha' || role === 'partner') info = users.ksyusha || users.partner;
+          if (!users || !bootstrapData.creator_id) return;
+
+          const vid = getCookie('visitor_id') || '';
+          let loggedInUserId = vid ? vid.split('_')[0] : null;
+          if (loggedInUserId === 'ksyusha' || loggedInUserId === 'partner') {
+            loggedInUserId = String(bootstrapData.partner_id);
+          } else if (loggedInUserId === 'creator') {
+            loggedInUserId = String(bootstrapData.creator_id);
+          }
+          const isCreator = loggedInUserId && String(bootstrapData.creator_id) === loggedInUserId;
+          const isPartner = loggedInUserId && String(bootstrapData.partner_id) === loggedInUserId;
+
+          const info = isCreator ? users.creator : (isPartner ? (users.ksyusha || users.partner) : null);
+
           if (info && info.tg_avatar_url) {
             _tgAvatarUrl = info.tg_avatar_url;
             // Обновляем все существующие иконки пользователя в чате

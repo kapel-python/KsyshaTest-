@@ -596,6 +596,17 @@ def _media_belongs_to_user_couple(path_part: str, viewer_user_id: int) -> bool:
         owner_uid = _visitor_to_user_id(owner_vid)
         return bool(owner_uid and int(owner_uid) in viewer_members)
 
+    # tg_avatars: tg_avatar_{user_id}.jpg доступны участникам той же пары
+    if path_part.startswith("tg_avatars/"):
+        stem = Path(filename).stem
+        prefix = "tg_avatar_"
+        if not stem.startswith(prefix):
+            return False
+        owner_uid_str = stem[len(prefix):]
+        if owner_uid_str.isdigit():
+            return int(owner_uid_str) in viewer_members
+        return False
+
     # Fast path: check filename pattern starting with u{user_id}_
     parts = filename.split("_")
     if len(parts) >= 2 and parts[0].startswith("u") and parts[0][1:].isdigit():
@@ -8731,7 +8742,7 @@ async def serve_tg_avatar(request: web.Request) -> web.Response:
     if not filename or not filename.startswith("tg_avatar_") or "." not in filename:
         return web.Response(status=404)
 
-    tg_avatars_root = (Path(__file__).resolve().parent / "media" / "tg_avatars").resolve()
+    tg_avatars_root = (Path(config.MEDIA_FOLDER).resolve() / "tg_avatars")
     try:
         path = (tg_avatars_root / filename).resolve()
         path.relative_to(tg_avatars_root)
@@ -9130,6 +9141,9 @@ def create_app() -> web.Application:
         resp.headers["Vary"] = "X-Visitor-Id, X-Visitor-Signature"
         return resp
 
+    # tg_avatars — более специфичный роут, регистрируем до catch-all
+    app.router.add_get("/media/tg_avatars/{filename}", serve_tg_avatar)
+
     app.router.add_route("GET", "/media/{path:.*}", protected_media)
 
     # CORS preflight
@@ -9278,7 +9292,6 @@ def create_app() -> web.Application:
     app.router.add_post("/api/test_celebration", trigger_test_celebration)
     # Serve avatars via /media/avatars/
     app.router.add_get("/media/avatars/{filename}", serve_avatar)
-    app.router.add_get("/media/tg_avatars/{filename}", serve_tg_avatar)
     app.router.add_route("OPTIONS", "/api/refresh_tg_avatar", handle_options)
     app.router.add_post("/api/refresh_tg_avatar", refresh_tg_avatar)
     # Client logger

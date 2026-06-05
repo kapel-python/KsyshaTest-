@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -41,13 +40,9 @@ _MAX_RETRIES = 2                       # повторных попыток пр�
 
 def _avatar_dir() -> Path:
     """Возвращает абсолютный путь к папке аватарок, создаёт если нет."""
-    # Используем __file__ чтобы путь был корректным независимо от CWD
-    project_root = Path(__file__).resolve().parent
-    media_folder = os.environ.get("MEDIA_FOLDER", "media") if not config.MEDIA_FOLDER else config.MEDIA_FOLDER
-    # Если MEDIA_FOLDER абсолютный — используем его, иначе относительно project_root
-    mf = Path(media_folder)
+    mf = Path(config.MEDIA_FOLDER)
     if not mf.is_absolute():
-        mf = project_root / mf
+        mf = Path(__file__).resolve().parent / mf
     d = mf / _AVATAR_DIR_NAME
     d.mkdir(parents=True, exist_ok=True)
     return d
@@ -100,32 +95,39 @@ async def fetch_and_save_avatar(bot, user_id: int) -> tuple[Optional[str], Optio
     try:
         photos = await bot.get_user_profile_photos(user_id=user_id, limit=1)
         if not photos or not photos.photos:
-            logger.debug("avatar: user %s has no profile photos", user_id)
+            logger.info("[avatar] user=%s no profile photos, cannot fetch", user_id)
             return None, None
 
+        photo_count = len(photos.photos)
+        logger.info("[avatar] user=%s profile photos found: %s", user_id, photo_count)
+
         photo_sizes = photos.photos[0]
-        # Берём самый большой размер по file_size, fallback по width
         best = max(photo_sizes, key=lambda p: (p.file_size or 0, p.width or 0))
         file_unique_id = best.file_unique_id
+        logger.info("[avatar] user=%s selected file_id=%s size=%s", user_id, file_unique_id, best.file_size)
 
         tg_file = await bot.get_file(best.file_id)
         if not tg_file or not tg_file.file_path:
-            logger.warning("avatar: get_file returned empty path for user %s", user_id)
+            logger.warning("[avatar] user=%s get_file returned empty path for file_id=%s", user_id, best.file_id)
             return None, None
 
+        logger.info("[avatar] user=%s file_path=%s", user_id, tg_file.file_path)
+
         url = f"https://api.telegram.org/file/bot{config.BOT_TOKEN}/{tg_file.file_path}"
+        logger.info("[avatar] user=%s downloading avatar", user_id)
         data = await _download_file(url)
         if not data:
+            logger.error("[avatar] user=%s download failed after retries", user_id)
             return None, None
 
         save_path = _avatar_dir() / _avatar_filename(user_id)
         save_path.write_bytes(data)
 
-        logger.info("avatar: saved for user %s → %s (%d bytes)", user_id, save_path, len(data))
+        logger.info("[avatar] user=%s avatar saved to %s (%d bytes)", user_id, save_path, len(data))
         return str(save_path), file_unique_id
 
     except Exception:
-        logger.exception("avatar: error fetching for user %s", user_id)
+        logger.exception("[avatar] user=%s error fetching avatar", user_id)
         return None, None
 
 
@@ -140,8 +142,11 @@ async def sync_user_avatar(bot, user_id: int, force: bool = False) -> Optional[s
     """
     from database import db
 
+    logger.info("[avatar] user=%s sync started force=%s", user_id, force)
+
     user = db.get_user(user_id)
     if not user:
+        logger.warning("[avatar] user=%s not found in db, abort sync", user_id)
         return None
 
     now = time.time()
@@ -149,53 +154,73 @@ async def sync_user_avatar(bot, user_id: int, force: bool = False) -> Optional[s
     stored_file_id = user.get("tg_avatar_file_id") or ""
 
     if not force and (now - last_updated) < _SINGLE_USER_COOLDOWN:
+        logger.info("[avatar] user=%s cooldown active (%d sec remaining), skipped",
+                     user_id, int(_SINGLE_USER_COOLDOWN - (now - last_updated)))
         return get_avatar_url(user_id)
 
+    logger.info("[avatar] user=%s fetching profile photos from Telegram", user_id)
     try:
         photos = await bot.get_user_profile_photos(user_id=user_id, limit=1)
     except Exception as e:
-        logger.warning("avatar: cannot get photos for user %s: %s", user_id, e)
+        logger.warning("[avatar] user=%s telegram returned error: %s", user_id, e)
         return get_avatar_url(user_id)
 
     # Пользователь убрал аватарку
     if not photos or not photos.photos:
+        logger.info("[avatar] user=%s no profile photos — clearing avatar", user_id)
         local = get_avatar_local_path(user_id)
         if local:
             try:
                 Path(local).unlink(missing_ok=True)
+                logger.info("[avatar] user=%s removed stale local file %s", user_id, local)
             except Exception:
                 pass
         db.update_user_avatar(user_id, None, None)
+        logger.info("[avatar] user=%s avatar cleared in db", user_id)
         return None
 
     photo_sizes = photos.photos[0]
     best = max(photo_sizes, key=lambda p: (p.file_size or 0, p.width or 0))
     current_file_id = best.file_unique_id
+    logger.info("[avatar] user=%s found %d photos, selected file_id=%s",
+                user_id, len(photos.photos), current_file_id)
 
     # Аватарка не изменилась и файл существует
     if current_file_id == stored_file_id and get_avatar_local_path(user_id):
+        logger.info("[avatar] user=%s avatar unchanged (file_id=%s), refreshing timestamp",
+                     user_id, current_file_id)
         db.update_user_avatar(user_id, get_avatar_local_path(user_id), stored_file_id)
         return get_avatar_url(user_id)
+
+    logger.info("[avatar] user=%s file_id changed (%s → %s), downloading new version",
+                user_id, stored_file_id or "none", current_file_id)
 
     # Скачиваем новую версию
     tg_file = await bot.get_file(best.file_id)
     if not tg_file or not tg_file.file_path:
+        logger.warning("[avatar] user=%s get_file returned empty path after file_id change", user_id)
         return get_avatar_url(user_id)
+    logger.info("[avatar] user=%s got file_path=%s", user_id, tg_file.file_path)
 
     url = f"https://api.telegram.org/file/bot{config.BOT_TOKEN}/{tg_file.file_path}"
+    logger.info("[avatar] user=%s downloading avatar", user_id)
     data = await _download_file(url)
     if not data:
+        logger.error("[avatar] user=%s download failed after retries", user_id)
         return get_avatar_url(user_id)
 
     save_path = _avatar_dir() / _avatar_filename(user_id)
     save_path.write_bytes(data)
+    logger.info("[avatar] user=%s avatar saved to %s (%d bytes)", user_id, save_path, len(data))
 
     db.update_user_avatar(user_id, str(save_path), current_file_id)
     logger.info(
-        "avatar: updated user %s (file_id %s → %s, %d bytes)",
-        user_id, stored_file_id or "none", current_file_id, len(data),
+        "[avatar] user=%s avatar sync complete (file_id=%s, %d bytes)",
+        user_id, current_file_id, len(data),
     )
-    return get_avatar_url(user_id)
+    result_url = get_avatar_url(user_id)
+    logger.info("[avatar] user=%s final url=%s", user_id, result_url)
+    return result_url
 
 
 async def run_background_sync(bot) -> None:
@@ -209,13 +234,13 @@ async def run_background_sync(bot) -> None:
 
     # Небольшая задержка чтобы бот полностью стартовал
     await asyncio.sleep(10)
-    logger.info("avatar: background sync started")
+    logger.info("[avatar] background sync started")
 
     first_run = True
     while True:
         try:
             user_ids = db.get_all_user_ids()
-            logger.info("avatar: starting sync for %d users (first_run=%s)", len(user_ids), first_run)
+            logger.info("[avatar] background sync iteration: %d users, first_run=%s", len(user_ids), first_run)
 
             synced = 0
             skipped = 0
@@ -233,20 +258,20 @@ async def run_background_sync(bot) -> None:
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
-                    logger.warning("avatar: error syncing user %s: %s", uid, e)
+                    logger.warning("[avatar] background sync error for user %s: %s", uid, e)
                     errors += 1
 
                 # Пауза между пользователями — не флудим Telegram API
                 await asyncio.sleep(_BETWEEN_USERS_DELAY)
 
             logger.info(
-                "avatar: batch sync done — synced=%d skipped=%d errors=%d",
+                "[avatar] background sync done — synced=%d skipped=%d errors=%d",
                 synced, skipped, errors,
             )
             first_run = False
 
         except asyncio.CancelledError:
-            logger.info("avatar: background sync cancelled")
+            logger.info("[avatar] background sync cancelled")
             break
         except Exception as e:
             logger.error("avatar: background sync error: %s", e)

@@ -53,7 +53,7 @@ class Config:
 Приятного использования! 💫"""
     
     TEXT_FOR_OTHER_USERS: str = """Этот бот имеет ограниченный доступ.
-Если хочешь чтобы тебе открыли доступ — обратись к создателю."""
+Если хочешь чтобы тебе открыли доступ — обратись к разработчику."""
     
     # DATABASE_PATH is always PRODUCTION_DB_PATH.
     # It is a field (not a constant) so that future TEST MODE can override it

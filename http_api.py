@@ -3637,7 +3637,7 @@ async def log_visit(request: web.Request) -> web.Response:
                             # Вычисляем разницу часовых поясов
                             tz_diff_str = _calc_tz_diff(my_tz, partner_tz, partner_name)
                             reg_text += (
-                                f"\n\n🌍 Но наша система распознала, что вы находитесь "
+                                f"\n\n🌍 Но наша система распознала, что вы с {_html_module.escape(partner_name)} находитесь "
                                 f"в <b>разных часовых поясах</b>\n"
                                 f"Ты в <code>{_html_module.escape(my_tz)}</code>, "
                                 f"а {_html_module.escape(partner_name)} в <code>{_html_module.escape(partner_tz)}</code>"

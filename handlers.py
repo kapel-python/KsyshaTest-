@@ -1558,7 +1558,7 @@ async def _finish_couple_onboarding(message: Message, state: FSMContext, callbac
             send_fn = callback.message.edit_text if callback else message.answer
             await send_fn(
                 f"✅ Ты присоединился(ась) к паре с {partner_display}!\n\n"
-                "Теперь вы можете добавлять воспоминания в боте, вспоминать моменты, "
+                "Теперь ты можешь добавлять воспоминания в боте, вспоминать моменты, "
                 "создавать события на какую-либо дату и многое другое!\n\n"
                 "Но не спеши, хочешь ли ты привязать свой аккаунт к сайту, "
                 "чтобы делиться личными моментами стало ещё удобнее?",
@@ -1571,7 +1571,7 @@ async def _finish_couple_onboarding(message: Message, state: FSMContext, callbac
                 partner_link = f'<a href="tg://user?id={user_id}">{partner_name}</a>'
                 text_notify = (
                     f"✅ Твой партнёр {partner_link} присоединился(-лась) к паре!\n\n"
-                    "Теперь вы можете добавлять воспоминания в боте, вспоминать моменты, "
+                    "Теперь ты можешь добавлять воспоминания в боте, вспоминать моменты, "
                     "создавать события на какую-либо дату и многое другое!\n\n"
                     "Но не спеши, хочешь ли ты привязать свой аккаунт к сайту, "
                     "чтобы делиться личными моментами стало ещё удобнее?"
@@ -1776,7 +1776,7 @@ async def get_invite_link(callback: CallbackQuery):
     await callback_edit_or_answer(callback, 
         f"🔗 <b>Инвайт-ссылка для партнёра:</b>\n\n"
         f"<code>{invite_link}</code>\n\n"
-        "Отправь её партнёру — он(а) нажмёт и автоматически присоединится к вашей паре.",
+        "Отправь её партнёру — он(а) нажмёт и автоматически присоединится к паре.",
         parse_mode=ParseMode.HTML
     )
     await callback.answer()
@@ -1787,7 +1787,7 @@ async def cmd_admin(message: Message):
     user_id = message.from_user.id
     
     if not db.is_creator(user_id):
-        await message.answer("Эта команда доступна только создателю")
+        await message.answer("Эта команда доступна только разработчику")
         return
     
     status_text = _get_rollback_status_block()
@@ -2094,9 +2094,9 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
         when_label = _relative_day(last_item[1])
         noun = _last_item_noun(last_item[0])
         title = _esc(_last_item_title(last_item[0], int(last_item[2])))
-        last_line = f"📝 {when_label.capitalize()} вы добавили {noun}: «{title}»"
+        last_line = f"📝 {when_label.capitalize()} добавлено {noun}: «{title}»"
     else:
-        last_line = "📝 Последнее: пока пусто — добавьте первый момент ✨"
+        last_line = "📝 Последнее: пока пусто — добавь первый момент ✨"
 
     text = (
         f"💑 <b>Наша пара</b>\n\n"
@@ -2614,9 +2614,9 @@ async def bot_site(callback: CallbackQuery):
     partner_id = db.get_partner_id(user_id)
     partner_name = db.get_display_name(partner_id) if partner_id else None
     if partner_name:
-        sky_hint = f", посмотреть на ваше небо (если вы с {partner_name} в разных городах)"
+        sky_hint = f", посмотреть на небо (если вы с {partner_name} в разных городах)"
     else:
-        sky_hint = ", посмотреть на ваше небо"
+        sky_hint = ", посмотреть на небо"
 
     lines = [
         "🌐 <b>Сайт</b>\n",
@@ -6865,7 +6865,7 @@ async def admin_rollback_trigger(callback: CallbackQuery):
         f"{warning_block}"
         "Проект будет пересобран и перезапущен."
         + deployer_note
-        + "\n\nВы уверены, что хотите продолжить?"
+        + "\n\nУверен, что хочешь продолжить?"
     )
 
     keyboard = [

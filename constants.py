@@ -23,9 +23,9 @@ MSG_WISH_NOT_FOUND = "Желание не найдено"
 MSG_ADMIN_NOT_FOUND = "Администратор не найден"
 MSG_ERROR = "Ошибка"
 MSG_CANCEL = "Отмена"
-MSG_ERROR_UNEXPECTED = "Произошла непредвиденная ошибка. Напиши создателю."
+MSG_ERROR_UNEXPECTED = "Произошла непредвиденная ошибка. Напиши разработчику."
 
-MSG_ERROR_TEMPLATE = "❌ Ошибка: {detail}\n\n👤 Напиши создателю о ней"
+MSG_ERROR_TEMPLATE = "❌ Ошибка: {detail}\n\n👤 Напиши разработчику о ней"
 
 COMPANION_WINDOW_HOURS = 24
 COMPANION_LIMIT_BY_TIER: dict = {

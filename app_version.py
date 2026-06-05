@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.292'
-description = 'Уведомления отправлять как новые а не редактировать'
+version = '1.0.293'
+description = 'Замена обращений вы на ты'
 
 
 def get_version_metadata() -> tuple[str, str]:

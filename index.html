@@ -8883,9 +8883,9 @@
       // tg_avatar_url берётся из данных bootstrap при загрузке страницы
       let _tgAvatarUrl = null;
 
-      // Возвращает URL аватарки: Telegram > localStorage > null
+      // Возвращает URL аватарки: пользовательская > Telegram > null
       function _getAvatarUrl() {
-        return _tgAvatarUrl || localStorage.getItem(_AV_LS_KEY) || null;
+        return localStorage.getItem(_AV_LS_KEY) || _tgAvatarUrl || null;
       }
 
       // Вызывается при загрузке bootstrap-данных — устанавливает Telegram-аватарку
@@ -8908,11 +8908,14 @@
 
           if (info && info.tg_avatar_url) {
             _tgAvatarUrl = info.tg_avatar_url;
-            // Обновляем все существующие иконки пользователя в чате
-            document.querySelectorAll('.msg.user .msg-icon').forEach(el => _renderUserMsgIcon(el, _tgAvatarUrl));
-            document.querySelectorAll('.msg-reaction-avatar-emoji').forEach(el => {
-              el.outerHTML = `<img class="msg-reaction-avatar" src="${_tgAvatarUrl}" alt="" onerror="this.outerHTML='<div class=\\'msg-reaction-avatar-emoji\\'>🌸</div>'" />`;
-            });
+            // Обновляем все существующие иконки — _getAvatarUrl() определит приоритет
+            document.querySelectorAll('.msg.user .msg-icon').forEach(el => _renderUserMsgIcon(el));
+            // Обновляем аватарки реакций, только если нет пользовательской
+            if (!localStorage.getItem(_AV_LS_KEY)) {
+              document.querySelectorAll('.msg-reaction-avatar-emoji').forEach(el => {
+                el.outerHTML = `<img class="msg-reaction-avatar" src="${_tgAvatarUrl}" alt="" onerror="this.outerHTML='<div class=\\'msg-reaction-avatar-emoji\\'>🌸</div>'" />`;
+              });
+            }
           }
         } catch (_e) { /* silent */ }
       }

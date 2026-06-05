@@ -2304,6 +2304,11 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            text-decoration: none;
+            transition: color 0.18s;
+        }
+        .site-footer-logo:hover {
+            color: var(--accent-color);
         }
         .site-footer-dot {
             width: 7px; height: 7px;
@@ -5163,10 +5168,10 @@
             </div>
 
             <div class="site-footer">
-                <div class="site-footer-logo">
+                <a class="site-footer-logo" href="/main">
                     <div class="site-footer-dot"></div>
                     SureMemory
-                </div>
+                </a>
                 <div class="site-footer-links">
                     <a class="site-footer-link" href="/privacy">Конфиденциальность</a>
                     <a class="site-footer-link" href="/terms">Условия</a>

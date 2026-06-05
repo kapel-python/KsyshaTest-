@@ -46,7 +46,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .tab-btn:hover{color:var(--text);background:rgba(255,255,255,0.03);}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
 .tab-content{display:none;padding:0;animation:fadeUp 0.3s ease both;}
-.tab-content.active{display:block;}
+.tab-content.active{display:flex;flex-direction:column;flex:1;overflow:hidden;}
 
 .admin-content-area{display:flex;flex-direction:column;height:calc(100vh - 116px);overflow:hidden;}
 .admin-scroll{flex:1;overflow-y:auto;padding:24px 16px 60px;}
@@ -1246,8 +1246,13 @@ function startMonitoring() {
       const msg = JSON.parse(e.data);
       if (msg.type !== 'metrics') return;
       if (msg.error) {
-        document.getElementById('m-cpu').textContent = 'N/A';
-        document.getElementById('m-cpu').textContent = 'psutil недоступен';
+        document.getElementById('m-cpu').textContent = '—';
+        document.getElementById('m-ram').textContent = '—';
+        document.getElementById('m-ram-detail').textContent = 'psutil не установлен';
+        document.getElementById('m-disk').textContent = '—';
+        document.getElementById('m-disk-detail').textContent = 'psutil не установлен';
+        document.getElementById('m-uptime').textContent = '—';
+        document.getElementById('m-uptime-detail').textContent = 'установите psutil для мониторинга';
         return;
       }
       document.getElementById('m-cpu').textContent = msg.cpu.toFixed(1) + '%';

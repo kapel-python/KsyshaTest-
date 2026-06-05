@@ -618,6 +618,12 @@
       display: flex;
       align-items: center;
       gap: 7px;
+      text-decoration: none;
+      transition: color 0.18s;
+    }
+
+    .footer-logo:hover {
+      color: var(--accent-color);
     }
 
     .footer-links {
@@ -902,10 +908,10 @@
   <!-- FOOTER -->
   <footer class="footer">
     <div class="footer-inner">
-      <div class="footer-logo">
+      <a class="footer-logo" href="/main">
         <div class="nav-logo-dot"></div>
         SureMemory
-      </div>
+      </a>
       <div class="footer-links">
         <a class="footer-link" href="/privacy">Конфиденциальность</a>
         <a class="footer-link" href="/terms">Условия</a>

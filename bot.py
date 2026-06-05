@@ -63,6 +63,7 @@ logger = logging.getLogger(__name__)
 startup_router = Router()
 
 _scheduler_task = None
+_avatar_sync_task = None
 _cloudflared_process = None
 _active_edit_target = contextvars.ContextVar("active_edit_target", default=None)
 _startup_test_progress = {
@@ -1061,6 +1062,11 @@ async def on_startup(bot):
 
     _scheduler_task = asyncio.create_task(_check_expired_events(bot))
 
+    # Фоновая синхронизация Telegram-аватарок (миграция + обновление)
+    import avatar_service as _av
+    global _avatar_sync_task
+    _avatar_sync_task = asyncio.create_task(_av.run_background_sync(bot))
+
     # Тесты запускаем в фоне — localhost в whitelist, реальных пользователей не трогают
     asyncio.create_task(
         _run_tests_background(bot, config.CREATOR_ID, startup_msg_id, direct_url)
@@ -1069,7 +1075,7 @@ async def on_startup(bot):
 
 async def on_shutdown():
     """Функция, выполняемая при выключении бота"""
-    global _scheduler_task, _cloudflared_process
+    global _scheduler_task, _avatar_sync_task, _cloudflared_process
 
     logger.info("Бот выключается...")
 
@@ -1078,6 +1084,13 @@ async def on_shutdown():
         _scheduler_task.cancel()
         try:
             await _scheduler_task
+        except asyncio.CancelledError:
+            pass
+
+    if _avatar_sync_task:
+        _avatar_sync_task.cancel()
+        try:
+            await _avatar_sync_task
         except asyncio.CancelledError:
             pass
 

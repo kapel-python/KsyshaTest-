@@ -8900,7 +8900,7 @@
           if (info && info.tg_avatar_url) {
             _tgAvatarUrl = info.tg_avatar_url;
             // Обновляем все существующие иконки пользователя в чате
-            document.querySelectorAll('.user-msg-icon').forEach(el => _renderUserMsgIcon(el, _tgAvatarUrl));
+            document.querySelectorAll('.msg.user .msg-icon').forEach(el => _renderUserMsgIcon(el, _tgAvatarUrl));
             document.querySelectorAll('.msg-reaction-avatar-emoji').forEach(el => {
               el.outerHTML = `<img class="msg-reaction-avatar" src="${_tgAvatarUrl}" alt="" onerror="this.outerHTML='<div class=\\'msg-reaction-avatar-emoji\\'>🌸</div>'" />`;
             });

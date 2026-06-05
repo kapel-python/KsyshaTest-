@@ -8778,7 +8778,7 @@ async def refresh_tg_avatar(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": "bot_unavailable"}, status=503))
 
 
-    url = await avatar_service.refresh_avatar_if_needed(bot, int(user_id), force=True)
+    url = await avatar_service.sync_user_avatar(bot, int(user_id), force=True)
     return _add_cors_headers(web.json_response({"ok": True, "tg_avatar_url": url}))
 
 

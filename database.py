@@ -567,6 +567,7 @@ class Database:
             for _col in [
                 "tg_avatar_path TEXT",
                 "tg_avatar_updated REAL",
+                "tg_avatar_file_id TEXT",   # file_unique_id для детекции изменений
             ]:
                 try:
                     conn.execute(f"ALTER TABLE users ADD COLUMN {_col}")
@@ -1393,18 +1394,25 @@ class Database:
             logger.exception(f"Ошибка при добавлении пользователя: {e}")
             return False
 
-    def update_user_avatar(self, user_id: int, tg_avatar_path: Optional[str]) -> bool:
-        """Обновляет путь к Telegram-аватарке и timestamp обновления."""
+    def update_user_avatar(
+        self,
+        user_id: int,
+        tg_avatar_path: Optional[str],
+        tg_avatar_file_id: Optional[str] = None,
+    ) -> bool:
+        """Обновляет аватарку, file_unique_id и timestamp обновления."""
         import time
         try:
             with self._get_connection() as conn:
                 conn.execute(
                     '''
                     UPDATE users
-                    SET tg_avatar_path = ?, tg_avatar_updated = ?
+                    SET tg_avatar_path = ?,
+                        tg_avatar_file_id = ?,
+                        tg_avatar_updated = ?
                     WHERE user_id = ?
                     ''',
-                    (tg_avatar_path, time.time(), user_id),
+                    (tg_avatar_path, tg_avatar_file_id, time.time(), user_id),
                 )
                 conn.commit()
                 return True

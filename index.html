@@ -10042,7 +10042,13 @@
                 _stgState.tz = mappedTz;
                 _stgSet(STG_LS.tz, mappedTz);
                 window._stgTzOverride = (mappedTz !== '__auto__') ? mappedTz : null;
-                setTimeout(() => { loadAllData(); }, 50);
+                ['important_moments_container','memories_container','important_dates_container',
+                 'events_container','wishes_container'].forEach(function(cid) {
+                  var cel = document.getElementById(cid);
+                  if (cel) cel.innerHTML = '';
+                });
+                Array.from(document.querySelectorAll('[data-custom-generated="1"]')).forEach(function(el) { el.remove(); });
+                setTimeout(function() { loadAllData(); }, 50);
                 return;
               }
             }
@@ -13589,7 +13595,7 @@
 
           connectSiteWs();
 
-          startApp(isNew, storedTheme);
+          await startApp(isNew, storedTheme);
 
           if (showInvalidTokenModalOnStart) {
             showInvalidTokenModal();

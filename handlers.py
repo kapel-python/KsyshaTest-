@@ -728,6 +728,7 @@ async def process_voice_description_text(message: Message, state: FSMContext):
                     [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{memory.id}")]
                 ]),
                 parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления о новом моменте: {e}")
@@ -812,6 +813,7 @@ async def voice_desc_no(callback: CallbackQuery, state: FSMContext):
                     [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{memory.id}")]
                 ]),
                 parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления о новом моменте: {e}")
@@ -1602,7 +1604,8 @@ async def _finish_couple_onboarding(message: Message, state: FSMContext, callbac
                                     chat_id=notify_user_id,
                                     text=text_notify,
                                     reply_markup=notify_kb,
-                                    parse_mode=ParseMode.HTML
+                                    parse_mode=ParseMode.HTML,
+                                    force_new_message=True,
                                 )
                                 logger.info(
                                     "Уведомление о присоединении отправлено: invite=%s joined=%s to=%s",
@@ -4844,7 +4847,8 @@ async def process_memory_content(message: Message, state: FSMContext):
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{memory.id}")]
                         ]),
-                        parse_mode=ParseMode.HTML
+                        parse_mode=ParseMode.HTML,
+                        force_new_message=True,
                     )
             except Exception as e:
                 logger.error(f"Ошибка при отправке уведомления о новом моменте: {e}")
@@ -4908,7 +4912,8 @@ async def process_memory_content(message: Message, state: FSMContext):
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{memory.id}")]
                     ]),
-                    parse_mode=ParseMode.HTML
+                    parse_mode=ParseMode.HTML,
+                    force_new_message=True,
                 )
         except Exception as e:
             logger.error(f"Ошибка при отправке уведомления о новом моменте: {e}")
@@ -5502,7 +5507,8 @@ async def process_new_title(message: Message, state: FSMContext):
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{data['memory_id']}")]
                         ]),
-                        parse_mode=ParseMode.HTML
+                        parse_mode=ParseMode.HTML,
+                        force_new_message=True,
                     )
             except Exception as e:
                 logger.error(f"Ошибка при отправке уведомления об изменении названия момента: {e}")
@@ -5557,7 +5563,8 @@ async def process_new_date(message: Message, state: FSMContext):
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{data['memory_id']}")]
                         ]),
-                        parse_mode=ParseMode.HTML
+                        parse_mode=ParseMode.HTML,
+                        force_new_message=True,
                     )
             except Exception as e:
                 logger.error(f"Ошибка при отправке уведомления об изменении даты момента: {e}")
@@ -5641,7 +5648,8 @@ async def process_new_content(message: Message, state: FSMContext):
                             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                                 [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{data['memory_id']}")]
                             ]),
-                            parse_mode=ParseMode.HTML
+                            parse_mode=ParseMode.HTML,
+                            force_new_message=True,
                         )
                 except Exception as e:
                     logger.error(f"Ошибка при отправке уведомления об изменении описания момента: {e}")
@@ -5700,7 +5708,8 @@ async def process_new_content(message: Message, state: FSMContext):
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                             [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{data['memory_id']}")]
                         ]),
-                        parse_mode=ParseMode.HTML
+                        parse_mode=ParseMode.HTML,
+                        force_new_message=True,
                     )
             except Exception as e:
                 logger.error(f"Ошибка при отправке уведомления об изменении описания момента: {e}")
@@ -8028,7 +8037,8 @@ async def wish_delete_confirm(callback: CallbackQuery):
             await callback.bot.send_message(
                 chat_id=partner_id,
                 text=notify_text,
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(
@@ -8171,7 +8181,8 @@ async def admin_wish_delete_no_reason(callback: CallbackQuery, state: FSMContext
             await callback.bot.send_message(
                 chat_id=wish.user_id,
                 text=notify_text,
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления партнёру об удалении желания: {e}")
@@ -8696,7 +8707,8 @@ async def process_wish_delete_reason(message: Message, state: FSMContext):
             await message.bot.send_message(
                 chat_id=wish.user_id,
                 text=notify_text,
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления партнёру об удалении желания: {e}")
@@ -8797,7 +8809,8 @@ async def process_wish_content(message: Message, state: FSMContext):
                         callback_data=f"wish_view_{wish.id}"
                     )]
                 ]),
-                parse_mode=ParseMode.HTML
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления о желании партнёру: {e}")
@@ -9315,6 +9328,7 @@ async def tz_ok(callback: CallbackQuery, state: FSMContext):
                 chat_id=recipient_id,
                 text=notify_text,
                 parse_mode=ParseMode.HTML,
+                force_new_message=True,
             )
     except Exception:
         pass

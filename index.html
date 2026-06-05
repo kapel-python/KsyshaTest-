@@ -8146,8 +8146,12 @@
         loadAIHistory();
 
         // Блокируем скролл основной страницы, пока открыто окно ИИ
-
         document.body.classList.add('ai-open');
+
+        // URL-хэш как источник истины состояния ИИ
+        if (location.hash !== '#ai') {
+          history.replaceState(null, '', location.pathname + location.search + '#ai');
+        }
 
       }
 
@@ -8557,8 +8561,12 @@
         closeAISearch();
 
         // Возвращаем возможность скроллить страницу
-
         document.body.classList.remove('ai-open');
+
+        // Убираем #ai из URL
+        if (location.hash === '#ai') {
+          history.replaceState(null, '', location.pathname + location.search);
+        }
 
       }
 
@@ -8651,8 +8659,12 @@
             closeAISearch();
 
             // Разблокируем скролл страницы после закрытия
-
             document.body.classList.remove('ai-open');
+
+            // Убираем #ai из URL
+            if (location.hash === '#ai') {
+              history.replaceState(null, '', location.pathname + location.search);
+            }
 
           } else {
 
@@ -8994,8 +9006,11 @@
         // Небольшая пауза чтобы пользователь увидел галочку
         await new Promise(r => setTimeout(r, 1000));
 
-        // Ставим флаг — после перезагрузки автоматически открыть модалку ИИ
-        try { sessionStorage.setItem('__openAIAfterReload', '1'); } catch(e) {}
+        // #ai уже в URL (был установлен при openAI) — reload вернёт пользователя в ИИ автоматически
+        // Если по какой-то причине хеша нет — ставим его перед перезагрузкой
+        if (location.hash !== '#ai') {
+          history.replaceState(null, '', location.pathname + location.search + '#ai');
+        }
 
         // Перезагружаем страницу — чистый старт, без скачков DOM
         location.reload();
@@ -13624,13 +13639,10 @@
 
           await startApp(isNew, storedTheme);
 
-          // Если удаление чата запросило перезагрузку — открываем модалку ИИ
-          try {
-            if (sessionStorage.getItem('__openAIAfterReload') === '1') {
-              sessionStorage.removeItem('__openAIAfterReload');
-              setTimeout(() => { openAI(); }, 300);
-            }
-          } catch(e) {}
+          // Если URL содержит #ai — открываем модалку ИИ автоматически
+          if (location.hash === '#ai') {
+            setTimeout(() => { openAI(); }, 300);
+          }
 
           if (showInvalidTokenModalOnStart) {
             showInvalidTokenModal();

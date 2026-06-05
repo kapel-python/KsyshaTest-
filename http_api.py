@@ -29,6 +29,13 @@ import traceback
 
 import time
 
+try:
+    import psutil as _psutil
+    _HAS_PSUTIL = True
+except ImportError:
+    _psutil = None
+    _HAS_PSUTIL = False
+
 from collections import defaultdict, deque
 
 import html as _html_module
@@ -4420,19 +4427,31 @@ async def admin_challenge_session(request: web.Request) -> web.Response:
 
 
 async def ws_admin_confirm(request: web.Request) -> web.WebSocketResponse:
-    """GET /api/admin/challenge/ws?token=... — WebSocket ожидания подтверждения."""
-    token = (request.rel_url.query.get("token") or "").strip()
-    if not token:
-        return web.Response(status=400, text="missing token")
-
-    challenge = db.get_admin_challenge(token)
-    if not challenge:
-        return web.Response(status=404, text="not found")
-
+    """GET /api/admin/challenge/ws — WebSocket ожидания подтверждения.
+       Токен передаётся в первом сообщении {type:'auth', token:'...'}."""
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
-    _admin_ws_clients.setdefault(token, []).append(ws)
+    token = None
+    async for msg in ws:
+        if msg.type == web.WSMsgType.TEXT:
+            try:
+                data = json.loads(msg.data)
+                if data.get("type") == "auth":
+                    token = (data.get("token") or "").strip()
+                    if not token or not db.get_admin_challenge(token):
+                        await ws.close(code=4001, message=b"invalid token")
+                        return ws
+                    _admin_ws_clients.setdefault(token, []).append(ws)
+                    break
+            except Exception:
+                continue
+        elif msg.type == web.WSMsgType.CLOSE:
+            return ws
+
+    if not token:
+        return ws
+
     try:
         async for _ in ws:
             pass
@@ -4444,6 +4463,80 @@ async def ws_admin_confirm(request: web.Request) -> web.WebSocketResponse:
             _admin_ws_clients.pop(token, None)
 
     return ws
+
+
+# ── Admin monitoring WS ────────────────────────────────────────────────────
+
+_admin_monitor_clients: set = set()
+_admin_monitor_task: Optional[asyncio.Task] = None
+
+async def _admin_collect_metrics() -> dict:
+    """Собирает системные метрики через psutil (в thread executor)."""
+    if not _HAS_PSUTIL:
+        return {"error": "psutil not available"}
+    loop = asyncio.get_event_loop()
+    cpu = await loop.run_in_executor(None, lambda: _psutil.cpu_percent(interval=0.2))
+    mem = await loop.run_in_executor(None, _psutil.virtual_memory)
+    disk = await loop.run_in_executor(None, lambda: _psutil.disk_usage('/'))
+    boot = await loop.run_in_executor(None, _psutil.boot_time)
+    return {
+        "cpu": cpu,
+        "ram_total": mem.total,
+        "ram_used": mem.used,
+        "ram_percent": mem.percent,
+        "disk_total": disk.total,
+        "disk_used": disk.used,
+        "disk_percent": disk.percent,
+        "uptime_sec": int(time.time() - boot),
+    }
+
+async def _admin_monitor_broadcast() -> None:
+    """Фоновая задача: собирает метрики и шлёт всем подключённым WS-клиентам."""
+    while _admin_monitor_clients:
+        metrics = await _admin_collect_metrics()
+        dead: list = []
+        for ws in list(_admin_monitor_clients):
+            try:
+                await ws.send_json({"type": "metrics", **metrics})
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            _admin_monitor_clients.discard(ws)
+        await asyncio.sleep(3)
+
+def _ensure_monitor_task() -> None:
+    global _admin_monitor_task
+    if _admin_monitor_task is None or _admin_monitor_task.done():
+        _admin_monitor_task = asyncio.create_task(_admin_monitor_broadcast())
+
+async def ws_admin_monitor(request: web.Request) -> web.WebSocketResponse:
+    """GET /api/admin/monitor/ws — WebSocket для системного мониторинга в реальном времени."""
+    ws = web.WebSocketResponse(heartbeat=15)
+    await ws.prepare(request)
+    _admin_monitor_clients.add(ws)
+    _ensure_monitor_task()
+    try:
+        async for _ in ws:
+            pass
+    finally:
+        _admin_monitor_clients.discard(ws)
+
+# ── Admin logs REST ────────────────────────────────────────────────────────
+
+async def admin_logs(request: web.Request) -> web.Response:
+    """GET /api/admin/logs — последние системные логи и события безопасности."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    try:
+        app_logs = db.get_app_logs(limit=50)
+        security_events = db.get_security_events(limit=30)
+        return _add_cors_headers(web.json_response({
+            "ok": True,
+            "app_logs": app_logs,
+            "security_events": security_events,
+        }))
+    except Exception as e:
+        return _add_cors_headers(web.json_response({"ok": False, "error": str(e)}, status=500))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -9253,6 +9346,12 @@ def create_app() -> web.Application:
     app.router.add_route("OPTIONS", "/api/admin/challenge/session", handle_options)
     app.router.add_post("/api/admin/challenge/session", admin_challenge_session)
     app.router.add_get("/api/admin/challenge/ws", ws_admin_confirm)
+
+    # Admin мониторинг и логи
+    app.router.add_route("OPTIONS", "/api/admin/monitor/ws", handle_options)
+    app.router.add_get("/api/admin/monitor/ws", ws_admin_monitor)
+    app.router.add_route("OPTIONS", "/api/admin/logs", handle_options)
+    app.router.add_get("/api/admin/logs", admin_logs)
 
     app.router.add_post("/api/ai_companion", ai_companion)
 

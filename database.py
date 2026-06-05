@@ -1105,6 +1105,17 @@ class Database:
             conn.execute('CREATE INDEX IF NOT EXISTS idx_admin_challenges_token ON admin_challenges(token)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_admin_challenges_status_exp ON admin_challenges(status, expires_at)')
 
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS app_logs (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    level      TEXT NOT NULL DEFAULT 'info',
+                    message    TEXT NOT NULL,
+                    detail     TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_app_logs_level ON app_logs(level, created_at)')
+
             # Миграция: добавляем pre_bound_user_id в invite_codes
             try:
                 cur = conn.execute("PRAGMA table_info(invite_codes)")
@@ -4589,6 +4600,42 @@ class Database:
             logger.exception("Ошибка get_admin_stats: %s", e)
             return {}
 
+    def log_app_event(self, level: str, message: str, detail: Optional[str] = None) -> bool:
+        """Записывает системное событие/ошибку в app_logs."""
+        try:
+            allowed = ("info", "warning", "error", "critical")
+            if level not in allowed:
+                level = "info"
+            with self._get_connection() as conn:
+                conn.execute(
+                    "INSERT INTO app_logs (level, message, detail) VALUES (?, ?, ?)",
+                    (level, message, (detail or "")[:2000])
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("log_app_event error: %s", e)
+            return False
+
+    def get_app_logs(self, limit: int = 50, level: Optional[str] = None) -> List[Dict]:
+        """Возвращает последние системные логи. Опционально фильтр по уровню."""
+        try:
+            with self._get_connection() as conn:
+                if level:
+                    rows = conn.execute(
+                        "SELECT id, level, message, detail, created_at FROM app_logs WHERE level = ? ORDER BY id DESC LIMIT ?",
+                        (level, limit)
+                    ).fetchall()
+                else:
+                    rows = conn.execute(
+                        "SELECT id, level, message, detail, created_at FROM app_logs ORDER BY id DESC LIMIT ?",
+                        (limit,)
+                    ).fetchall()
+                return [dict(r) for r in rows]
+        except Exception as e:
+            logger.exception("get_app_logs error: %s", e)
+            return []
+
     def get_ksusha_info(self, ksusha_visitor_id: str = "ksyusha", ksusha_user_id: int = 0) -> Dict[str, Any]:
         """Информация о Ксюше для админ-панели: последний онлайн = max(сайт, бот).
         ksusha_user_id игнорируется — всегда используем get_ksusha_id() для актуального ID."""
@@ -4672,6 +4719,19 @@ class Database:
         """
         legacy_vid = "ksyusha" if partner_visitor_id == "partner" else partner_visitor_id
         return self.get_ksusha_info(ksusha_visitor_id=legacy_vid, ksusha_user_id=partner_user_id)
+
+    def get_security_events(self, limit: int = 30) -> List[Dict]:
+        """Возвращает последние события безопасности."""
+        try:
+            with self._get_connection() as conn:
+                rows = conn.execute(
+                    "SELECT id, type, user_id, ip, detail, created_at FROM security_events ORDER BY id DESC LIMIT ?",
+                    (limit,)
+                ).fetchall()
+                return [dict(r) for r in rows]
+        except Exception as e:
+            logger.exception("get_security_events error: %s", e)
+            return []
 
     def add_memory_view_session_start(self, memory_id: int, visitor_id: Optional[str] = None) -> int:
         """Создаёт сессию просмотра момента и возвращает её ID."""

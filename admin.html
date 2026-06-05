@@ -39,6 +39,19 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .header-back{background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--muted);font-size:0.8rem;padding:7px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;text-decoration:none;display:flex;align-items:center;gap:6px;}
 .header-back:hover{background:rgba(255,255,255,0.1);color:var(--text);}
 
+/* ── Tabs ── */
+.tab-nav{display:flex;gap:2px;overflow-x:auto;padding:0 4px;margin-bottom:0;scrollbar-width:none;border-bottom:1px solid var(--border);flex-shrink:0;}
+.tab-nav::-webkit-scrollbar{display:none;}
+.tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:500;padding:10px 14px;cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0;}
+.tab-btn:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.tab-content{display:none;padding:0;animation:fadeUp 0.3s ease both;}
+.tab-content.active{display:block;}
+
+.admin-content-area{display:flex;flex-direction:column;height:calc(100vh - 116px);overflow:hidden;}
+.admin-scroll{flex:1;overflow-y:auto;padding:24px 16px 60px;}
+.admin-scroll-inner{max-width:900px;margin:0 auto;}
+
 .admin-content{max-width:900px;margin:0 auto;padding:24px 16px 60px;}
 .section{margin-bottom:28px;}
 .section-title{font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
@@ -111,6 +124,41 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .device-badge.online-now{color:var(--green);border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.08);}
 .device-badge.offline{color:var(--muted);border-color:var(--border);background:transparent;}
 
+/* ── Monitoring ── */
+.monitor-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(min-width:600px){.monitor-grid{grid-template-columns:repeat(2,1fr);}}
+.monitor-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;}
+.monitor-card-label{font-size:0.7rem;color:var(--muted);font-weight:500;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.monitor-card-value{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--text);line-height:1;}
+.monitor-card-detail{font-size:0.72rem;color:var(--meta);margin-top:4px;}
+.monitor-bar-wrap{height:6px;background:rgba(255,255,255,0.06);border-radius:4px;margin-top:10px;overflow:hidden;}
+.monitor-bar-fill{height:100%;border-radius:4px;transition:width 0.5s ease;background:linear-gradient(90deg,var(--green),var(--accent));}
+.monitor-bar-fill.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);}
+.monitor-pulse{display:inline-block;width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse-green 2s ease-in-out infinite;margin-right:6px;}
+
+/* ── Logs ── */
+.logs-list{display:flex;flex-direction:column;gap:6px;}
+.log-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:0.78rem;line-height:1.4;}
+.log-item.log-error{border-color:rgba(239,68,68,0.25);background:rgba(239,68,68,0.04);}
+.log-item.log-warning{border-color:rgba(245,158,11,0.25);background:rgba(245,158,11,0.04);}
+.log-item.log-critical{border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.08);}
+.log-level{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:600;padding:1px 6px;border-radius:4px;text-transform:uppercase;margin-right:6px;}
+.log-level.lvl-error{background:rgba(239,68,68,0.15);color:var(--red);}
+.log-level.lvl-warning{background:rgba(245,158,11,0.15);color:#f59e0b;}
+.log-level.lvl-info{background:rgba(124,58,237,0.15);color:var(--accent);}
+.log-level.lvl-critical{background:rgba(239,68,68,0.25);color:var(--red);}
+.log-time{font-size:0.65rem;color:var(--meta);font-family:'JetBrains Mono',monospace;}
+.log-msg{color:var(--text);margin-top:3px;}
+.log-detail{font-size:0.72rem;color:var(--muted);margin-top:2px;word-break:break-word;}
+.log-empty{text-align:center;color:var(--muted);font-size:0.8rem;padding:30px 0;}
+
+/* ── Version history ── */
+.version-list{display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;scrollbar-width:thin;}
+.version-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:0.78rem;}
+.version-tag{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--accent);font-size:0.75rem;}
+.version-date{font-size:0.65rem;color:var(--meta);margin-left:8px;}
+.version-desc{color:var(--muted);margin-top:4px;font-size:0.75rem;line-height:1.4;}
+
 .admin-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 22px;border-radius:22px;font-size:0.82rem;font-weight:500;z-index:9999;pointer-events:none;animation:toastIn 0.25s ease both;white-space:nowrap;}
 .admin-toast.success{border-color:rgba(16,185,129,0.3);color:var(--green);}
 .admin-toast.error{border-color:rgba(239,68,68,0.3);color:#ef4444;}
@@ -121,7 +169,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
 .refresh-btn.spinning svg{animation:spin 0.8s linear infinite;}
 
-/* ── Модалки ── */
+/* ── Modals ── */
 .amodal-wrap{display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;padding:20px;}
 .amodal-wrap.open{display:flex;}
 .amodal-overlay{position:absolute;inset:0;background:rgba(6,5,15,0.82);backdrop-filter:blur(10px);}
@@ -140,7 +188,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .amodal-btn.ok-purple{background:rgba(124,58,237,0.12);border-color:rgba(124,58,237,0.3);color:var(--accent);}
 .amodal-btn.ok-purple:hover{background:rgba(124,58,237,0.22);}
 
-/* ── Модалка выбора формата экспорта ── */
 .export-format-btn{width:100%;padding:13px 16px;border-radius:14px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all 0.15s;border:1px solid;display:flex;align-items:center;gap:10px;margin-bottom:8px;}
 .export-format-btn:last-of-type{margin-bottom:0;}
 .export-format-btn.json-btn{background:rgba(65,88,208,0.1);border-color:rgba(65,88,208,0.3);color:#818cf8;}
@@ -152,7 +199,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .export-format-name{font-weight:700;font-size:0.85rem;}
 .export-format-desc{font-size:0.7rem;opacity:0.7;margin-top:1px;}
 
-/* ── Написать партнёру ── */
 .compose-card{max-width:520px;}
 .compose-files-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
 .compose-file-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:8px 10px;}
@@ -175,7 +221,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .compose-btns{display:flex;gap:8px;flex-wrap:wrap;}
 .compose-btns .amodal-btn{flex:1;min-width:80px;}
 
-/* ── Галочка после действия (как в index.html) ── */
 .action-done-wrap{display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);}
 .action-done-wrap.show{display:flex;animation:adFadeIn 0.4s ease both;}
 @keyframes adFadeIn{from{opacity:0}to{opacity:1}}
@@ -188,6 +233,12 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 @keyframes adCheckDraw{to{stroke-dashoffset:0}}
 .action-done-title{font-family:'Unbounded',sans-serif;font-size:1rem;font-weight:700;color:var(--text);animation:adSlideUp 0.5s ease 0.3s both;margin-bottom:6px;}
 .action-done-sub{font-size:0.82rem;color:var(--muted);animation:adSlideUp 0.5s ease 0.45s both;}
+
+/* ── Logs tab filter ── */
+.log-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+.log-tab-btn{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:8px;font-size:0.72rem;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+.log-tab-btn:hover{border-color:var(--accent);color:var(--accent);}
+.log-tab-btn.active{background:rgba(124,58,237,0.12);border-color:rgba(124,58,237,0.3);color:var(--accent);}
 </style>
 </head>
 <body>
@@ -232,123 +283,213 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <a style="cursor: pointer;" onclick="window.location.href='/'" class="header-back">← Сайт</a>
   </header>
 
-  <div class="admin-content">
+  <div class="tab-nav" id="tabNav">
+    <button class="tab-btn active" data-tab="dashboard">📊 Дашборд</button>
+    <button class="tab-btn" data-tab="monitoring">📈 Мониторинг</button>
+    <button class="tab-btn" data-tab="logs">📋 Логи</button>
+    <button class="tab-btn" data-tab="settings">⚙️ Настройки</button>
+  </div>
 
-    <div class="section">
-      <div class="refresh-row">
-        <div class="section-title" style="flex:1;margin-bottom:0">Статистика</div>
-        <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2a4 4 0 0 1 2.83 1.17L10 4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><polyline points="8,2 10,4.34 7.66,4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Обновить
-        </button>
-      </div>
-      <div style="margin-top:12px">
-        <div class="stats-grid">
-          <div class="stat-card"><div class="stat-label">👥 Устройств</div><div class="stat-value" id="s-devices">—</div></div>
-          <div class="stat-card"><div class="stat-label"><span class="online-dot"></span> Онлайн</div><div class="stat-value online" id="s-online">—</div></div>
-          <div class="stat-card"><div class="stat-label">🧠 Сообщений ИИ</div><div class="stat-value" id="s-ai">—</div></div>
-          <div class="stat-card"><div class="stat-label">📸 Воспоминаний</div><div class="stat-value" id="s-mem">—</div></div>
-          <div class="stat-card"><div class="stat-label">🌐 Визитов</div><div class="stat-value" id="s-vis">—</div></div>
-        </div>
-      </div>
-    </div>
+  <div class="admin-content-area">
 
-    <div class="section">
-      <div class="section-title">Здоровье API</div>
-      <div class="health-grid">
-        <div class="health-card">
-          <div class="health-title"><span>429 / минута</span><span class="health-val" id="hm-429">—</span></div>
-          <svg class="spark spark-429" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-429-path" d=""></path></svg>
-        </div>
-        <div class="health-card">
-          <div class="health-title"><span>5xx / минута</span><span class="health-val" id="hm-5xx">—</span></div>
-          <svg class="spark spark-5xx" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-5xx-path" d=""></path></svg>
-        </div>
-        <div class="health-card">
-          <div class="health-title"><span>Latency avg, ms</span><span class="health-val" id="hm-lat">—</span></div>
-          <svg class="spark spark-lat" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-lat-path" d=""></path></svg>
-        </div>
-      </div>
-    </div>
+    <!-- ════ TAB: DASHBOARD ════ -->
+    <div class="tab-content active" id="tab-dashboard">
+      <div class="admin-scroll">
+      <div class="admin-scroll-inner">
 
-    <div class="section">
-      <div class="section-title">Партнёр</div>
-      <div class="ksusha-card">
-        <div class="ksusha-header">
-          <div class="ksusha-avatar">🌸</div>
-          <div>
-            <div class="ksusha-name">Партнёр</div>
-            <span id="ksushaStatusBadge" class="ksusha-offline-badge">
-              <span id="ksushaStatusDot">⚫</span>&nbsp;<span id="ksushaStatusText">Загрузка…</span>
-            </span>
-          </div>
+      <div class="section">
+        <div class="refresh-row">
+          <div class="section-title" style="flex:1;margin-bottom:0">Статистика</div>
+          <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2a4 4 0 0 1 2.83 1.17L10 4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><polyline points="8,2 10,4.34 7.66,4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Обновить
+          </button>
         </div>
-        <div class="ksusha-grid">
-          <div class="ksusha-info-item"><div class="ksusha-info-label">Визитов на сайт</div><div class="ksusha-info-value" id="k-visits">—</div></div>
-          <div class="ksusha-info-item"><div class="ksusha-info-label">Последний раздел</div><div class="ksusha-info-value" id="k-category">—</div></div>
-          <div class="ksusha-info-item"><div class="ksusha-info-label">Чат с ИИ</div><div class="ksusha-info-value" id="k-ai">—</div></div>
-        </div>
-        <div class="ksusha-last-online">
-          <div class="ksusha-last-online-icon">🕐</div>
-          <div class="ksusha-last-online-text">
-            <div>Последний онлайн: <span class="ksusha-last-online-time" id="k-last-time">—</span></div>
-            <div class="ksusha-last-online-source" id="k-last-source"></div>
-            <div class="ksusha-last-online-source" id="k-bot-action"></div>
+        <div style="margin-top:12px">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">👥 Устройств</div><div class="stat-value" id="s-devices">—</div></div>
+            <div class="stat-card"><div class="stat-label"><span class="online-dot"></span> Онлайн</div><div class="stat-value online" id="s-online">—</div></div>
+            <div class="stat-card"><div class="stat-label">🧠 Сообщений ИИ</div><div class="stat-value" id="s-ai">—</div></div>
+            <div class="stat-card"><div class="stat-label">📸 Воспоминаний</div><div class="stat-value" id="s-mem">—</div></div>
+            <div class="stat-card"><div class="stat-label">🌐 Визитов</div><div class="stat-value" id="s-vis">—</div></div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="section">
-      <div class="section-title">Управление</div>
-      <div class="controls-grid">
-        <button class="ctrl-btn" id="maintenanceBtn" onclick="openMaintenanceModal()">
-          <span class="ctrl-btn-icon">🔧</span>
-          <div class="ctrl-btn-label" id="maintenanceBtnLabel">Техперерыв</div>
-          <div class="ctrl-btn-sub" id="maintenanceBtnSub">Загрузка…</div>
-        </button>
-        <button class="ctrl-btn" onclick="openComposeModal()">
-          <span class="ctrl-btn-icon">💬</span>
-          <div class="ctrl-btn-label">Написать партнёру</div>
-          <div class="ctrl-btn-sub">Уведомление появится при входе на сайт</div>
-        </button>
-        <button class="ctrl-btn" onclick="doExport()">
-          <span class="ctrl-btn-icon">📦</span>
-          <div class="ctrl-btn-label">Экспорт данных</div>
-          <div class="ctrl-btn-sub">Скачать все данные в JSON</div>
-        </button>
-        <button class="ctrl-btn" onclick="doBackup()">
-          <span class="ctrl-btn-icon">💾</span>
-          <div class="ctrl-btn-label">Бэкап БД</div>
-          <div class="ctrl-btn-sub">Перезаписать резервную копию</div>
-        </button>
-        <button class="ctrl-btn ctrl-soon" onclick="ctrlSoon('Смена ID партнёра')">
-          <span class="ctrl-btn-icon">🔑</span>
-          <div class="ctrl-btn-label">Сменить ID партнёра</div>
-          <div class="ctrl-btn-sub">Переопределить Telegram ID в настройках</div>
-        </button>
-        <button class="ctrl-btn" onclick="doTestCelebration()" style="border-color:rgba(212,63,141,0.3)">
-          <span class="ctrl-btn-icon">🎊</span>
-          <div class="ctrl-btn-label" style="color:#d43f8d">Тест анимации</div>
-          <div class="ctrl-btn-sub">Отправить тестовую праздничную анимацию</div>
-        </button>
-        <button class="ctrl-btn" onclick="window.location.href='/'">
-          <span class="ctrl-btn-icon">🏠</span>
-          <div class="ctrl-btn-label">На сайт</div>
-          <div class="ctrl-btn-sub">Перейти на главную страницу</div>
-        </button>
-        <button class="ctrl-btn" onclick="doFullReset()" style="border-color:rgba(239,68,68,0.3)">
-          <span class="ctrl-btn-icon">🗑️</span>
-          <div class="ctrl-btn-label" style="color:#ef4444">Полный сброс клиента</div>
-          <div class="ctrl-btn-sub">Очистить абсолютно все куки, сессии и localStorage</div>
-        </button>
+      <div class="section">
+        <div class="section-title">Здоровье API</div>
+        <div class="health-grid">
+          <div class="health-card">
+            <div class="health-title"><span>429 / минута</span><span class="health-val" id="hm-429">—</span></div>
+            <svg class="spark spark-429" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-429-path" d=""></path></svg>
+          </div>
+          <div class="health-card">
+            <div class="health-title"><span>5xx / минута</span><span class="health-val" id="hm-5xx">—</span></div>
+            <svg class="spark spark-5xx" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-5xx-path" d=""></path></svg>
+          </div>
+          <div class="health-card">
+            <div class="health-title"><span>Latency avg, ms</span><span class="health-val" id="hm-lat">—</span></div>
+            <svg class="spark spark-lat" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-lat-path" d=""></path></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Партнёр</div>
+        <div class="ksusha-card">
+          <div class="ksusha-header">
+            <div class="ksusha-avatar">🌸</div>
+            <div>
+              <div class="ksusha-name">Партнёр</div>
+              <span id="ksushaStatusBadge" class="ksusha-offline-badge">
+                <span id="ksushaStatusDot">⚫</span>&nbsp;<span id="ksushaStatusText">Загрузка…</span>
+              </span>
+            </div>
+          </div>
+          <div class="ksusha-grid">
+            <div class="ksusha-info-item"><div class="ksusha-info-label">Визитов на сайт</div><div class="ksusha-info-value" id="k-visits">—</div></div>
+            <div class="ksusha-info-item"><div class="ksusha-info-label">Последний раздел</div><div class="ksusha-info-value" id="k-category">—</div></div>
+            <div class="ksusha-info-item"><div class="ksusha-info-label">Чат с ИИ</div><div class="ksusha-info-value" id="k-ai">—</div></div>
+          </div>
+          <div class="ksusha-last-online">
+            <div class="ksusha-last-online-icon">🕐</div>
+            <div class="ksusha-last-online-text">
+              <div>Последний онлайн: <span class="ksusha-last-online-time" id="k-last-time">—</span></div>
+              <div class="ksusha-last-online-source" id="k-last-source"></div>
+              <div class="ksusha-last-online-source" id="k-bot-action"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Устройства / Сессии</div>
+        <div class="devices-list" id="devicesList">
+          <div style="text-align:center;color:var(--muted);font-size:0.8rem;padding:20px">Загрузка…</div>
+        </div>
+      </div>
+
+      </div>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Устройства / Сессии</div>
-      <div class="devices-list" id="devicesList">
-        <div style="text-align:center;color:var(--muted);font-size:0.8rem;padding:20px">Загрузка…</div>
+    <!-- ════ TAB: MONITORING ════ -->
+    <div class="tab-content" id="tab-monitoring">
+      <div class="admin-scroll">
+      <div class="admin-scroll-inner">
+
+      <div class="section">
+        <div class="refresh-row">
+          <div class="section-title" style="flex:1;margin-bottom:0">Сервер</div>
+          <span id="monitorStatus" style="font-size:0.7rem;color:var(--muted);display:flex;align-items:center;gap:5px;"><span class="monitor-pulse"></span> realtime</span>
+        </div>
+        <div class="monitor-grid">
+          <div class="monitor-card">
+            <div class="monitor-card-label">🧠 CPU</div>
+            <div class="monitor-card-value" id="m-cpu">—</div>
+            <div class="monitor-bar-wrap"><div class="monitor-bar-fill" id="m-cpu-bar" style="width:0%"></div></div>
+          </div>
+          <div class="monitor-card">
+            <div class="monitor-card-label">💾 RAM</div>
+            <div class="monitor-card-value" id="m-ram">—</div>
+            <div class="monitor-card-detail" id="m-ram-detail"></div>
+            <div class="monitor-bar-wrap"><div class="monitor-bar-fill" id="m-ram-bar" style="width:0%"></div></div>
+          </div>
+          <div class="monitor-card">
+            <div class="monitor-card-label">💽 Диск</div>
+            <div class="monitor-card-value" id="m-disk">—</div>
+            <div class="monitor-card-detail" id="m-disk-detail"></div>
+            <div class="monitor-bar-wrap"><div class="monitor-bar-fill" id="m-disk-bar" style="width:0%"></div></div>
+          </div>
+          <div class="monitor-card">
+            <div class="monitor-card-label">⏱️ Uptime</div>
+            <div class="monitor-card-value" id="m-uptime">—</div>
+            <div class="monitor-card-detail" id="m-uptime-detail"></div>
+          </div>
+        </div>
+      </div>
+
+      </div>
+      </div>
+    </div>
+
+    <!-- ════ TAB: LOGS ════ -->
+    <div class="tab-content" id="tab-logs">
+      <div class="admin-scroll">
+      <div class="admin-scroll-inner">
+
+      <div class="section">
+        <div class="refresh-row">
+          <div class="section-title" style="flex:1;margin-bottom:0">Системные события</div>
+          <button class="refresh-btn" onclick="loadLogs()" id="logsRefreshBtn">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2a4 4 0 0 1 2.83 1.17L10 4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><polyline points="8,2 10,4.34 7.66,4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Обновить
+          </button>
+        </div>
+        <div class="log-tabs">
+          <button class="log-tab-btn active" data-logfilter="all" onclick="filterLogs('all')">Все</button>
+          <button class="log-tab-btn" data-logfilter="error" onclick="filterLogs('error')">Ошибки</button>
+          <button class="log-tab-btn" data-logfilter="warning" onclick="filterLogs('warning')">Предупреждения</button>
+          <button class="log-tab-btn" data-logfilter="security" onclick="filterLogs('security')">Безопасность</button>
+        </div>
+        <div class="logs-list" id="logsList">
+          <div class="log-empty">Загрузка…</div>
+        </div>
+      </div>
+
+      </div>
+      </div>
+    </div>
+
+    <!-- ════ TAB: SETTINGS ════ -->
+    <div class="tab-content" id="tab-settings">
+      <div class="admin-scroll">
+      <div class="admin-scroll-inner">
+
+      <div class="section">
+        <div class="section-title">История версий</div>
+        <div class="version-list" id="versionList">
+          <div style="text-align:center;color:var(--muted);font-size:0.8rem;padding:16px">Загрузка…</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Управление</div>
+        <div class="controls-grid">
+          <button class="ctrl-btn" id="maintenanceBtn" onclick="openMaintenanceModal()">
+            <span class="ctrl-btn-icon">🔧</span>
+            <div class="ctrl-btn-label" id="maintenanceBtnLabel">Техперерыв</div>
+            <div class="ctrl-btn-sub" id="maintenanceBtnSub">Загрузка…</div>
+          </button>
+          <button class="ctrl-btn" onclick="openComposeModal()">
+            <span class="ctrl-btn-icon">💬</span>
+            <div class="ctrl-btn-label">Написать партнёру</div>
+            <div class="ctrl-btn-sub">Уведомление появится при входе на сайт</div>
+          </button>
+          <button class="ctrl-btn" onclick="doExport()">
+            <span class="ctrl-btn-icon">📦</span>
+            <div class="ctrl-btn-label">Экспорт данных</div>
+            <div class="ctrl-btn-sub">Скачать все данные в JSON</div>
+          </button>
+          <button class="ctrl-btn" onclick="doBackup()">
+            <span class="ctrl-btn-icon">💾</span>
+            <div class="ctrl-btn-label">Бэкап БД</div>
+            <div class="ctrl-btn-sub">Перезаписать резервную копию</div>
+          </button>
+          <button class="ctrl-btn" onclick="doTestCelebration()" style="border-color:rgba(212,63,141,0.3)">
+            <span class="ctrl-btn-icon">🎊</span>
+            <div class="ctrl-btn-label" style="color:#d43f8d">Тест анимации</div>
+            <div class="ctrl-btn-sub">Отправить тестовую праздничную анимацию</div>
+          </button>
+          <button class="ctrl-btn" onclick="doFullReset()" style="border-color:rgba(239,68,68,0.3)">
+            <span class="ctrl-btn-icon">🗑️</span>
+            <div class="ctrl-btn-label" style="color:#ef4444">Полный сброс клиента</div>
+            <div class="ctrl-btn-sub">Очистить все куки, сессии и localStorage</div>
+          </button>
+        </div>
+      </div>
+
+      </div>
       </div>
     </div>
 
@@ -466,27 +607,16 @@ let lockoutTimer = null;
 window.showLockout = function(seconds, msg) {
     const app = document.getElementById('challengeApp');
     if (app) app.style.display = 'none';
-    
     const modal = document.getElementById('lockoutModal');
     if (modal) modal.classList.add('open');
-    
-    const textEl = document.getElementById('lockoutText');
-    
     if (lockoutTimer) clearInterval(lockoutTimer);
     let rem = seconds;
-    
     const update = () => {
-        if (rem <= 0) {
-            clearInterval(lockoutTimer);
-            window.location.reload();
-            return;
-        }
+        if (rem <= 0) { clearInterval(lockoutTimer); window.location.reload(); return; }
         let m = Math.floor(rem / 60);
         let s = rem % 60;
         let timeStr = m > 0 ? `${m} мин. ${s} сек.` : `${s} сек.`;
-        if (textEl) {
-            textEl.innerHTML = `Слишком много неверных попыток входа.<br>Повторите через <b>${timeStr}</b>`;
-        }
+        const textEl = document.getElementById('lockoutText'); if (textEl) { textEl.innerHTML = `Слишком много неверных попыток входа.<br>Повторите через <b>${timeStr}</b>`; }
         rem--;
     };
     update();
@@ -495,9 +625,7 @@ window.showLockout = function(seconds, msg) {
 
 async function getFingerprint() {
     try {
-        const d = new Date();
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        return navigator.userAgent + "|" + screen.width + "x" + screen.height + "|" + navigator.language + "|" + tz;
+        return navigator.userAgent + "|" + screen.width + "x" + screen.height + "|" + navigator.language + "|" + Intl.DateTimeFormat().resolvedOptions().timeZone;
     } catch(e) { return navigator.userAgent; }
 }
 
@@ -513,17 +641,12 @@ async function verifyChallenge(pwd) {
     try {
         document.getElementById('challengeSub').textContent = 'Проверка...';
         const r = await fetch('/api/admin/challenge/verify', {
-            method: 'POST',
-            headers: _authHeaders({'Content-Type':'application/json'}),
+            method: 'POST', headers: _authHeaders({'Content-Type':'application/json'}),
             body: JSON.stringify({ token: challengeToken, password: pwd })
         });
         const d = await r.json();
-        
         if (!d.ok) {
-            if (d.error === 'locked') {
-                showLockout(d.retry_after, d.lockout_msg);
-                return;
-            }
+            if (d.error === 'locked') { showLockout(d.retry_after, d.lockout_msg); return; }
             if (d.error === 'wrong_password') {
                 document.getElementById('challengeSub').innerHTML = '<span style="color:#ef4444">Неверный пароль!</span>';
                 document.getElementById('challengePwdWrap').style.display = 'block';
@@ -533,27 +656,24 @@ async function verifyChallenge(pwd) {
             }
             throw new Error(d.error || "verify_failed");
         }
-        
         document.getElementById('challengeSub').innerHTML = '✅ Запрос отправлен в Telegram<br>Подтвердите вход с доверенного устройства...';
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}/api/admin/challenge/ws?token=${challengeToken}`);
-        
+        const ws = new WebSocket(`${protocol}//${window.location.host}/api/admin/challenge/ws`);
+
         ws.onopen = () => {
+            ws.send(JSON.stringify({type: 'auth', token: challengeToken}));
             window.wsPing = setInterval(() => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({type: 'ping'}));
-                }
+                if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: 'ping'}));
             }, 30000);
         };
-        
+
         ws.onmessage = async (e) => {
             try {
                 const msg = JSON.parse(e.data);
                 if (msg.type === 'confirmed') {
                     document.getElementById('challengeSub').textContent = 'Доступ разрешён! Входим...';
                     await fetch('/api/admin/challenge/session', {
-                        method: 'POST',
-                        headers: _authHeaders({'Content-Type':'application/json'}),
+                        method: 'POST', headers: _authHeaders({'Content-Type':'application/json'}),
                         body: JSON.stringify({ token: challengeToken })
                     });
                     window.location.reload();
@@ -570,7 +690,6 @@ async function verifyChallenge(pwd) {
                 document.getElementById('challengeSpinner').style.display = 'none';
             }
         };
-        
     } catch(e) {
         document.getElementById('challengeSub').textContent = 'Ошибка: ' + e.message;
         document.getElementById('challengeSpinner').style.display = 'none';
@@ -581,43 +700,32 @@ async function startChallenge() {
     try {
         const fp = await getFingerprint();
         const r = await fetch('/api/admin/challenge/init', {
-            method: 'POST',
-            headers: _authHeaders({'Content-Type':'application/json'}),
+            method: 'POST', headers: _authHeaders({'Content-Type':'application/json'}),
             body: JSON.stringify({ fingerprint: fp })
         });
         const d = await r.json();
-        
         if (!d.ok) {
-            if (d.error === 'locked') {
-                showLockout(d.retry_after, d.lockout_msg);
-                return;
-            }
+            if (d.error === 'locked') { showLockout(d.retry_after, d.lockout_msg); return; }
             throw new Error(d.error || "init_failed");
         }
-        
         challengeToken = d.token;
         if (d.already_confirmed) {
             document.getElementById('challengeSub').textContent = 'Доступ разрешён! Входим...';
             await fetch('/api/admin/challenge/session', {
-                method: 'POST',
-                headers: _authHeaders({'Content-Type':'application/json'}),
+                method: 'POST', headers: _authHeaders({'Content-Type':'application/json'}),
                 body: JSON.stringify({ token: challengeToken })
             });
             window.location.reload();
             return;
         }
-        
         if (d.need_password) {
             document.getElementById('challengeSub').innerHTML = 'Уровень доверия: <b>' + d.trust_score + '/100</b><br><br>Система зафиксировала подозрительную активность или новое устройство. Введите пароль:';
             document.getElementById('challengeSpinner').style.display = 'none';
             document.getElementById('challengePwdWrap').style.display = 'block';
             document.getElementById('challengeBtn').style.display = 'block';
             document.getElementById('challengePwd').focus();
-            
             document.getElementById('challengePwd').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    window.submitChallengePwd();
-                }
+                if (e.key === 'Enter') window.submitChallengePwd();
             });
         } else {
             verifyChallenge('');
@@ -644,13 +752,9 @@ function _authHeaders(extra) {
   const h = Object.assign({}, extra || {});
   if (API_KEY) h['X-Api-Key'] = API_KEY;
   if (VISITOR_ID) h['X-Visitor-Id'] = VISITOR_ID;
-  try {
-    const sig = localStorage.getItem('ai_visitor_sig');
-    if (sig) h['X-Visitor-Signature'] = sig;
-  } catch(e) {}
+  try { const sig = localStorage.getItem('ai_visitor_sig'); if (sig) h['X-Visitor-Signature'] = sig; } catch(e) {}
   return h;
 }
-
 
 function h(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -684,12 +788,21 @@ function toast(text, type='') {
 
 const CAT = {'important_moments':'💫 Важные моменты','memories':'📖 Воспоминания','important_dates':'📅 Важные даты','wishes':'🎁 Желания','favorites':'⭐ Избранное','stats':'📊 Статистика'};
 
-// ── Модалки ───────────────────────────────────
-function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-window.closeModal = closeModal;
+// ── Tab switching ────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-'+name));
+  // Trigger tab-specific logic
+  if (name === 'monitoring') startMonitoring();
+  else if (name === 'logs') loadLogs();
+  else if (name === 'settings') loadVersionHistory();
+}
+document.getElementById('tabNav').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (btn) switchTab(btn.dataset.tab);
+});
 
-// ── Проверка доступа ──────────────────────────
+// ── Check access ─────────────────────────────────
 async function checkAccess() {
   try {
     const r = await fetch('/api/admin/check?v='+encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
@@ -697,7 +810,7 @@ async function checkAccess() {
   } catch(e){ return false; }
 }
 
-// ── Данные ────────────────────────────────────
+// ── Data ─────────────────────────────────────────
 let _maintenanceOn = false;
 const HM_HISTORY = { t: [], r429: [], r5xx: [], lat: [] };
 let _hmPrev = null;
@@ -744,8 +857,7 @@ async function loadHealthMetrics() {
       lat: +m.avg_latency_ms || 0,
       ts: nowTs,
     };
-    let perMin429 = 0;
-    let perMin5xx = 0;
+    let perMin429 = 0, perMin5xx = 0;
     if(_hmPrev){
       const dtMin = Math.max(1/60, (curr.ts - _hmPrev.ts) / 60000);
       perMin429 = Math.max(0, Math.round((curr.r429 - _hmPrev.r429) / dtMin));
@@ -756,9 +868,7 @@ async function loadHealthMetrics() {
     HM_HISTORY.r429.push(perMin429);
     HM_HISTORY.r5xx.push(perMin5xx);
     HM_HISTORY.lat.push(Math.round(curr.lat));
-    if(HM_HISTORY.t.length > 30){
-      HM_HISTORY.t.shift(); HM_HISTORY.r429.shift(); HM_HISTORY.r5xx.shift(); HM_HISTORY.lat.shift();
-    }
+    if(HM_HISTORY.t.length > 30){ HM_HISTORY.t.shift(); HM_HISTORY.r429.shift(); HM_HISTORY.r5xx.shift(); HM_HISTORY.lat.shift(); }
     _updateHealthCharts();
   } catch(e){}
 }
@@ -807,13 +917,9 @@ function updateMaintenanceBtn() {
   const sub = document.getElementById('maintenanceBtnSub');
   if(!btn) return;
   if(_maintenanceOn){
-    btn.className='ctrl-btn maintenance-off';
-    lbl.textContent='Выключить техперерыв';
-    sub.textContent='Сайт в режиме обслуживания — выключить';
+    btn.className='ctrl-btn maintenance-off'; lbl.textContent='Выключить техперерыв'; sub.textContent='Сайт в режиме обслуживания — выключить';
   } else {
-    btn.className='ctrl-btn maintenance-on';
-    lbl.textContent='Включить техперерыв';
-    sub.textContent='Показать страницу обслуживания';
+    btn.className='ctrl-btn maintenance-on'; lbl.textContent='Включить техперерыв'; sub.textContent='Показать страницу обслуживания';
   }
 }
 
@@ -836,14 +942,12 @@ function renderDevices(devices) {
   }).join('');
 }
 
-// ── Техперерыв ────────────────────────────────
+// ── Maintenance ──────────────────────────────────
 function openMaintenanceModal() {
   const on = !_maintenanceOn;
   document.getElementById('maintIcon').textContent = on?'🔧':'✅';
   document.getElementById('maintTitle').textContent = on?'Включить техперерыв?':'Выключить техперерыв?';
-  document.getElementById('maintText').textContent  = on
-    ?'Сайт станет недоступен — посетители увидят страницу обслуживания.'
-    :'Сайт снова станет доступен для всех посетителей.';
+  document.getElementById('maintText').textContent  = on?'Сайт станет недоступен — посетители увидят страницу обслуживания.':'Сайт снова станет доступен для всех посетителей.';
   const okBtn = document.getElementById('maintOkBtn');
   okBtn.textContent = on?'Включить':'Выключить';
   okBtn.className = 'amodal-btn '+(on?'ok-red':'ok-green');
@@ -870,8 +974,7 @@ async function doTestCelebration() {
   try {
     toast('⏳ Отправляю анимацию…');
     const r = await fetch('/api/test_celebration', {
-      method: 'POST',
-      headers: _authHeaders({ 'Content-Type': 'application/json' }), credentials: 'include',
+      method: 'POST', headers: _authHeaders({ 'Content-Type': 'application/json' }), credentials: 'include',
       body: JSON.stringify({ visitor_id: VISITOR_ID }),
     });
     const d = await r.json();
@@ -881,18 +984,15 @@ async function doTestCelebration() {
 }
 window.doTestCelebration = doTestCelebration;
 
-// ── Написать партнёру ────────────────────────────
-let _attachedFiles = []; // [{file, id}]
+// ── Compose notification ─────────────────────────
+let _attachedFiles = [];
 let _previewVisible = false;
 let _fileIdCounter = 0;
 
 function openComposeModal(){
-  document.getElementById('composeText').value='';
-  document.getElementById('composeFilesList').innerHTML='';
-  document.getElementById('composePreviewWrap').style.display='none';
-  document.getElementById('composePreviewMedia').innerHTML='';
-  document.getElementById('composePreviewText').innerHTML='';
-  document.getElementById('composeFile').value='';
+  document.getElementById('composeText').value=''; document.getElementById('composeFilesList').innerHTML='';
+  document.getElementById('composePreviewWrap').style.display='none'; document.getElementById('composePreviewMedia').innerHTML='';
+  document.getElementById('composePreviewText').innerHTML=''; document.getElementById('composeFile').value='';
   _attachedFiles=[]; _previewVisible=false;
   openModal('composeModal');
 }
@@ -906,17 +1006,15 @@ function onFileAttached(input){
     _attachedFiles.push({file, id, uploaded: false, path: null, mediaType: null});
     renderFileRow({file, id});
   });
-  input.value = ''; // сбрасываем input чтобы можно было добавлять ещё
+  input.value = '';
 }
 window.onFileAttached = onFileAttached;
 
 function renderFileRow({file, id}){
   const list = document.getElementById('composeFilesList');
   const row = document.createElement('div');
-  row.className = 'compose-file-row';
-  row.id = 'file-row-'+id;
-  row.innerHTML = `
-    <span class="compose-file-row-name">${h(file.name)}</span>
+  row.className = 'compose-file-row'; row.id = 'file-row-'+id;
+  row.innerHTML = `<span class="compose-file-row-name">${h(file.name)}</span>
     <span class="compose-file-row-progress" id="fp-${id}"></span>
     <button class="compose-file-row-remove" onclick="removeFile(${id})" title="Удалить">✕</button>`;
   list.appendChild(row);
@@ -929,7 +1027,6 @@ function removeFile(id){
 }
 window.removeFile = removeFile;
 
-// Загружает один файл с прогрессом, возвращает Promise<{path, mediaType}|null>
 function uploadFileWithProgress(entry){
   return new Promise(resolve => {
     const fd = new FormData();
@@ -947,22 +1044,10 @@ function uploadFileWithProgress(entry){
     };
     xhr.onload = () => {
       const el = document.getElementById('fp-'+entry.id);
-      try{
-        const d = JSON.parse(xhr.responseText);
-        if(d.ok){
-          if(el) el.textContent = '✓';
-          resolve({path: d.path, type: d.media_type});
-        } else {
-          if(el) el.textContent = '✗';
-          resolve(null);
-        }
-      } catch(e){ if(el) el.textContent='✗'; resolve(null); }
+      try{ const d = JSON.parse(xhr.responseText); if(d.ok){ if(el) el.textContent='✓'; resolve({path:d.path, type:d.media_type}); } else { if(el) el.textContent='✗'; resolve(null); } }
+      catch(e){ if(el) el.textContent='✗'; resolve(null); }
     };
-    xhr.onerror = () => {
-      const el = document.getElementById('fp-'+entry.id);
-      if(el) el.textContent='✗';
-      resolve(null);
-    };
+    xhr.onerror = () => { const el = document.getElementById('fp-'+entry.id); if(el) el.textContent='✗'; resolve(null); };
     xhr.send(fd);
   });
 }
@@ -972,7 +1057,8 @@ function togglePreview(){
   const wrap = document.getElementById('composePreviewWrap');
   if(!_previewVisible){ wrap.style.display='none'; return; }
   wrap.style.display='block';
-  document.getElementById('composePreviewText').innerHTML = (document.getElementById('composeText').value||'').replace(/\n/g,'<br>');
+  const safeText = (document.getElementById('composeText').value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  document.getElementById('composePreviewText').innerHTML = safeText;
   const mediaEl = document.getElementById('composePreviewMedia');
   mediaEl.innerHTML='';
   _attachedFiles.forEach(entry => {
@@ -989,14 +1075,11 @@ window.togglePreview = togglePreview;
 async function sendCompose(){
   const text = (document.getElementById('composeText').value||'').trim();
   if(!text){ toast('Введи текст сообщения','error'); return; }
-
-  // Загружаем все файлы последовательно с прогрессом
   const media_items = [];
   for(const entry of _attachedFiles){
     const result = await uploadFileWithProgress(entry);
     if(result) media_items.push({path: result.path, type: result.type});
   }
-
   try{
     const r = await fetch('/api/admin/notification',{
       method:'POST', headers:_authHeaders({'Content-Type':'application/json'}), credentials: 'include',
@@ -1009,7 +1092,7 @@ async function sendCompose(){
 }
 window.sendCompose = sendCompose;
 
-// ── Экспорт ───────────────────────────────────
+// ── Export ───────────────────────────────────────
 function doExport(){ openModal('exportModal'); }
 window.doExport = doExport;
 
@@ -1017,19 +1100,9 @@ async function collectExportData(){
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone||'';
   const url = tz?'/api/all?tz='+encodeURIComponent(tz):'/api/all';
   const ed = {meta:{exported_at:new Date().toISOString()},server:{}};
-  try{
-    const r = await fetch(url, { headers: _authHeaders(), credentials: 'include' });
-    if(r.ok){ const j=await r.json(); ed.server.memories=j.memories||[]; ed.server.events=j.events||[]; ed.server.wishes=j.wishes||{}; ed.server.stats=j.stats||{}; ed.server.favorites=j.favorites||{}; }
-  }catch(e){}
-  // История ИИ — отдельно для Ксюши и Создателя
-  try{
-    const r2 = await fetch('/api/ai_companion_history?visitor_id=partner', { headers: _authHeaders(), credentials: 'include' });
-    if(r2.ok){ const j2=await r2.json(); ed.server.ai_history_ksyusha=j2.history||[]; }
-  }catch(e){}
-  try{
-    const r3 = await fetch('/api/ai_companion_history?visitor_id=creator', { headers: _authHeaders(), credentials: 'include' });
-    if(r3.ok){ const j3=await r3.json(); ed.server.ai_history_creator=j3.history||[]; }
-  }catch(e){}
+  try{ const r = await fetch(url, { headers: _authHeaders(), credentials: 'include' }); if(r.ok){ const j=await r.json(); ed.server.memories=j.memories||[]; ed.server.events=j.events||[]; ed.server.wishes=j.wishes||{}; ed.server.stats=j.stats||{}; ed.server.favorites=j.favorites||{}; } }catch(e){}
+  try{ const r2 = await fetch('/api/ai_companion_history?visitor_id=partner', { headers: _authHeaders(), credentials: 'include' }); if(r2.ok){ const j2=await r2.json(); ed.server.ai_history_ksyusha=j2.history||[]; } }catch(e){}
+  try{ const r3 = await fetch('/api/ai_companion_history?visitor_id=creator', { headers: _authHeaders(), credentials: 'include' }); if(r3.ok){ const j3=await r3.json(); ed.server.ai_history_creator=j3.history||[]; } }catch(e){}
   return ed;
 }
 
@@ -1043,16 +1116,13 @@ async function doExportFormat(format){
       a.download='export_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.json';
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
       showActionDone('Экспорт готов!','JSON-файл скачивается на устройство');
-    } else {
-      doExportPdf(data);
-    }
+    } else { doExportPdf(data); }
   }catch(e){ toast('Ошибка экспорта','error'); }
 }
 window.doExportFormat = doExportFormat;
 
 function doExportPdf(data){
   const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  // Правильные имена полей из API
   const memories = data.server.memories||[];
   const events   = data.server.events||[];
   const _wishesAll = (data.server.wishes||{});
@@ -1060,9 +1130,7 @@ function doExportPdf(data){
   const aiK      = data.server.ai_history_ksyusha||[];
   const aiC      = data.server.ai_history_creator||[];
   const at       = new Date(data.meta.exported_at).toLocaleString('ru-RU');
-
   const sec = (t,g) => `<div class="sec-header" style="background:${g}">${t}</div>`;
-
   const renderMsgs = (msgs, nameUser) => {
     if(!msgs.length) return '<p class="empty">Нет сообщений</p>';
     return msgs.map(m => {
@@ -1073,85 +1141,59 @@ function doExportPdf(data){
       return `<div class="msg ${isAI?'ai':'user'}-msg"><div class="msg-who">${who}${time}</div><div class="msg-body">${text}</div></div>`;
     }).join('');
   };
-
-  let body = `<h1>📦 Полный экспорт данных</h1>
-  <p class="subtitle">Сформировано: ${esc(at)}</p>`;
-
-  // ── Воспоминания ──────────────────────────────────
+  let body = `<h1>📦 Полный экспорт данных</h1><p class="subtitle">Сформировано: ${esc(at)}</p>`;
   body += sec('📸 Воспоминания (' + memories.length + ')','linear-gradient(135deg,#7c3aed,#4158d0)');
   if(memories.length){
     body += '<table><tr><th>Дата</th><th>Категория</th><th>Название</th><th>Содержание</th></tr>';
     memories.forEach(m => {
-      const date  = esc(m.date_human || m.date || '');
-      const cat   = esc(m.category || '');
-      const title = esc(m.title || '');
-      // content_html может содержать HTML-теги — стрипаем их
-      const content = esc((m.content_html||'').replace(/<[^>]*>/g,'').trim());
-      body += `<tr><td>${date}</td><td>${cat}</td><td>${title}</td><td>${content}</td></tr>`;
+      body += `<tr><td>${esc(m.date_human||m.date||'')}</td><td>${esc(m.category||'')}</td><td>${esc(m.title||'')}</td><td>${esc((m.content_html||'').replace(/<[^>]*>/g,'').trim())}</td></tr>`;
     });
     body += '</table>';
   } else body += '<p class="empty">Нет данных</p>';
-
-  // ── События ────────────────────────────────────────
   body += sec('📅 События (' + events.length + ')','linear-gradient(135deg,#d43f8d,#7c3aed)');
   if(events.length){
     body += '<table><tr><th>Дата</th><th>Название</th><th>Описание</th></tr>';
     events.forEach(e => {
-      const date  = esc(e.event_datetime_human || e.event_datetime || '');
-      const title = esc(e.title || '');
-      const desc  = esc((e.description_html||'').replace(/<[^>]*>/g,'').trim());
-      body += `<tr><td>${date}</td><td>${title}</td><td>${desc}</td></tr>`;
+      body += `<tr><td>${esc(e.event_datetime_human||e.event_datetime||'')}</td><td>${esc(e.title||'')}</td><td>${esc((e.description_html||'').replace(/<[^>]*>/g,'').trim())}</td></tr>`;
     });
     body += '</table>';
   } else body += '<p class="empty">Нет данных</p>';
-
-  // ── Желания ────────────────────────────────────────
   body += sec('🎁 Желания (' + wishes.length + ')','linear-gradient(135deg,#f59e0b,#d43f8d)');
   if(wishes.length){
     body += '<table><tr><th>#</th><th>Содержание</th><th>Медиа</th></tr>';
     wishes.forEach((w,i) => {
-      const content = esc((w.content_html||'').replace(/<[^>]*>/g,'').trim());
-      const media   = w.media_url ? '📎 есть' : '—';
-      body += `<tr><td>${i+1}</td><td>${content}</td><td>${media}</td></tr>`;
+      body += `<tr><td>${i+1}</td><td>${esc((w.content_html||'').replace(/<[^>]*>/g,'').trim())}</td><td>${w.media_url?'📎 есть':'—'}</td></tr>`;
     });
     body += '</table>';
   } else body += '<p class="empty">Нет данных</p>';
-
-  // ── История ИИ — Партнёр ────────────────────────────
   body += sec('💜 Чат с ИИ — Партнёр (' + aiK.length + ' сообщений)','linear-gradient(135deg,#c850c0,#7c3aed)');
   body += '<div class="chat-wrap">' + renderMsgs(aiK, 'Партнёр 💜') + '</div>';
-
-  // ── История ИИ — Разработчик ────────────────────────
   body += sec('🔧 Чат с ИИ — Разработчик (' + aiC.length + ' сообщений)','linear-gradient(135deg,#4158d0,#10b981)');
   body += '<div class="chat-wrap">' + renderMsgs(aiC, 'Разработчик 🔧') + '</div>';
-
-  const css = `
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a2e;padding:28px 32px;line-height:1.5}
-    h1{font-size:1.5rem;font-weight:800;margin-bottom:4px;background:linear-gradient(135deg,#d43f8d,#4158d0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .subtitle{color:#888;font-size:0.78rem;margin-bottom:20px;border-bottom:1px solid #ede9fe;padding-bottom:10px}
-    .sec-header{color:#fff;border-radius:10px;padding:9px 16px;margin:22px 0 10px;font-weight:700;font-size:0.9rem;page-break-after:avoid}
-    .empty{color:#aaa;font-size:0.82rem;margin:0 0 10px}
-    table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:0.8rem}
-    th{background:#f0ebff;color:#6d28d9;padding:6px 10px;text-align:left;font-weight:600;border-bottom:2px solid #ddd6fe}
-    td{padding:5px 10px;border-bottom:1px solid #f0ebff;vertical-align:top;word-break:break-word}
-    .chat-wrap{margin-bottom:10px}
-    .msg{border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem;page-break-inside:avoid}
-    .ai-msg{background:#f0fdf4;border-left:3px solid #16a34a}
-    .user-msg{background:#fdf4ff;border-left:3px solid #c850c0}
-    .msg-who{font-size:0.68rem;color:#888;margin-bottom:4px;display:flex;gap:8px}
-    .msg-time{opacity:0.6}
-    .msg-body{white-space:pre-wrap;word-break:break-word}
-    @media print{body{padding:16px 20px}.sec-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-  `;
-
-  const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Экспорт данных</title><style>' + css + '</style></head><body>' + body + '</body></html>';
+  const css = `*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a2e;padding:28px 32px;line-height:1.5}
+h1{font-size:1.5rem;font-weight:800;margin-bottom:4px;background:linear-gradient(135deg,#d43f8d,#4158d0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{color:#888;font-size:0.78rem;margin-bottom:20px;border-bottom:1px solid #ede9fe;padding-bottom:10px}
+.sec-header{color:#fff;border-radius:10px;padding:9px 16px;margin:22px 0 10px;font-weight:700;font-size:0.9rem;page-break-after:avoid}
+.empty{color:#aaa;font-size:0.82rem;margin:0 0 10px}
+table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:0.8rem}
+th{background:#f0ebff;color:#6d28d9;padding:6px 10px;text-align:left;font-weight:600;border-bottom:2px solid #ddd6fe}
+td{padding:5px 10px;border-bottom:1px solid #f0ebff;vertical-align:top;word-break:break-word}
+.chat-wrap{margin-bottom:10px}
+.msg{border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:0.82rem;page-break-inside:avoid}
+.ai-msg{background:#f0fdf4;border-left:3px solid #16a34a}
+.user-msg{background:#fdf4ff;border-left:3px solid #c850c0}
+.msg-who{font-size:0.68rem;color:#888;margin-bottom:4px;display:flex;gap:8px}
+.msg-time{opacity:0.6}
+.msg-body{white-space:pre-wrap;word-break:break-word}
+@media print{body{padding:16px 20px}.sec-header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+  const fullHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Экспорт данных</title><style>'+css+'</style></head><body>'+body+'</body></html>';
   const win = window.open('','_blank');
   if(win){ win.document.write(fullHtml); win.document.close(); setTimeout(()=>win.print(), 800); }
   showActionDone('PDF открыт!','Сохрани через диалог печати браузера');
 }
 
-// ── Бэкап ─────────────────────────────────────
+// ── Backup ───────────────────────────────────────
 async function doBackup(){
   toast('⏳ Создаю бэкап…');
   try{
@@ -1166,45 +1208,184 @@ async function doBackup(){
 }
 window.doBackup = doBackup;
 
-// ── Скоро ─────────────────────────────────────
+// ── Version history ──────────────────────────────
+async function loadVersionHistory() {
+  const list = document.getElementById('versionList');
+  if (!list) return;
+  try {
+    const r = await fetch('/api/admin/version-history?v='+encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
+    const d = await r.json();
+    if (!d.ok || !d.history || !d.history.length) {
+      list.innerHTML = '<div class="log-empty">Нет данных о версиях</div>'; return;
+    }
+    list.innerHTML = d.history.slice(0,30).map(v => {
+      const tag = v.version || v.tag || '—';
+      const date = v.created_at ? relativeTime(v.created_at) : '';
+      const desc = v.description ? h(v.description) : '';
+      return `<div class="version-item">
+        <span class="version-tag">${h(tag)}</span>
+        <span class="version-date">${date}</span>
+        ${desc ? `<div class="version-desc">${desc}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="log-empty">Ошибка загрузки истории версий</div>';
+  }
+}
+
+// ── Monitoring WebSocket ─────────────────────────
+let _monitorWs = null;
+let _monitorInterval = null;
+
+function startMonitoring() {
+  if (_monitorWs && _monitorWs.readyState === WebSocket.OPEN) return;
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  _monitorWs = new WebSocket(`${protocol}//${window.location.host}/api/admin/monitor/ws`);
+  _monitorWs.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type !== 'metrics') return;
+      if (msg.error) {
+        document.getElementById('m-cpu').textContent = 'N/A';
+        document.getElementById('m-cpu').textContent = 'psutil недоступен';
+        return;
+      }
+      document.getElementById('m-cpu').textContent = msg.cpu.toFixed(1) + '%';
+      document.getElementById('m-cpu-bar').style.width = Math.min(100, msg.cpu) + '%';
+      document.getElementById('m-cpu-bar').className = 'monitor-bar-fill' + (msg.cpu > 80 ? ' warn' : '');
+
+      const ramGb = (msg.ram_total / 1073741824).toFixed(1);
+      const ramUsedGb = (msg.ram_used / 1073741824).toFixed(1);
+      document.getElementById('m-ram').textContent = msg.ram_percent.toFixed(1) + '%';
+      document.getElementById('m-ram-detail').textContent = `${ramUsedGb} / ${ramGb} GB`;
+      document.getElementById('m-ram-bar').style.width = Math.min(100, msg.ram_percent) + '%';
+      document.getElementById('m-ram-bar').className = 'monitor-bar-fill' + (msg.ram_percent > 80 ? ' warn' : '');
+
+      const diskGb = (msg.disk_total / 1073741824).toFixed(1);
+      const diskUsedGb = (msg.disk_used / 1073741824).toFixed(1);
+      document.getElementById('m-disk').textContent = msg.disk_percent.toFixed(1) + '%';
+      document.getElementById('m-disk-detail').textContent = `${diskUsedGb} / ${diskGb} GB`;
+      document.getElementById('m-disk-bar').style.width = Math.min(100, msg.disk_percent) + '%';
+      document.getElementById('m-disk-bar').className = 'monitor-bar-fill' + (msg.disk_percent > 80 ? ' warn' : '');
+
+      const up = msg.uptime_sec;
+      const days = Math.floor(up / 86400);
+      const hours = Math.floor((up % 86400) / 3600);
+      const mins = Math.floor((up % 3600) / 60);
+      let uptimeStr = '';
+      if (days > 0) uptimeStr += `${days}д `;
+      if (hours > 0 || days > 0) uptimeStr += `${hours}ч `;
+      uptimeStr += `${mins}м`;
+      document.getElementById('m-uptime').textContent = uptimeStr;
+      document.getElementById('m-uptime-detail').textContent = `с момента последнего рестарта`;
+    } catch(ex) {}
+  };
+  _monitorWs.onclose = () => {
+    _monitorWs = null;
+    // Автопереподключение через 5 секунд
+    setTimeout(() => { if (document.getElementById('tab-monitoring').classList.contains('active')) startMonitoring(); }, 5000);
+  };
+}
+
+// ── Logs ─────────────────────────────────────────
+let _allLogs = { app_logs: [], security_events: [] };
+let _logFilter = 'all';
+
+async function loadLogs() {
+  const btn = document.getElementById('logsRefreshBtn');
+  if (btn) btn.classList.add('spinning');
+  try {
+    const r = await fetch('/api/admin/logs?v='+encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
+    const d = await r.json();
+    if (!d.ok) throw new Error();
+    _allLogs = d;
+    renderLogs();
+  } catch(e) {
+    document.getElementById('logsList').innerHTML = '<div class="log-empty">Ошибка загрузки логов</div>';
+  }
+  if (btn) btn.classList.remove('spinning');
+}
+
+function filterLogs(filter) {
+  _logFilter = filter;
+  document.querySelectorAll('.log-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.logfilter === filter));
+  renderLogs();
+}
+window.filterLogs = filterLogs;
+
+function renderLogs() {
+  const list = document.getElementById('logsList');
+  const items = [];
+
+  // App logs
+  (_allLogs.app_logs || []).forEach(log => {
+    const level = log.level || 'info';
+    const msg = log.message || '';
+    const detail = log.detail || '';
+    const time = log.created_at ? relativeTime(log.created_at) : '';
+    if (_logFilter === 'all' || _logFilter === level) {
+      items.push({ html: `<div class="log-item log-${level}">
+        <span class="log-level lvl-${level}">${level}</span><span class="log-time">${time}</span>
+        <div class="log-msg">${h(msg)}</div>
+        ${detail ? `<div class="log-detail">${h(detail)}</div>` : ''}
+      </div>`, time: log.created_at });
+    }
+  });
+
+  // Security events
+  if (_logFilter === 'all' || _logFilter === 'security') {
+    (_allLogs.security_events || []).forEach(ev => {
+      const time = ev.created_at ? relativeTime(ev.created_at) : '';
+      const detail = [ev.type, ev.ip ? 'IP: '+ev.ip : '', ev.detail ? ev.detail : ''].filter(Boolean).join(' · ');
+      items.push({ html: `<div class="log-item log-warning">
+        <span class="log-level lvl-warning">security</span><span class="log-time">${time}</span>
+        <div class="log-msg">${h(ev.type || 'событие')}</div>
+        ${detail ? `<div class="log-detail">${h(detail)}</div>` : ''}
+      </div>`, time: ev.created_at });
+    });
+  }
+
+  if (!items.length) {
+    list.innerHTML = '<div class="log-empty">Нет событий</div>';
+    return;
+  }
+
+  items.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+  list.innerHTML = items.map(i => i.html).join('');
+}
+
+// ── Modal helpers ────────────────────────────────
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+window.closeModal = closeModal;
+
 function ctrlSoon(name){
   document.getElementById('soonModalText').textContent = '«'+name+'» пока не реализовано, но появится в следующем обновлении.';
   openModal('soonModal');
 }
 window.ctrlSoon = ctrlSoon;
 
-// ── Галочка ───────────────────────────────────
 function showActionDone(title, sub){
-  // Пересоздаём элемент чтобы SVG-анимация всегда начиналась с нуля
   const old = document.getElementById('actionDone');
   if(old) old.remove();
   const wrap = document.createElement('div');
   wrap.id = 'actionDone';
   wrap.className = 'action-done-wrap show';
-  wrap.innerHTML =
-    '<div class="action-done-card">' +
-      '<svg class="action-done-svg" viewBox="0 0 100 100">' +
-        '<circle class="action-done-circle" cx="50" cy="50" r="45"/>' +
-        '<polyline class="action-done-check" points="28,52 43,67 72,34"/>' +
-      '</svg>' +
-      '<div class="action-done-title">' + title + '</div>' +
-      '<div class="action-done-sub">' + sub + '</div>' +
-    '</div>';
+  wrap.innerHTML = '<div class="action-done-card">' +
+    '<svg class="action-done-svg" viewBox="0 0 100 100">' +
+      '<circle class="action-done-circle" cx="50" cy="50" r="45"/>' +
+      '<polyline class="action-done-check" points="28,52 43,67 72,34"/>' +
+    '</svg>' +
+    '<div class="action-done-title">' + title + '</div>' +
+    '<div class="action-done-sub">' + sub + '</div></div>';
   document.body.appendChild(wrap);
-  setTimeout(()=>{
-    wrap.style.opacity='0'; wrap.style.transition='opacity 0.4s';
-    setTimeout(()=>wrap.remove(), 400);
-  }, 3000);
+  setTimeout(()=>{ wrap.style.opacity='0'; wrap.style.transition='opacity 0.4s'; setTimeout(()=>wrap.remove(), 400); }, 3000);
 }
 
 function doFullReset() {
-  if (!confirm("⚠️ Вы действительно хотите очистить абсолютно все локальные данные (куки, сессии и localStorage)?\nЭто полностью сбросит авторизацию на этом устройстве.")) {
-    return;
-  }
-  
+  if (!confirm("⚠️ Вы действительно хотите очистить абсолютно все локальные данные (куки, сессии и localStorage)?\nЭто полностью сбросит авторизацию на этом устройстве.")) return;
   localStorage.clear();
   sessionStorage.clear();
-  
   const cookies = document.cookie.split(";");
   for (let i = 0; i < cookies.length; i++) {
     const cookie = cookies[i];
@@ -1214,45 +1395,12 @@ function doFullReset() {
     document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
     document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Strict";
   }
-  
   alert("✨ Все куки, сессии и localStorage полностью очищены!");
   window.location.replace('/');
 }
 window.doFullReset = doFullReset;
 
-// ═══════════════════════════════════════════════════════════════════
-// ИДЕИ ДЛЯ БУДУЩИХ ФУНКЦИЙ АДМИН-ПАНЕЛИ:
-//
-// 🗑  Удалить конкретное воспоминание / событие / желание по ID
-//     → DELETE /api/memory/:id  +  модалка подтверждения
-//
-// ✏️  Редактировать текст воспоминания прямо из панели
-//     → PATCH /api/memory/:id  +  inline-форма редактирования
-//
-// 📣  История отправленных уведомлений партнёру
-//     → GET /api/admin/notifications  +  таблица с датой и статусом
-//
-// 🔐  Сменить пароль сайта (SITE_PASSWORD в settings БД)
-//     → POST /api/admin/action { action: 'set_password', value: '...' }
-//
-// 🆔  Сменить Telegram ID партнёра (если он/она переведёт аккаунт)
-//     → POST /api/admin/action { action: 'set_ksusha_id', value: 123 }
-//
-// 🌙  Переключить тему по умолчанию для партнёра
-//     → POST /api/admin/action { action: 'set_default_theme', value: 'dark' }
-//
-// 📊  Граф активности — тепловая карта дней когда партнёр заходил(а)
-//     → GET /api/admin/activity  +  SVG heatmap
-//
-// 🤖  Просмотр и удаление конкретных сообщений в чате ИИ
-//     → GET /api/ai_companion_history  +  список с кнопкой удалить
-//
-// 💌  Очередь уведомлений — посмотреть что ещё не прочитано
-//     → GET /api/admin/notification (уже есть)  +  список pending
-//
-// ═══════════════════════════════════════════════════════════════════
-
-// ── Инициализация ─────────────────────────────
+// ── Init ─────────────────────────────────────────
 async function init(){
   const loader = document.getElementById('loadingScreen');
   if (CHALLENGE_MODE === true) {
@@ -1261,7 +1409,6 @@ async function init(){
     startChallenge();
     return;
   }
-
   const ok = await checkAccess();
   if(!ok){
     loader.classList.add('hide');

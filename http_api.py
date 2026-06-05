@@ -48,6 +48,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import config
 
+import avatar_service
+
 from database import db, Memory, Wish, ScheduledEvent
 
 from app_version import get_version_metadata
@@ -2286,6 +2288,7 @@ def _collect_site_data(
             "username":   creator_user.get("username")   or "",
             "display":    db.get_display_name(creator_id, "Разработчик"),
             "description": creator_prof.get("description") if creator_prof else "",
+            "tg_avatar_url": avatar_service.get_avatar_url(creator_id) if creator_id else None,
         },
         "ksyusha": {
             "user_id": partner_id,
@@ -2294,6 +2297,7 @@ def _collect_site_data(
             "username":   partner_user.get("username")   or "",
             "display":    db.get_display_name(partner_id, "Партнёр"),
             "description": partner_prof.get("description") if partner_prof else "",
+            "tg_avatar_url": avatar_service.get_avatar_url(partner_id) if partner_id else None,
         },
         "partner": {
             "user_id": partner_id,
@@ -2302,6 +2306,7 @@ def _collect_site_data(
             "username":   partner_user.get("username")   or "",
             "display":    db.get_display_name(partner_id, "Партнёр"),
             "description": partner_prof.get("description") if partner_prof else "",
+            "tg_avatar_url": avatar_service.get_avatar_url(partner_id) if partner_id else None,
         },
     }
 
@@ -8712,6 +8717,71 @@ async def upload_avatar(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": "internal error"}, status=500))
 
 
+async def serve_tg_avatar(request: web.Request) -> web.Response:
+    """Отдаёт Telegram-аватарку пользователя без проверки couple.
+
+    Аватарки доступны только аутентифицированным пользователям той же пары.
+    """
+    trusted_vid = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    viewer_user_id = _visitor_to_user_id(trusted_vid or "")
+    if not viewer_user_id:
+        return web.Response(status=403)
+
+    filename = request.match_info.get("filename", "")
+    if not filename or not filename.startswith("tg_avatar_") or "." not in filename:
+        return web.Response(status=404)
+
+    tg_avatars_root = (Path(__file__).resolve().parent / "media" / "tg_avatars").resolve()
+    try:
+        path = (tg_avatars_root / filename).resolve()
+        path.relative_to(tg_avatars_root)
+    except (ValueError, Exception):
+        return web.Response(status=400)
+
+    if not path.exists():
+        return web.Response(status=404)
+
+    # Проверяем что файл принадлежит пользователю из той же пары
+    try:
+        stem = path.stem  # tg_avatar_{user_id}
+        owner_uid = int(stem.replace("tg_avatar_", ""))
+    except Exception:
+        return web.Response(status=400)
+
+    viewer_couple = db.get_couple_by_user(int(viewer_user_id))
+    if not viewer_couple:
+        return web.Response(status=403)
+    couple_members = set(db.get_couple_members(int(viewer_couple["id"])))
+    if owner_uid not in couple_members and owner_uid != int(viewer_user_id):
+        return web.Response(status=403)
+
+    return web.FileResponse(
+        path,
+        headers={
+            "Content-Type": "image/jpeg",
+            "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+        },
+    )
+
+
+async def refresh_tg_avatar(request: web.Request) -> web.Response:
+    """Принудительное обновление Telegram-аватарки для текущего пользователя."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    trusted_vid = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    user_id = _visitor_to_user_id(trusted_vid or "")
+    if not user_id:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    bot = request.app.get("bot")
+    if not bot:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "bot_unavailable"}, status=503))
+
+
+    url = await avatar_service.refresh_avatar_if_needed(bot, int(user_id), force=True)
+    return _add_cors_headers(web.json_response({"ok": True, "tg_avatar_url": url}))
+
+
 async def serve_logger_js(request: web.Request) -> web.Response:
     """Отдаёт logger.js из папки проекта."""
     p = Path(__file__).resolve().parent / "logger.js"
@@ -8724,6 +8794,7 @@ async def serve_logger_js(request: web.Request) -> web.Response:
         charset="utf-8",
         headers={"Cache-Control": "public, max-age=3600"},
     )
+
 async def serve_memory_card_js(request: web.Request) -> web.Response:
     """Отдаёт memory_card.js — общий модуль карточек воспоминаний."""
     p = Path(__file__).resolve().parent / "memory_card.js"
@@ -9207,6 +9278,9 @@ def create_app() -> web.Application:
     app.router.add_post("/api/test_celebration", trigger_test_celebration)
     # Serve avatars via /media/avatars/
     app.router.add_get("/media/avatars/{filename}", serve_avatar)
+    app.router.add_get("/media/tg_avatars/{filename}", serve_tg_avatar)
+    app.router.add_route("OPTIONS", "/api/refresh_tg_avatar", handle_options)
+    app.router.add_post("/api/refresh_tg_avatar", refresh_tg_avatar)
     # Client logger
     app.router.add_route("OPTIONS", "/api/log", handle_options)
     async def nav_debug(request):

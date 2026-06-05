@@ -68,6 +68,8 @@ from utils import (
     safe_delete_message,
 )
 
+import avatar_service
+
 router = Router()
 EXPECTED_DEPLOY_SERVICES = ["ksysha-bot", "ksysha-cloudflared"]
 RESTART_STATUS_PATH = Path("/app/data/restart_status.json")
@@ -1221,6 +1223,9 @@ async def cmd_start(message: Message, state: FSMContext):
     first_name = message.from_user.first_name
     last_name = message.from_user.last_name
     db.add_or_update_user(user_id, username, first_name, last_name)
+    asyncio.create_task(
+        avatar_service.refresh_avatar_if_needed(message.bot, user_id)
+    )
 
     # Проверяем инвайт-параметр: /start invite_XXXX
     raw_args = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""

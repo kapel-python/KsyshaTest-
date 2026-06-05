@@ -8878,12 +8878,34 @@
         });
       }
 
-      /* ─── AI AVATAR — только localStorage, шапка не трогается ─── */
+      /* ─── AI AVATAR — Telegram-фото (из API) > localStorage > эмодзи ─── */
       const _AV_LS_KEY = 'ai_avatar_url';
+      // tg_avatar_url берётся из данных bootstrap при загрузке страницы
+      let _tgAvatarUrl = null;
 
-      // Возвращает dataUrl из localStorage или null
+      // Возвращает URL аватарки: Telegram > localStorage > null
       function _getAvatarUrl() {
-        return localStorage.getItem(_AV_LS_KEY) || null;
+        return _tgAvatarUrl || localStorage.getItem(_AV_LS_KEY) || null;
+      }
+
+      // Вызывается при загрузке bootstrap-данных — устанавливает Telegram-аватарку
+      function _setTgAvatarFromBootstrap(bootstrapData) {
+        try {
+          const vid = (document.cookie.match(/(?:^|; )visitor_id=([^;]*)/) || [])[1] || '';
+          const role = vid.split('_')[0];
+          const users = (bootstrapData && bootstrapData.users) || {};
+          let info = null;
+          if (role === 'creator') info = users.creator;
+          else if (role === 'ksyusha' || role === 'partner') info = users.ksyusha || users.partner;
+          if (info && info.tg_avatar_url) {
+            _tgAvatarUrl = info.tg_avatar_url;
+            // Обновляем все существующие иконки пользователя в чате
+            document.querySelectorAll('.user-msg-icon').forEach(el => _renderUserMsgIcon(el, _tgAvatarUrl));
+            document.querySelectorAll('.msg-reaction-avatar-emoji').forEach(el => {
+              el.outerHTML = `<img class="msg-reaction-avatar" src="${_tgAvatarUrl}" alt="" onerror="this.outerHTML='<div class=\\'msg-reaction-avatar-emoji\\'>🌸</div>'" />`;
+            });
+          }
+        } catch (_e) { /* silent */ }
       }
 
       // Гарантированно перерисовывает иконку пользователя: либо фото, либо fallback-emoji.
@@ -10099,6 +10121,10 @@
             throw new Error('Invalid bootstrap payload');
           }
           window.APP_DATA = data;
+          // Устанавливаем Telegram-аватарку пользователя из bootstrap-данных
+          if (typeof _setTgAvatarFromBootstrap === 'function') {
+            _setTgAvatarFromBootstrap(data);
+          }
           const welcomeTitleEl = document.querySelector('[data-i18n="welcomeTitle"]');
           if (welcomeTitleEl) {
             const vidCookie = getCookie('visitor_id');

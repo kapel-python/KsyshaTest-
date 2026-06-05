@@ -1105,6 +1105,8 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
     _install_resilient_message_delivery(bot)
+    # Передаём bot в aiohttp app для использования в HTTP-эндпоинтах (refresh_tg_avatar и др.)
+    http_app["bot"] = bot
 
     storage = MemoryStorage()
     dp = Dispatcher(

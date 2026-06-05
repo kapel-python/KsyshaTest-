@@ -151,6 +151,19 @@
     display: flex;
     justify-content: center;
   }
+  #avatarPhotoRow {
+    width: 194px;
+    height: 92px;
+    gap: 10px;
+  }
+  .avatar-photo-circle {
+    width: 92px; height: 92px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 4px 18px rgba(100,40,180,0.22);
+  }
+
 
   .hero-name-row { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
   .hero-name {
@@ -510,7 +523,17 @@
   <div class="content animate-stack">
 
     <div class="hero" id="heroCard">
-      <div class="avatar-wrap">
+      <div class="avatar-wrap" id="avatarWrap">
+        <!-- Telegram-аватарки (поверх SVG; скрыты если нет фото) -->
+        <div id="avatarPhotoRow" style="display:none;align-items:center;gap:10px;">
+          <div class="avatar-photo-circle" id="avatarPhotoLeft">
+            <img id="avatarImgLeft" src="" alt="" style="width:92px;height:92px;border-radius:50%;object-fit:cover;display:block;" onerror="_avatarImgError('left')" />
+          </div>
+          <div class="avatar-photo-circle" id="avatarPhotoRight">
+            <img id="avatarImgRight" src="" alt="" style="width:92px;height:92px;border-radius:50%;object-fit:cover;display:block;" onerror="_avatarImgError('right')" />
+          </div>
+        </div>
+        <!-- Fallback SVG с инициалами -->
         <svg id="avatarSvg" width="140" height="92" viewBox="0 0 180 120" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <radialGradient id="gLeft" cx="38%" cy="35%" r="65%"><stop offset="0%" stop-color="#e05aaa"/><stop offset="100%" stop-color="#9b38d4"/></radialGradient>
@@ -1064,6 +1087,32 @@ function _initial(name) {
   return name.trim().charAt(0).toUpperCase();
 }
 
+function _avatarImgError(side) {
+  const svgEl    = document.getElementById('avatarSvg');
+  const photoRow = document.getElementById('avatarPhotoRow');
+  const imgId    = side === 'left' ? 'avatarImgLeft' : 'avatarImgRight';
+  const circleId = side === 'left' ? 'avatarPhotoLeft' : 'avatarPhotoRight';
+  const initId   = side === 'left' ? 'avatarInitialLeft' : 'avatarInitialRight';
+  const img      = document.getElementById(imgId);
+  const circle   = document.getElementById(circleId);
+  if (img) img.style.display = 'none';
+  if (circle) {
+    const initEl = document.getElementById(initId);
+    const letter = initEl ? initEl.textContent : '?';
+    const grad = side === 'left'
+      ? 'linear-gradient(135deg,#e05aaa,#9b38d4)'
+      : 'linear-gradient(135deg,#8b45e0,#4158d0)';
+    circle.innerHTML = `<div style="width:92px;height:92px;border-radius:50%;background:${grad};display:flex;align-items:center;justify-content:center;font-size:34px;font-family:'Instrument Serif',Georgia,serif;color:rgba(255,255,255,0.95);">${letter}</div>`;
+  }
+  // Если обе фото повреждены — показываем fallback SVG
+  const leftBroken  = !document.getElementById('avatarImgLeft')?.naturalWidth;
+  const rightBroken = !document.getElementById('avatarImgRight')?.naturalWidth;
+  if (leftBroken && rightBroken && svgEl && photoRow) {
+    svgEl.style.display = '';
+    photoRow.style.display = 'none';
+  }
+}
+
 // ── Populate UI from bootstrap data ─────────────────────────────────────
 function _populateProfile(data) {
   const vid = _getCookie('visitor_id');
@@ -1087,9 +1136,44 @@ function _populateProfile(data) {
   const otherName = otherInfo.display || otherInfo.first_name || '—';
   const myUN      = myInfo.username ? '@' + myInfo.username : '';
 
-  // Avatar initials
+  // Avatar initials (fallback)
   document.getElementById('avatarInitialLeft').textContent  = _initial(myName);
   document.getElementById('avatarInitialRight').textContent = _initial(otherName);
+
+  // Telegram аватарки: показываем фото если есть, иначе оставляем инициалы
+  const myAvatarUrl    = myInfo.tg_avatar_url    || null;
+  const otherAvatarUrl = otherInfo.tg_avatar_url || null;
+
+  if (myAvatarUrl || otherAvatarUrl) {
+    const photoRow = document.getElementById('avatarPhotoRow');
+    const svgEl    = document.getElementById('avatarSvg');
+    if (photoRow && svgEl) {
+      // Показываем фото-ряд, скрываем SVG
+      svgEl.style.display = 'none';
+      photoRow.style.display = 'flex';
+
+      if (myAvatarUrl) {
+        const imgL = document.getElementById('avatarImgLeft');
+        if (imgL) imgL.src = myAvatarUrl;
+      } else {
+        // Нет фото «меня» — оставляем SVG-кружок с инициалом слева
+        const circleL = document.getElementById('avatarPhotoLeft');
+        if (circleL) {
+          circleL.innerHTML = `<div style="width:92px;height:92px;border-radius:50%;background:linear-gradient(135deg,#e05aaa,#9b38d4);display:flex;align-items:center;justify-content:center;font-size:34px;font-family:'Instrument Serif',Georgia,serif;color:rgba(255,255,255,0.95);">${_initial(myName)}</div>`;
+        }
+      }
+
+      if (otherAvatarUrl) {
+        const imgR = document.getElementById('avatarImgRight');
+        if (imgR) imgR.src = otherAvatarUrl;
+      } else {
+        const circleR = document.getElementById('avatarPhotoRight');
+        if (circleR) {
+          circleR.innerHTML = `<div style="width:92px;height:92px;border-radius:50%;background:linear-gradient(135deg,#8b45e0,#4158d0);display:flex;align-items:center;justify-content:center;font-size:34px;font-family:'Instrument Serif',Georgia,serif;color:rgba(255,255,255,0.82);">${_initial(otherName)}</div>`;
+        }
+      }
+    }
+  }
 
   // Hero name
   const heroNameEl = document.getElementById('heroName');

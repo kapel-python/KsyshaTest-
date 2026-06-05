@@ -551,6 +551,11 @@
           <text id="avatarInitialLeft"  x="54"  y="63" font-family="'Instrument Serif', Georgia, serif" font-size="28" fill="rgba(255,255,255,0.95)" text-anchor="middle" dominant-baseline="middle">?</text>
           <text id="avatarInitialRight" x="126" y="63" font-family="'Instrument Serif', Georgia, serif" font-size="28" fill="rgba(255,255,255,0.82)" text-anchor="middle" dominant-baseline="middle">?</text>
         </svg>
+        <!-- Skeleton аватарок (поверх SVG, скрывается после загрузки) -->
+        <div id="avatarSkeleton" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;z-index:2;">
+          <div class="skel" style="width:92px;height:92px;border-radius:50%;flex-shrink:0;"></div>
+          <div class="skel" style="width:92px;height:92px;border-radius:50%;flex-shrink:0;"></div>
+        </div>
       </div>
       <div class="hero-name-row">
         <div class="hero-name" id="heroName"><span class="skel" style="width:140px;height:20px"></span></div>
@@ -572,9 +577,9 @@
         </div>
         <div class="item-body">
           <div class="item-title" data-i18n="profSubscription">Подписка</div>
-          <div class="item-sub" id="subscriptionSub">…</div>
+          <div class="item-sub" id="subscriptionSub"><span class="skel" style="width:100px"></span></div>
         </div>
-        <div class="item-right"><span class="badge-neutral" id="subscriptionBadge">…</span></div>
+        <div class="item-right"><span class="badge-neutral" id="subscriptionBadge"><span class="skel" style="width:60px;height:18px"></span></span></div>
       </div>
     </div>
 
@@ -586,7 +591,7 @@
         </div>
         <div class="item-body">
           <div class="item-title" data-i18n="profAccessSettings">Настройки доступа</div>
-          <div class="item-sub" id="accessSub">Telegram: …</div>
+          <div class="item-sub" id="accessSub"><span class="skel" style="width:140px"></span></div>
         </div>
         <div class="item-right"><svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       </button>
@@ -648,9 +653,9 @@
         </div>
         <div class="item-body">
           <div class="item-title">Telegram</div>
-          <div class="item-sub" id="telegramUsername">@…</div>
+          <div class="item-sub" id="telegramUsername"><span class="skel" style="width:120px"></span></div>
         </div>
-        <div class="item-right"><span class="badge-success" id="telegramStatus" data-i18n="profConnected">Подключен</span></div>
+        <div class="item-right"><span class="badge-success" id="telegramStatus"><span class="skel" style="width:70px;height:16px"></span></span></div>
       </div>
       <!-- Unlink account action -->
       <div id="unlinkActionContainer" style="padding: 16px; border-top: 1px solid var(--border);">
@@ -1242,6 +1247,10 @@ function _populateProfile(data) {
     if (accessSubEl) {
       accessSubEl.textContent = myUN ? 'Telegram: ' + myUN : 'Telegram';
     }
+
+    // Hide avatar skeleton — all data is loaded
+    const avatarSk = document.getElementById('avatarSkeleton');
+    if (avatarSk) avatarSk.style.display = 'none';
   }
 }
 

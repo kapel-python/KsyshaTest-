@@ -1225,7 +1225,7 @@ async def cmd_start(message: Message, state: FSMContext):
     db.add_or_update_user(user_id, username, first_name, last_name)
     logger.info("[avatar] /start: user=%s triggering avatar sync", user_id)
     asyncio.create_task(
-        avatar_service.sync_user_avatar(message.bot, user_id)
+        avatar_service.sync_user_avatar(message.bot, user_id, force=True)
     )
 
     # Проверяем инвайт-параметр: /start invite_XXXX

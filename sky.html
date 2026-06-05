@@ -75,7 +75,7 @@
     #previewCanvas { position:absolute; inset:0; width:100%; height:100%; }
     .preview-overlay { position:absolute; inset:0; z-index:2; background:linear-gradient(to bottom,transparent 45%,rgba(0,0,0,0.5) 100%); }
     .preview-divider { position:absolute; left:50%; top:0; bottom:0; width:1px; z-index:4; background:linear-gradient(to bottom,rgba(255,255,255,0.05),rgba(255,255,255,0.2),rgba(255,255,255,0.05)); }
-    .preview-heart { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%); font-size:1rem; z-index:5; animation:pBeat 2s ease-in-out infinite; filter:drop-shadow(0 0 8px rgba(255,100,150,0.95)); }
+    .preview-heart { position:absolute; left:50%; top:44%; transform:translate(-50%,-50%); font-size:1rem; z-index:5; animation:pBeat 2s ease-in-out infinite; filter:drop-shadow(0 0 8px rgba(180,210,255,0.85)); }
     @keyframes pBeat { 0%,100%{transform:translate(-50%,-50%) scale(1)} 40%{transform:translate(-50%,-50%) scale(1.3)} }
     .preview-label { position:absolute; bottom:8px; font-size:0.6rem; color:rgba(255,255,255,0.65); letter-spacing:0.1em; text-transform:uppercase; z-index:5; text-shadow:0 1px 4px rgba(0,0,0,0.9); }
     .preview-label.l { left:11px; }
@@ -196,8 +196,8 @@
 
     /* Center connection */
     .sky-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:30; display:flex; flex-direction:column; align-items:center; gap:10px; pointer-events:none; }
-    .sky-heart  { font-size:clamp(1.4rem,3vw,2rem); animation:heartbeat 2.2s ease-in-out infinite; filter:drop-shadow(0 0 14px rgba(255,100,150,0.9)); }
-    @keyframes heartbeat { 0%,100%{transform:scale(1)} 14%{transform:scale(1.25)} 28%{transform:scale(1)} 42%{transform:scale(1.15)} 56%{transform:scale(1)} }
+    .sky-heart  { font-size:clamp(1.4rem,3vw,2rem); animation:skyPulse 3s ease-in-out infinite; filter:drop-shadow(0 0 12px rgba(180,210,255,0.85)); color:rgba(220,235,255,0.95); }
+    @keyframes skyPulse { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.12);opacity:1} }
     .sky-dist { font-size:clamp(0.6rem,1.5vw,0.72rem); color:rgba(255,255,255,0.7); letter-spacing:0.15em; text-transform:uppercase; text-shadow:0 1px 8px rgba(0,0,0,0.7); text-align:center; line-height:1.6; }
 
     /* Flying emoji — 3 фазы: подъём → торможение → уход влево-вверх */
@@ -698,11 +698,11 @@
   <div class="intro-text-area">
     <div class="intro-typed" id="introTyped"><span class="cursor"></span></div>
   </div>
-  <button id="introBtnEnter" onclick="enterSky()">✦ открыть наше небо</button>
+  <button id="introBtnEnter" onclick="enterSky()">✦ открыть небо</button>
 
 <div id="introSkipNotif">
-  <div class="skip-notif-title">Ты хочешь пропустить анимацию?</div>
-  <div class="skip-notif-sub">Я бы на твоём месте не пропускал её)</div>
+  <div class="skip-notif-title">Пропустить анимацию?</div>
+  <div class="skip-notif-sub">Она недолгая — стоит посмотреть</div>
   <div class="skip-notif-btns">
     <button class="skip-btn-keep" onclick="_hideSkipNotif()">оставить</button>
     <button class="skip-btn-skip" onclick="_doSkipIntro()">пропустить</button>
@@ -731,7 +731,7 @@
 
     <div class="sky-divider"></div>
     <div class="sky-center">
-      <div class="sky-heart">💗</div>
+      <div class="sky-heart">✦</div>
       <div class="sky-dist"><span id="skyDistLabel">4 000 км</span><br><span id="timeDiff"></span></div>
     </div>
 
@@ -758,8 +758,8 @@
         <div class="inbox-emoji-row" id="inboxEmoji">⭐</div>
         <div class="inbox-from" id="inboxFrom"></div>
         <div class="inbox-count" id="inboxCount">1</div>
-        <div class="inbox-label" id="inboxLabel">звёздочек тебе отправлено ❤️</div>
-        <button class="inbox-btn" onclick="closeStarInbox()">Закрыть ✨</button>
+        <div class="inbox-label" id="inboxLabel">звёздочек для тебя</div>
+        <button class="inbox-btn" onclick="closeStarInbox()">Закрыть</button>
       </div>
     </div>
 
@@ -774,7 +774,7 @@
       </div>
       <span id="starNotifText">Отправлена 1 звезда</span>
     </div>
-    <button class="sky-btn" id="btnSend">✦ отправить звезду</button>
+    <button class="sky-btn" id="btnSend" style="display:none">✦ отправить звезду</button>
     <button class="sky-btn" id="btnSwitch" onclick="switchSkyPanel()"></button>
     <button class="sky-btn" id="btnClose" onclick="closeSky()">✕ закрыть</button>
 
@@ -1448,6 +1448,40 @@ function drawRealisticMoon(panel, x, y, moonVis) {
   ctx.globalCompositeOperation = 'source-over';
   ctx.restore();
 
+  // ── 4.5 Кратеры (поверх морей, до тени фазы) ──
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI * 2); ctx.clip();
+  // Кратеры нарисованы как тёмный центр + яркий ободок — классический лунный вид.
+  // Координаты нормализованы ([-1..1] → реальные px через sz).
+  const craters = [
+    { dx:  0.00, dy:  0.38, r: 0.10, a: 0.18, name: 'Tycho' },        // яркий южный
+    { dx: -0.22, dy:  0.05, r: 0.09, a: 0.14, name: 'Copernicus' },   // центральный
+    { dx: -0.33, dy:  0.10, r: 0.07, a: 0.11, name: 'Kepler' },       // западнее
+    { dx: -0.38, dy: -0.32, r: 0.06, a: 0.13, name: 'Aristarchus' },  // яркий сев-зап
+    { dx: -0.15, dy: -0.40, r: 0.08, a: 0.09, name: 'Plato' },        // тёмный север
+    { dx:  0.10, dy:  0.48, r: 0.11, a: 0.10, name: 'Clavius' },      // крупный юг
+  ];
+  craters.forEach(c => {
+    const cx = x + c.dx * sz, cy = y + c.dy * sz;
+    const cr = c.r * sz;
+    // Тёмная чаша
+    const bowl = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr);
+    bowl.addColorStop(0,   `rgba(60,55,45,${c.a * 0.9})`);
+    bowl.addColorStop(0.5, `rgba(80,70,58,${c.a * 0.5})`);
+    bowl.addColorStop(0.8, `rgba(100,90,75,${c.a * 0.2})`);
+    bowl.addColorStop(1,   'transparent');
+    ctx.fillStyle = bowl;
+    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
+    // Яркий ободок (выброс — ejecta)
+    const rim = ctx.createRadialGradient(cx, cy, cr * 0.75, cx, cy, cr * 1.18);
+    rim.addColorStop(0,   'transparent');
+    rim.addColorStop(0.6, `rgba(240,235,215,${c.a * 0.35})`);
+    rim.addColorStop(1,   'transparent');
+    ctx.fillStyle = rim;
+    ctx.beginPath(); ctx.arc(cx, cy, cr * 1.2, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+
   // ── 5. Фаза — тень ──
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, sz, 0, Math.PI * 2); ctx.clip();
@@ -1900,39 +1934,47 @@ function showStarNotif() {
   const text  = document.getElementById('starNotifText');
   if (!notif || !text) { _logErr('Stars', 'starNotif elements not found!'); return; }
   if (_starHideTimer) { clearTimeout(_starHideTimer); _starHideTimer = null; }
-  const myRole  = getUserRole();
-  // creator отправляет партнёру (rightName), партнёр — создателю (leftName)
+  const myRole  = (window.SKY_CFG && window.SKY_CFG.viewerRole) || getUserRole();
   const partner = myRole === 'creator'
-    ? (_skyCfg.rightName || 'партнёру')
-    : (_skyCfg.leftName  || 'создателю');
+    ? (_skyCfg.rightName || 'собеседнику')
+    : (_skyCfg.leftName  || 'собеседнику');
   const n = _starCount;
-  text.textContent = n === 1 ? 'Отправлена 1 звезда ' + partner
-    : (n <= 4 ? 'Отправлено ' + n + ' звезды ' + partner : 'Отправлено ' + n + ' звёзд ' + partner);
+  text.textContent = n === 1 ? 'Звезда отправлена — ' + partner
+    : (n <= 4 ? 'Отправлено ' + n + ' звезды — ' + partner : 'Отправлено ' + n + ' звёзд — ' + partner);
   notif.classList.add('visible');
+  // Снимаем снапшот и сбрасываем счётчик сразу — до таймера.
+  // Это исключает race если пользователь нажмёт ещё раз во время ожидания.
+  const total = _starCount;
+  _starCount = 0;
   _starHideTimer = setTimeout(async () => {
     notif.classList.remove('visible');
     _starHideTimer = null;
-    const total = _starCount;
     _log('Stars', 'hide timer: sending total=' + total + ' via API');
-    // 1. Сохраняем в БД — работает даже если получатель офлайн
+    // Единственный путь отправки — API.
+    // stars_send сам делает WS-push получателю. Клиентский WS send убран —
+    // он вызывал двойную доставку (сервер пушил И клиент пушил).
     try {
       const d = await _apiFetch('/api/stars/send', {
         method: 'POST',
-        body: JSON.stringify({ from: getUserRole(), count: total }),
+        body: JSON.stringify({ count: total }),
       });
       _log('Stars', 'api/stars/send ok=' + d.ok + ' pending=' + d.pending);
-    } catch(e) { _logErr('Stars', 'api/stars/send error: ' + e); }
-    // 2. Также пробуем WS (мгновенно если получатель онлайн — сервер дублирует push)
-    _wsSendRaw({ type: 'star_sent', from: getUserRole(), count: total });
-    // Накапливаем счётчик отправленных (ждём подтверждения от партнёра)
-    _addSentTotal(total);
-    setTimeout(() => { _starCount = 0; }, 400);
+      if (d.ok) {
+        // Счётчик отправленных обновляем только при успехе — нет успеха, нет счётчика
+        _addSentTotal(total);
+      } else {
+        _logErr('Stars', 'api/stars/send returned ok=false: ' + JSON.stringify(d));
+      }
+    } catch(e) {
+      _logErr('Stars', 'api/stars/send error: ' + e);
+      // При сетевой ошибке не обновляем счётчик — звезда не дошла
+    }
   }, 2000);
 }
 
 // ── Анимация звезды ───────────────────────────────────────────────
 function launchStar() {
-  const emojis = ['⭐','✨','💫','🌟','💗','🌸','☄️'];
+  const emojis = ['⭐','✨','💫','🌟','☄️','✦','🌠'];
   const wrap   = document.querySelector('.sky-wrap');
   const btn    = document.getElementById('btnSend');
   if (!wrap || !btn) return;
@@ -1972,12 +2014,12 @@ function _starEmoji(n) {
   if (n >= 3)  return '⭐⭐';
   return '⭐';
 }
-function _starLabel(n) { return 'звёздочек тебе отправлено ❤️'; }
+function _starLabel(n) { return 'звёздочек для тебя'; }
 
 function _spawnInboxParticles(count) {
   const inbox = document.getElementById('starInbox');
   inbox.querySelectorAll('.inbox-star-particle').forEach(el => el.remove());
-  const emojis = ['⭐','✨','💫','🌟','💗','🌸'];
+  const emojis = ['⭐','✨','💫','🌟','🌠','✦'];
   const total  = Math.min(count * 3 + 6, 28);
   for (let i = 0; i < total; i++) {
     const el = document.createElement('div');
@@ -2083,8 +2125,11 @@ function _getPartnerName(panel) {
 function _updateSendBtn() {
   const btn    = document.getElementById('btnSend');
   if (!btn) return;
-  const role    = getUserRole();
-  const myPanel = _getPanelForRole(role);  // creator→'moscow', ksyusha→'bishkek'
+  // Кнопка скрыта если нет пары (нет получателя)
+  const hasCouple = !!(window.SKY_CFG && window.SKY_CFG.hasCouple);
+  if (!hasCouple) { btn.style.display = 'none'; return; }
+  const role    = (window.SKY_CFG && window.SKY_CFG.viewerRole) || getUserRole();
+  const myPanel = _getPanelForRole(role);  // creator→'moscow', partner→'bishkek'
   // Показываем кнопку только когда смотрим своё небо
   btn.style.display = (_activePanel === myPanel) ? '' : 'none';
 }
@@ -2476,7 +2521,7 @@ async function runIntroAnimation() {
     };
 
     await _delay(400);
-    await _typeText(typedEl, 'мы под одним небом ❤️', 55);
+    await _typeText(typedEl, 'мы под одним небом ✦', 55);
     await _delay(600);
 
     ctx.clearRect(0, 0, W, H);
@@ -2626,7 +2671,7 @@ async function runIntroAnimation() {
 
   // ── Шаг 1: Печатаем вступление ────────────────────────
   await _delay(400);
-  await _typeText(typedEl, 'два человека. одно сердце ❤️', 55);
+  await _typeText(typedEl, 'два города. одно небо ✦', 55);
   await _delay(600);
 
   // ── Шаг 2: Рисуем точку Москвы + подпись ──────────────
@@ -2796,7 +2841,7 @@ async function runIntroAnimation() {
   const _distTxt = _skyCfg.distanceLabel ? _skyCfg.distanceLabel + ' между нами' : 'далеко между нами';
   const phrases = [
     { text: _distTxt, type: 48, erase: 30 },
-    { text: 'я так сильно жду этой встречи ❤️', type: 42, erase: 0 },
+    { text: 'рядом — даже когда далеко ✦', type: 42, erase: 0 },
   ];
 
   for (let i = 0; i < phrases.length; i++) {

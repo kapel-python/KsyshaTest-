@@ -1294,7 +1294,6 @@ async def cmd_start(message: Message, state: FSMContext):
                 db.revoke_all_user_sessions(old_user_id, visitor_base, token_user_id=user_id)
                 try:
                     from http_api import _notify_force_logout
-                    import asyncio
                     asyncio.create_task(_notify_force_logout(old_user_id))
                 except Exception:
                     pass

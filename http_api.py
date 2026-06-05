@@ -4871,6 +4871,12 @@ async def token_check(request: web.Request) -> web.Response:
     }))
 
 async def auth_debug_log(request: web.Request) -> web.Response:
+    try:
+        payload = await request.json()
+        if isinstance(payload, dict):
+            logger.warning("[auth-debug-client] %s", payload)
+    except Exception:
+        pass
     return _add_cors_headers(web.json_response({"ok": True}))
 
 async def token_auth(request: web.Request) -> web.Response:

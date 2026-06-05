@@ -9554,7 +9554,9 @@ async def unlink_deny(callback: CallbackQuery):
     )
     
     site_url = (getattr(config, "BOT_SITE_URL", "") or getattr(config, "SITE_DIRECT_URL", "")).strip().rstrip("/")
-    login_token = db.issue_user_login_token(user_id)
+    _recovery_couple = db.get_couple_by_user(user_id)
+    _recovery_role = "creator" if (_recovery_couple and _recovery_couple.get("user1_id") == user_id) else "partner"
+    login_token = db.issue_user_login_token(user_id, role=_recovery_role)
     login_link = f"{site_url}?token={login_token}" if site_url else ""
     
     kb = InlineKeyboardMarkup(inline_keyboard=[

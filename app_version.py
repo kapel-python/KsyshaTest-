@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.276'
-description = 'Фикс кнопки добавить момент в главной странице'
+version = '1.0.277'
+description = 'Второй фикс кнопки добавить момент'
 
 
 def get_version_metadata() -> tuple[str, str]:

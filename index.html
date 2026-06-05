@@ -10023,6 +10023,34 @@
             } catch (_) {}
           }
 
+          // Heal broken role cookie using authoritative server data.
+          // If memories_role is missing or "user" (broken token), reconstruct from
+          // creator_id / partner_id returned by the server.
+          {
+            const _cookieRole = getCurrentRole();
+            const _cid = Number(data.creator_id);
+            const _pid = Number(data.partner_id);
+            if (!isPairRole(_cookieRole) && _cid > 0) {
+              const _rawVid = window.__visitorId || getCookie('visitor_id') || '';
+              const _vidBase = _rawVid.split('_')[0];
+              const _vidNum = Number(_vidBase);
+              if (_vidNum > 0) {
+                const _healedRole = (_vidNum === _cid) ? 'creator'
+                                  : (_pid > 0 && _vidNum === _pid) ? 'partner'
+                                  : null;
+                if (_healedRole) {
+                  console.warn('[btn-debug] HEALED: memories_role was "' + _cookieRole +
+                    '" but server says "' + _healedRole + '" for visitor_id=' + _rawVid +
+                    ' creator_id=' + _cid + ' partner_id=' + _pid + '. Restoring cookie.');
+                  setCookie(ROLE_COOKIE_NAME, _healedRole, 365);
+                } else {
+                  console.warn('[btn-debug] role not pair and could not heal: cookie="' + _cookieRole +
+                    '" vid=' + _rawVid + ' creator_id=' + _cid + ' partner_id=' + _pid);
+                }
+              }
+            }
+          }
+
           // Статистика
 
           const s = data.stats || {};
@@ -10972,7 +11000,16 @@
 
           // Add buttons at top of each memory container (only for creator/ksyusha)
           const _addRole = getCurrentRole();
-          if (isPairRole(_addRole)) {
+          const _addVid = window.__visitorId || getCookie('visitor_id');
+          const _addRoleOk = isPairRole(_addRole);
+          console.warn('[btn-debug] loadAllData button render check:', {
+            role: _addRole,
+            visitor_id: _addVid,
+            isPairRole: _addRoleOk,
+            memories_role_cookie: document.cookie.split(';').find(c => c.trim().startsWith('memories_role=')),
+            visitor_id_cookie: document.cookie.split(';').find(c => c.trim().startsWith('visitor_id=')),
+          });
+          if (_addRoleOk) {
             [
               { id: 'important_moments_container', cat: 'important_moments', label: 'важный момент',  icon: '💫' },
               { id: 'memories_container',          cat: 'memories',          label: 'воспоминание',   icon: '📖' },
@@ -13454,6 +13491,10 @@
                 debugState.token_auth_result = 'success';
                 const _vid = String(_authData.visitor_id || _authData.user_id);
                 const _role = String(_authData.role || '');
+                console.warn('[btn-debug] token_auth cookies being set:', { role: _role, visitor_id: _vid, isPairRole: isPairRole(_role) });
+                if (!isPairRole(_role)) {
+                  console.error('[btn-debug] PROBLEM: role from token_auth is not a pair role! Buttons will NOT render. role=' + _role);
+                }
                 setCookie(ROLE_COOKIE_NAME, _role, 365);
                 setCookie(AUTH_COOKIE_NAME, 'ok', 365);
                 setCookie('visitor_id', _vid, 365);

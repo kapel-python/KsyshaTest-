@@ -274,6 +274,7 @@
   }
 
   function _mcFmtSize(bytes) {
+    if (bytes === null || bytes === undefined || bytes === '') return '';
     var value = Number(bytes);
     if (!isFinite(value) || value < 0) return '';
     if (value < 1024) return Math.round(value) + ' Б';
@@ -753,6 +754,13 @@
         thumb_url: m.thumb_url || m.media_url,
         type: m.media_type,
         name: m.name || m.filename || m.media_name || '',
+        original_filename: m.original_filename || m.name || m.filename || m.media_name || '',
+        stored_filename: m.stored_filename || '',
+        mime_type: m.mime_type || '',
+        file_size: m.file_size,
+        duration_sec: m.duration_sec,
+        width: m.width,
+        height: m.height
       });
       if (media2) {
         var sg = document.createElement('div');

@@ -2167,15 +2167,40 @@ window.addEventListener('resize', () => {
   const params = new URLSearchParams(location.search);
   const vParam = (params.get('v') || '').trim();
   if (vParam) {
-    // Устанавливаем куку memories_role чтобы getUserRole() работал
     const exp = new Date(Date.now() + 365*24*3600*1000).toUTCString();
-    document.cookie = `memories_role=${encodeURIComponent(vParam)};path=/;expires=${exp}`;
-    // Также visitor_id
-    document.cookie = `visitor_id=${encodeURIComponent(vParam)};path=/;expires=${exp}`;
+    // Определяем: ?v= содержит имя роли (creator/partner/ksyusha) или visitor_id ({цифры}_{hex})?
+    // Если это роль — устанавливаем оба cookie (legacy-режим).
+    // Если это visitor_id — устанавливаем только visitor_id, НЕ перезаписываем memories_role,
+    // иначе _getPanelForRole() получит visitor_id вместо роли и всегда вернёт 'bishkek'.
+    const _skyValidRoles = new Set(['creator', 'partner', 'ksyusha']);
+    if (_skyValidRoles.has(vParam)) {
+      document.cookie = `memories_role=${encodeURIComponent(vParam)};path=/;expires=${exp}`;
+      document.cookie = `visitor_id=${encodeURIComponent(vParam)};path=/;expires=${exp}`;
+    } else {
+      // visitor_id формат: не трогаем memories_role (она уже установлена при авторизации на index.html)
+      document.cookie = `visitor_id=${encodeURIComponent(vParam)};path=/;expires=${exp}`;
+    }
   }
-  // Если роль не установлена — редирект на главную
-  const role = getUserRole();
-  if (!role) {
+  // Если роль не установлена или не является корректной — попробуем восстановить из SKY_CFG
+  const _skyRoleSet = new Set(['creator', 'partner', 'ksyusha']);
+  let role = getUserRole();
+  if (!_skyRoleSet.has(role)) {
+    // memories_role отсутствует или содержит visitor_id вместо роли.
+    // Используем SKY_CFG.viewerRole — авторитетный ответ сервера о роли viewer'а.
+    const _healCfg = window.SKY_CFG || {};
+    const _serverRole = _healCfg.viewerRole || '';
+    const _lsRole = (() => { try { return localStorage.getItem('memories_role_hint') || ''; } catch(e) { return ''; } })();
+    const _healedRole = _skyRoleSet.has(_serverRole) ? _serverRole
+                      : _skyRoleSet.has(_lsRole) ? _lsRole
+                      : '';
+    if (_healedRole) {
+      const _exp = new Date(Date.now() + 365*24*3600*1000).toUTCString();
+      document.cookie = `memories_role=${encodeURIComponent(_healedRole)};path=/;expires=${_exp}`;
+      role = _healedRole;
+      console.warn('[sky-debug] HEALED memories_role via SKY_CFG.viewerRole:', { healedRole: _healedRole, serverRole: _serverRole });
+    }
+  }
+  if (!role || !_skyRoleSet.has(role)) {
     window.location.replace('/');
     return;
   }
@@ -2916,7 +2941,7 @@ async function enterSky() {
   const view = document.getElementById('skyView');
   view.style.display = 'block';
   view.style.animation = 'skyIn 0.5s cubic-bezier(0.4,0,0.2,1) both';
-  const role    = getUserRole();
+  const role    = (window.SKY_CFG && window.SKY_CFG.viewerRole) || getUserRole();
   const myPanel = _getPanelForRole(role);
   _applySingleMode(myPanel);
   renderSkyFrame();

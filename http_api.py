@@ -4528,6 +4528,7 @@ def _build_sky_cfg(request: web.Request) -> dict:
     cfg = _sky_cfg_from_cities(left, right, left_name=u1_name, right_name=u2_name)
     cfg["hasCouple"] = True
     cfg["sameCity"] = (my_tz == partner_tz or my_tz == "UTC" or partner_tz == "UTC")
+    cfg["viewerRole"] = "creator" if is_creator else "partner"
     return cfg
 
 

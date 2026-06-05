@@ -8457,6 +8457,7 @@
         const v = ensureVisitorIdForRole() || '';
         const tz = typeof getUserTimezone === 'function' ? getUserTimezone() : '';
         const lang = (_stgState && _stgState.lang) || 'ru';
+        try { localStorage.setItem('memories_role_hint', getCurrentRole() || ''); } catch(e) {}
         window.location.href = '/sky?v=' + encodeURIComponent(v) + '&tz=' + encodeURIComponent(tz) + '&lang=' + encodeURIComponent(lang);
       }
 

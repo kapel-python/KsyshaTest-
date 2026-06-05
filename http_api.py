@@ -5574,20 +5574,24 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
       justify-content: space-between;
       gap: 12px;
     }}
-    .doc-back {{
+    .doc-logo {{
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
+      gap: 7px;
+      font-size: 0.95rem;
+      font-weight: 700;
       color: var(--muted);
       text-decoration: none;
-      padding: 5px 10px;
-      border-radius: 8px;
-      border: 1.5px solid var(--pink-border);
-      transition: color 0.18s, border-color 0.18s;
+      transition: color 0.18s;
     }}
-    .doc-back:hover {{ color: var(--accent); border-color: var(--accent); }}
+    .doc-logo:hover {{ color: var(--accent); }}
+    .doc-logo-dot {{
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }}
     .doc-theme-btn {{
       width: 32px; height: 32px;
       border-radius: 9px;
@@ -5742,9 +5746,9 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
   <!-- NAV -->
   <header class="doc-nav">
     <div class="doc-nav-inner">
-      <a class="doc-back" href="/main" id="doc-back-btn">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        На главную
+      <a class="doc-logo" href="/main" id="doc-logo-btn">
+        <div class="doc-logo-dot"></div>
+        SureMemory
       </a>
       <button class="doc-theme-btn" id="docThemeBtn" aria-label="Переключить тему">
         <span class="icon-sun">☀️</span>

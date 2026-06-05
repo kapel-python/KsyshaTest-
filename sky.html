@@ -786,6 +786,33 @@
 window.SKY_CFG        = {{SKY_CFG_JSON}};
 window.API_SECRET_KEY = '{{API_SECRET_KEY}}';
 
+// ── Timezone self-heal: если сервер вернул UTC-дефолт, а браузер знает TZ ──
+// Происходит при прямом открытии /sky без ?tz= параметра.
+(function _skyTzHeal() {
+  const cfg = window.SKY_CFG || {};
+  const params = new URLSearchParams(location.search);
+  const hasTz = params.has('tz') && params.get('tz');
+  if (hasTz) return; // tz уже передан, сервер использовал его
+  // Проверяем: серверная инжекция — UTC (дефолт из-за отсутствия tz)?
+  const myOffset = (cfg.moscow || {}).offsetHours;
+  const myTzId   = (cfg.moscow || {}).tzId || '';
+  const isUtcDefault = myTzId === 'UTC' || myTzId === '' || myOffset === 0;
+  if (!isUtcDefault) return; // сервер определил timezone нормально
+  try {
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (browserTz && browserTz !== 'UTC') {
+      params.set('tz', browserTz);
+      // Сохраняем visitor_id если есть
+      const vid = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('visitor_id='));
+      if (vid && !params.has('v')) {
+        const vidVal = decodeURIComponent(vid.split('=').slice(1).join('='));
+        if (vidVal) params.set('v', vidVal);
+      }
+      window.location.replace(location.pathname + '?' + params.toString());
+    }
+  } catch(e) {}
+})();
+
 // ════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════

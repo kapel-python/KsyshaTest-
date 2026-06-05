@@ -5906,7 +5906,7 @@
         if (!src) return null;
         const thumb = _mediaThumbUrl(item) || _mediaPathToUrl(String(item.thumb_path || '').trim()) || src;
         const type = String(item.type || item.media_type || '').trim().toLowerCase();
-        const name = String(item.name || item.filename || item.media_name || '').trim() || _mediaFileNameFromUrl(src);
+        const name = String(item.original_filename || item.name || item.filename || item.media_name || '').trim() || _mediaFileNameFromUrl(src);
         const ext = _mediaExtFromName(name || src);
         const kind = _mediaKindFromType(type, ext, name);
         return {
@@ -5915,10 +5915,65 @@
           thumb,
           type,
           name,
+          storedName: String(item.stored_filename || '').trim() || _mediaFileNameFromUrl(src),
           ext,
           kind,
+          mimeType: String(item.mime_type || '').trim(),
+          fileSize: Number.isFinite(Number(item.file_size)) ? Number(item.file_size) : null,
+          durationSec: Number.isFinite(Number(item.duration_sec)) ? Number(item.duration_sec) : null,
+          width: Number.isFinite(Number(item.width)) ? Number(item.width) : null,
+          height: Number.isFinite(Number(item.height)) ? Number(item.height) : null,
           language: _mediaLanguageFromFile({ name, ext }),
         };
+      }
+
+      function _formatMediaFileSize(bytes) {
+        const value = Number(bytes);
+        if (!Number.isFinite(value) || value < 0) return '';
+        if (value < 1024) return Math.round(value) + ' Б';
+        const units = ['КБ', 'МБ', 'ГБ', 'ТБ'];
+        let size = value / 1024;
+        let idx = 0;
+        while (size >= 1024 && idx < units.length - 1) {
+          size /= 1024;
+          idx += 1;
+        }
+        return size.toFixed(size >= 10 ? 0 : 1) + ' ' + units[idx];
+      }
+
+      function _formatMediaResolution(width, height) {
+        const w = Number(width), h = Number(height);
+        if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return '';
+        return Math.round(w) + '×' + Math.round(h);
+      }
+
+      function _mediaMetaLines(media) {
+        if (!media) return [];
+        const lines = [];
+        const duration = Number.isFinite(media.durationSec) && media.durationSec >= 0 ? _formatVideoDuration(media.durationSec) : '';
+        const resolution = _formatMediaResolution(media.width, media.height);
+        const size = _formatMediaFileSize(media.fileSize);
+        if (media.kind === 'photo') {
+          if (resolution) lines.push(resolution);
+          if (size) lines.push(size);
+          return lines;
+        }
+        if (media.kind === 'video') {
+          if (duration) lines.push(duration);
+          if (resolution) lines.push(resolution);
+          if (size) lines.push(size);
+          return lines;
+        }
+        if (media.kind === 'audio') {
+          if (duration) lines.push(duration);
+          if (size) lines.push(size);
+          return lines;
+        }
+        if (media.name) lines.push(media.name);
+        if (size) lines.push(size);
+        if (media.ext) lines.push('.' + media.ext.toUpperCase());
+        if (media.mimeType) lines.push(media.mimeType);
+        return lines;
       }
 
       function _mediaEscapeText(text) {
@@ -6206,20 +6261,24 @@
           showMeta = true;
         }
 
-        ui.action.meta.textContent = '';
+        ui.action.meta.innerHTML = '';
         if (showMeta) {
-          const parts = [];
-          if (kind === 'video' || kind === 'audio') {
+          const renderMeta = () => {
+            ui.action.meta.innerHTML = '';
+            _mediaMetaLines(media).forEach(line => {
+              const row = document.createElement('div');
+              row.textContent = line;
+              ui.action.meta.appendChild(row);
+            });
+          };
+          renderMeta();
+          if ((kind === 'video' || kind === 'audio') && !media.durationSec) {
             _getVideoDuration(media.src, function(dur) {
               if (_mediaViewerState.media === media && dur && isFinite(dur)) {
-                ui.action.meta.textContent = _formatVideoDuration(dur);
+                media.durationSec = Math.round(dur);
+                renderMeta();
               }
             });
-          } else {
-            if (media.ext) {
-              parts.push('.' + media.ext.toUpperCase());
-            }
-            ui.action.meta.textContent = parts.join(' • ');
           }
         }
 
@@ -14974,10 +15033,15 @@
             media_type: item.media_type,
             media_path: item.media_path || '',
             thumb_path: item.thumb_path || '',
+            original_filename: item.original_filename || item.name || item.filename || '',
+            stored_filename: item.stored_filename || '',
+            mime_type: item.mime_type || '',
+            file_size: item.file_size || null,
+            duration_sec: item.duration_sec || null,
             width: item.width || null,
             height: item.height || null,
-            name: item.media_path ? item.media_path.split('/').pop() : '',
-            filename: item.media_path ? item.media_path.split('/').pop() : '',
+            name: item.original_filename || item.name || item.filename || (item.media_path ? item.media_path.split('/').pop() : ''),
+            filename: item.original_filename || item.name || item.filename || (item.media_path ? item.media_path.split('/').pop() : ''),
             url: _mediaPathToUrl(item.media_path),
             thumb_url: _mediaPathToUrl(item.thumb_path || item.media_path),
             preview_url: _mediaPathToUrl(item.thumb_path || item.media_path),
@@ -14995,7 +15059,7 @@
             ? _mediaPathToUrl(mediaResult.media_path)
             : null;
           const mediaName = mediaResult && mediaResult.media_path
-            ? mediaResult.media_path.split('/').pop()
+            ? (mediaResult.original_filename || mediaResult.media_path.split('/').pop())
             : null;
           const mediaType = mediaResult ? mediaResult.media_type : null;
 
@@ -15013,6 +15077,13 @@
               original_url: mediaUrl,
               media_type:  mediaType,
               media_name:  mediaName,
+              original_filename: mediaResult && mediaResult.original_filename || mediaName,
+              stored_filename: mediaResult && mediaResult.stored_filename || null,
+              mime_type: mediaResult && mediaResult.mime_type || null,
+              file_size: mediaResult && mediaResult.file_size || null,
+              duration_sec: mediaResult && mediaResult.duration_sec || null,
+              width: mediaResult && mediaResult.width || null,
+              height: mediaResult && mediaResult.height || null,
               created_at:  new Date().toISOString(),
               created_human: _ui('justNow'),
             };
@@ -15063,6 +15134,13 @@
               original_url: mediaUrl,
               media_type:  mediaType,
               media_name:  mediaName,
+              original_filename: mediaResult && mediaResult.original_filename || mediaName,
+              stored_filename: mediaResult && mediaResult.stored_filename || null,
+              mime_type: mediaResult && mediaResult.mime_type || null,
+              file_size: mediaResult && mediaResult.file_size || null,
+              duration_sec: mediaResult && mediaResult.duration_sec || null,
+              width: mediaResult && mediaResult.width || null,
+              height: mediaResult && mediaResult.height || null,
             };
             const cont = document.getElementById('events_container');
             if (cont) {
@@ -15131,6 +15209,13 @@
                 original_url: mediaUrl,
                 media_type:  mediaType,
                 media_name:  mediaName,
+                original_filename: mediaResult && mediaResult.original_filename || mediaName,
+                stored_filename: mediaResult && mediaResult.stored_filename || null,
+                mime_type: mediaResult && mediaResult.mime_type || null,
+                file_size: mediaResult && mediaResult.file_size || null,
+                duration_sec: mediaResult && mediaResult.duration_sec || null,
+                width: mediaResult && mediaResult.width || null,
+                height: mediaResult && mediaResult.height || null,
                 media_items: _buildLocalMediaItems(state),
                 created_at:  new Date().toISOString(),
                 created_human: _ui('justNow'),
@@ -15303,6 +15388,11 @@
                   media_path: d.path,
                   media_type: d.media_type,
                   thumb_path: d.thumb_path || null,
+                  original_filename: d.original_filename || null,
+                  stored_filename: d.stored_filename || null,
+                  mime_type: d.mime_type || null,
+                  file_size: d.file_size || null,
+                  duration_sec: d.duration_sec || null,
                   width: d.width || null,
                   height: d.height || null,
                 });
@@ -15362,6 +15452,10 @@
                   type: item.media_type,
                   path: item.media_path,
                   thumb_path: item.thumb_path || null,
+                  original_filename: item.original_filename || null,
+                  mime_type: item.mime_type || null,
+                  file_size: item.file_size || null,
+                  duration_sec: item.duration_sec || null,
                   width: item.width || null,
                   height: item.height || null,
                 }));
@@ -15385,6 +15479,12 @@
           if (mediaResult) {
             bodyData.media_path = mediaResult.media_path;
             bodyData.media_type = mediaResult.media_type;
+            bodyData.original_filename = mediaResult.original_filename || null;
+            bodyData.mime_type = mediaResult.mime_type || null;
+            bodyData.file_size = mediaResult.file_size || null;
+            bodyData.duration_sec = mediaResult.duration_sec || null;
+            bodyData.width = mediaResult.width || null;
+            bodyData.height = mediaResult.height || null;
           }
           if (mediaItems) {
             bodyData.media_items = mediaItems;

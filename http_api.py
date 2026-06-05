@@ -737,7 +737,15 @@ def _validate_media_path_for_user(media_path: Optional[str], user_id: int) -> Op
 # Разрешённые расширения для загружаемых файлов
 _ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".avif"}
 _ALLOWED_VIDEO_EXT = {".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v"}
-_ALLOWED_UPLOAD_EXT = _ALLOWED_IMAGE_EXT | _ALLOWED_VIDEO_EXT
+_ALLOWED_AUDIO_EXT = {".mp3", ".ogg", ".oga", ".wav", ".aac", ".m4a", ".flac", ".opus"}
+_ALLOWED_DOCUMENT_EXT = {
+    ".txt", ".md", ".markdown", ".rst", ".log", ".json", ".jsonl", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx",
+    ".py", ".pyw", ".rb", ".php", ".go", ".rs", ".java", ".kt", ".kts", ".c", ".h", ".cpp", ".hpp", ".cc", ".hh",
+    ".css", ".scss", ".sass", ".less", ".html", ".htm", ".xml", ".xhtml", ".svg", ".yaml", ".yml", ".ini", ".cfg",
+    ".toml", ".env", ".sh", ".bash", ".zsh", ".fish", ".sql", ".csv", ".tsv", ".pdf", ".zip", ".rar", ".7z",
+    ".tar", ".gz", ".bz2", ".xz", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"
+}
+_ALLOWED_UPLOAD_EXT = _ALLOWED_IMAGE_EXT | _ALLOWED_VIDEO_EXT | _ALLOWED_AUDIO_EXT | _ALLOWED_DOCUMENT_EXT
 
 
 def _generate_thumbnail(image_path: Path, max_side: int = 400) -> Optional[str]:
@@ -798,6 +806,115 @@ async def _generate_video_preview(video_path: Path) -> Optional[str]:
     return None
 
 
+async def _ffprobe_media_info(media_path: Path) -> Dict[str, Any]:
+    info: Dict[str, Any] = {}
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ffprobe",
+            "-v", "error",
+            "-show_entries", "format=duration:stream=codec_type,width,height,duration",
+            "-of", "json",
+            str(media_path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode != 0 or not stdout:
+            return info
+        payload = json.loads(stdout.decode("utf-8", errors="ignore") or "{}")
+        streams = payload.get("streams") or []
+        fmt = payload.get("format") or {}
+        duration_raw = fmt.get("duration")
+        if duration_raw is None:
+            for stream in streams:
+                if stream.get("duration") is not None:
+                    duration_raw = stream.get("duration")
+                    break
+        try:
+            duration_sec = int(round(float(duration_raw))) if duration_raw is not None else None
+        except Exception:
+            duration_sec = None
+        if isinstance(duration_sec, int) and duration_sec >= 0:
+            info["duration_sec"] = duration_sec
+        video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
+        if video_stream:
+            width = _safe_int(video_stream.get("width"))
+            height = _safe_int(video_stream.get("height"))
+            if width and width > 0:
+                info["width"] = width
+            if height and height > 0:
+                info["height"] = height
+    except Exception as e:
+        logger.debug("ffprobe metadata read failed for %s: %s", media_path, e)
+    return info
+
+
+def _sanitize_original_filename(filename: Optional[str], fallback_ext: str = "") -> str:
+    raw = Path(str(filename or "").strip()).name.strip()
+    if raw in {"", ".", ".."}:
+        raw = f"file{fallback_ext or ''}"
+    return raw[:255]
+
+
+def _display_filename_from_path(media_path: Optional[str], original_filename: Optional[str] = None) -> Optional[str]:
+    explicit = str(original_filename or "").strip()
+    if explicit:
+        return explicit
+    raw_path = str(media_path or "").strip()
+    return Path(raw_path).name if raw_path else None
+
+
+def _build_media_payload_item(
+    media_path: Optional[str],
+    media_type: Optional[str],
+    item: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    path_value = (item.get("path") if isinstance(item, dict) else media_path) or media_path
+    path_value = str(path_value or "").strip()
+    type_value = (item.get("type") if isinstance(item, dict) else media_type) or media_type
+    type_value = str(type_value or "").strip()
+    if not path_value or not type_value:
+        return None
+    stored_name = Path(path_value).name
+    display_name = _display_filename_from_path(
+        path_value,
+        item.get("original_filename") if isinstance(item, dict) else None,
+    ) or stored_name
+    media_url = f"/media/{stored_name}"
+    payload_item: Dict[str, Any] = {
+        "type": type_value,
+        "name": display_name,
+        "filename": display_name,
+        "stored_filename": stored_name,
+        "original_filename": display_name,
+        "url": media_url,
+        "thumb_url": _thumb_url_for(path_value),
+        "preview_url": _thumb_url_for(path_value),
+        "original_url": media_url,
+        "media_path": path_value,
+    }
+    if isinstance(item, dict):
+        thumb_path = str(item.get("thumb_path") or "").strip()
+        mime_type = str(item.get("mime_type") or "").strip()
+        file_size = item.get("file_size")
+        duration_sec = item.get("duration_sec")
+        width = item.get("width")
+        height = item.get("height")
+        if thumb_path:
+            payload_item["thumb_path"] = thumb_path
+        if mime_type:
+            payload_item["mime_type"] = mime_type
+        if isinstance(file_size, int) and file_size >= 0:
+            payload_item["file_size"] = file_size
+        if isinstance(duration_sec, int) and duration_sec >= 0:
+            payload_item["duration_sec"] = duration_sec
+        if isinstance(width, int) and width > 0:
+            payload_item["width"] = width
+        if isinstance(height, int) and height > 0:
+            payload_item["height"] = height
+    return payload_item
+
+
 def _spawn_background_task(coro, label: str) -> None:
     """Запускает фоновую задачу и логирует её завершение."""
     task = asyncio.create_task(coro)
@@ -850,6 +967,30 @@ def _safe_upload_ext(filename: str, content_type: str) -> Optional[str]:
         return ".mov"
     if ct.startswith("video/webm"):
         return ".webm"
+    if ct.startswith("audio/mpeg"):
+        return ".mp3"
+    if ct.startswith("audio/ogg") or ct.startswith("application/ogg"):
+        return ".ogg"
+    if ct.startswith("audio/wav") or ct.startswith("audio/x-wav") or ct.startswith("audio/wave"):
+        return ".wav"
+    if ct.startswith("audio/aac"):
+        return ".aac"
+    if ct.startswith("audio/mp4") or ct.startswith("audio/x-m4a"):
+        return ".m4a"
+    if ct.startswith("audio/flac") or ct.startswith("audio/x-flac"):
+        return ".flac"
+    if ct.startswith("audio/opus"):
+        return ".opus"
+    if ct.startswith("text/plain"):
+        return ".txt"
+    if ct.startswith("application/json"):
+        return ".json"
+    if ct.startswith("text/markdown"):
+        return ".md"
+    if ct.startswith("application/pdf"):
+        return ".pdf"
+    if ct.startswith("application/zip"):
+        return ".zip"
     if ct.startswith("image/heic") or ct.startswith("image/heif"):
         return ".heic"
     if ct.startswith("image/avif"):
@@ -1474,40 +1615,17 @@ def _memory_to_public_dict(m: Memory, timezone_id: str | None = None) -> dict:
     display_name = db.get_display_name(m.user_id) if m.user_id else ""
 
     media_url = f"/media/{Path(m.media_path).name}" if m.media_path else None
+    single_display_name = _display_filename_from_path(m.media_path)
     media_items_payload = []
     if getattr(m, "media_items", None):
         for item in (m.media_items or [])[:6]:
-            p = (item.get("path") or "").strip() if isinstance(item, dict) else ""
-            t = (item.get("type") or "").strip() if isinstance(item, dict) else ""
-            if not p or not t:
-                continue
-            name = Path(p).name
-            payload_item = {
-                "type": t,
-                "name": name,
-                "filename": name,
-                "url": f"/media/{name}",
-                "thumb_url": _thumb_url_for(p),
-                "preview_url": _thumb_url_for(p),
-                "original_url": f"/media/{name}",
-            }
-            width = item.get("width") if isinstance(item, dict) else None
-            height = item.get("height") if isinstance(item, dict) else None
-            if isinstance(width, int) and width > 0:
-                payload_item["width"] = width
-            if isinstance(height, int) and height > 0:
-                payload_item["height"] = height
-            media_items_payload.append(payload_item)
-    if not media_items_payload and m.media_path and m.media_type in {"photo", "video"}:
-        media_items_payload = [{
-            "type": m.media_type,
-            "name": Path(m.media_path).name,
-            "filename": Path(m.media_path).name,
-            "url": media_url,
-            "thumb_url": _thumb_url_for(m.media_path) if m.media_type == "photo" else media_url,
-            "preview_url": _thumb_url_for(m.media_path) if m.media_type == "photo" else media_url,
-            "original_url": media_url,
-        }]
+            payload_item = _build_media_payload_item(None, None, item if isinstance(item, dict) else None)
+            if payload_item:
+                media_items_payload.append(payload_item)
+    if not media_items_payload and m.media_path and m.media_type:
+        fallback_item = _build_media_payload_item(m.media_path, m.media_type, None)
+        if fallback_item:
+            media_items_payload = [fallback_item]
     preview_url = _thumb_url_for(m.media_path) if m.media_type == "photo" else media_url
 
     return {
@@ -1542,8 +1660,9 @@ def _memory_to_public_dict(m: Memory, timezone_id: str | None = None) -> dict:
         "preview_url": preview_url,
         "thumb_url": preview_url,
         "original_url": media_url,
-        "name": Path(m.media_path).name if m.media_path else None,
-        "filename": Path(m.media_path).name if m.media_path else None,
+        "name": single_display_name,
+        "filename": single_display_name,
+        "stored_filename": Path(m.media_path).name if m.media_path else None,
         "media_items": media_items_payload,
 
         "created_at": m.created_at,
@@ -1567,6 +1686,7 @@ def _memory_to_public_dict(m: Memory, timezone_id: str | None = None) -> dict:
 def _wish_to_public_dict(w: Wish, timezone_id: str | None = None) -> dict:
     media_url = f"/media/{Path(w.media_path).name}" if w.media_path else None
     preview_url = _thumb_url_for(w.media_path) if w.media_type == "photo" else media_url
+    display_name = _display_filename_from_path(w.media_path, getattr(w, "original_filename", None))
 
     return {
 
@@ -1586,8 +1706,15 @@ def _wish_to_public_dict(w: Wish, timezone_id: str | None = None) -> dict:
         "preview_url": preview_url,
         "thumb_url": preview_url,
         "original_url": media_url,
-        "name": Path(w.media_path).name if w.media_path else None,
-        "filename": Path(w.media_path).name if w.media_path else None,
+        "name": display_name,
+        "filename": display_name,
+        "stored_filename": Path(w.media_path).name if w.media_path else None,
+        "original_filename": display_name,
+        "mime_type": getattr(w, "mime_type", None),
+        "file_size": getattr(w, "file_size", None),
+        "duration_sec": getattr(w, "duration_sec", None),
+        "width": getattr(w, "width", None),
+        "height": getattr(w, "height", None),
 
         "created_at": w.created_at,
 
@@ -1613,6 +1740,7 @@ def _event_to_public_dict(e: ScheduledEvent, timezone_id: str | None = None) -> 
 
     media_url = f"/media/{Path(e.media_path).name}" if e.media_path else None
     preview_url = _thumb_url_for(e.media_path) if e.media_type == "photo" else media_url
+    display_name = _display_filename_from_path(e.media_path, getattr(e, "original_filename", None))
     return {
 
         "id": e.id,
@@ -1649,8 +1777,15 @@ def _event_to_public_dict(e: ScheduledEvent, timezone_id: str | None = None) -> 
         "preview_url": preview_url,
         "thumb_url": preview_url,
         "original_url": media_url,
-        "name": Path(e.media_path).name if e.media_path else None,
-        "filename": Path(e.media_path).name if e.media_path else None,
+        "name": display_name,
+        "filename": display_name,
+        "stored_filename": Path(e.media_path).name if e.media_path else None,
+        "original_filename": display_name,
+        "mime_type": getattr(e, "mime_type", None),
+        "file_size": getattr(e, "file_size", None),
+        "duration_sec": getattr(e, "duration_sec", None),
+        "width": getattr(e, "width", None),
+        "height": getattr(e, "height", None),
 
     }
 
@@ -4642,6 +4777,8 @@ async def upload_notification_media(request: web.Request) -> web.Response:
         reader = await request.multipart()
         saved_path = None
         media_type_str = None
+        original_filename = None
+        content_type = ""
         max_size = _UPLOAD_MAX_BY_PATH.get("/api/upload_notification_media", 50 * 1024 * 1024)
 
         async for field in reader:
@@ -4656,7 +4793,15 @@ async def upload_notification_media(request: web.Request) -> web.Response:
             if not allowed_ext:
                 logger.warning("upload_notification_media: запрещённый тип файла filename=%r ct=%r", filename, content_type)
                 return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden_file_type"}, status=415))
-            media_type_str = "video" if allowed_ext in _ALLOWED_VIDEO_EXT else "photo"
+            if allowed_ext in _ALLOWED_VIDEO_EXT:
+                media_type_str = "video"
+            elif allowed_ext in _ALLOWED_IMAGE_EXT:
+                media_type_str = "photo"
+            elif allowed_ext in _ALLOWED_AUDIO_EXT:
+                media_type_str = "audio"
+            else:
+                media_type_str = "document"
+            original_filename = _sanitize_original_filename(filename, allowed_ext)
 
             ts = int(datetime.now(timezone.utc).timestamp() * 1000)
             safe_name = f"notif_{ts}{allowed_ext}"
@@ -4690,10 +4835,30 @@ async def upload_notification_media(request: web.Request) -> web.Response:
             logger.warning("UPLOAD no file received, visitor_id=%r", visitor_id)
             return _add_cors_headers(web.json_response({"ok": False, "error": "no file"}))
 
-        return _add_cors_headers(web.json_response({
+        meta: Dict[str, Any] = {
             "ok": True,
             "path": saved_path,
             "media_type": media_type_str,
+            "original_filename": original_filename or _display_filename_from_path(saved_path),
+            "stored_filename": Path(saved_path).name,
+            "mime_type": content_type or None,
+            "file_size": size,
+        }
+        probe_meta = await _ffprobe_media_info(Path(saved_path))
+        meta.update(probe_meta)
+        if media_type_str == "photo" and _PILImage:
+            try:
+                with _PILImage.open(saved_path) as img:
+                    width, height = img.size
+                    if width and width > 0:
+                        meta["width"] = width
+                    if height and height > 0:
+                        meta["height"] = height
+            except Exception as dim_err:
+                logger.warning("upload_notification_media: failed to read image size for %s: %s", saved_path, dim_err)
+
+        return _add_cors_headers(web.json_response({
+            **meta,
         }))
     except Exception as e:
         logger.exception("Ошибка upload_notification_media: %s", e)
@@ -7658,6 +7823,18 @@ async def site_create_memory(request: web.Request) -> web.Response:
                 validated_thumb_path = _validate_media_path_for_user(thumb_path, int(user_id))
                 if validated_thumb_path:
                     item["thumb_path"] = validated_thumb_path
+            original_filename = _sanitize_original_filename(mi.get("original_filename"), Path(validated_mi_path).suffix.lower())
+            if original_filename:
+                item["original_filename"] = original_filename
+            mime_type = _pstr(mi.get("mime_type")).strip()
+            if mime_type:
+                item["mime_type"] = mime_type
+            file_size = _safe_int(mi.get("file_size"))
+            if file_size is not None and file_size >= 0:
+                item["file_size"] = file_size
+            duration_sec = _safe_int(mi.get("duration_sec"))
+            if duration_sec is not None and duration_sec >= 0:
+                item["duration_sec"] = duration_sec
             width = _safe_int(mi.get("width"))
             height = _safe_int(mi.get("height"))
             if width and width > 0:
@@ -7667,6 +7844,33 @@ async def site_create_memory(request: web.Request) -> web.Response:
             media_items_validated.append(item)
         if not media_items_validated:
             media_items_validated = None
+    elif media_path and media_type:
+        single_item: Dict[str, Any] = {
+            "type": media_type,
+            "path": media_path,
+            "original_filename": _sanitize_original_filename(p.get("original_filename"), Path(media_path).suffix.lower()) or _display_filename_from_path(media_path),
+        }
+        mime_type = _pstr(p.get("mime_type")).strip()
+        if mime_type:
+            single_item["mime_type"] = mime_type
+        file_size = _safe_int(p.get("file_size"))
+        if file_size is not None and file_size >= 0:
+            single_item["file_size"] = file_size
+        duration_sec = _safe_int(p.get("duration_sec"))
+        if duration_sec is not None and duration_sec >= 0:
+            single_item["duration_sec"] = duration_sec
+        width = _safe_int(p.get("width"))
+        height = _safe_int(p.get("height"))
+        if width and width > 0:
+            single_item["width"] = width
+        if height and height > 0:
+            single_item["height"] = height
+        thumb_path = _pstr(p.get("thumb_path")).strip()
+        if thumb_path:
+            validated_thumb_path = _validate_media_path_for_user(thumb_path, int(user_id))
+            if validated_thumb_path:
+                single_item["thumb_path"] = validated_thumb_path
+        media_items_validated = [single_item]
 
     try:
         mem_id = db.add_memory(user_id, category, title, date, content,
@@ -7823,6 +8027,12 @@ async def site_create_event(request: web.Request) -> web.Response:
 
     media_path = _pstr(p.get("media_path")).strip() or None
     media_type = _pstr(p.get("media_type")).strip() or None
+    original_filename = _sanitize_original_filename(p.get("original_filename"), Path(media_path).suffix.lower() if media_path else "")
+    mime_type = _pstr(p.get("mime_type")).strip() or None
+    file_size = _safe_int(p.get("file_size"))
+    duration_sec = _safe_int(p.get("duration_sec"))
+    width = _safe_int(p.get("width"))
+    height = _safe_int(p.get("height"))
     if media_path:
         validated_media_path = _validate_media_path_for_user(media_path, int(user_id))
         if not validated_media_path:
@@ -7833,6 +8043,12 @@ async def site_create_event(request: web.Request) -> web.Response:
         is_recurring = int(p.get("is_recurring", 0)) if p.get("is_recurring") is not None else 0
         event_id = db.add_scheduled_event(user_id, title, description, event_dt,
                                           media_type=media_type, media_path=media_path,
+                                          original_filename=original_filename or _display_filename_from_path(media_path),
+                                          mime_type=mime_type,
+                                          file_size=file_size,
+                                          duration_sec=duration_sec,
+                                          width=width,
+                                          height=height,
                                           is_recurring=is_recurring)
         if not event_id or event_id == -1:
             return _add_cors_headers(web.json_response({"ok": False, "error": "db error"}))
@@ -8024,6 +8240,12 @@ async def site_create_wish(request: web.Request) -> web.Response:
 
     media_path = (p.get("media_path") or "").strip() or None
     media_type_val = (p.get("media_type") or "").strip() or None
+    original_filename = _sanitize_original_filename(p.get("original_filename"), Path(media_path).suffix.lower() if media_path else "")
+    mime_type = _pstr(p.get("mime_type")).strip() or None
+    file_size = _safe_int(p.get("file_size"))
+    duration_sec = _safe_int(p.get("duration_sec"))
+    width = _safe_int(p.get("width"))
+    height = _safe_int(p.get("height"))
     if media_path:
         validated_media_path = _validate_media_path_for_user(media_path, int(user_id))
         if not validated_media_path:
@@ -8035,13 +8257,19 @@ async def site_create_wish(request: web.Request) -> web.Response:
             existing = db.get_wish(wish_id_int)
             if existing and existing.user_id == user_id:
                 db.update_wish(existing.id, content_txt,
-                               media_type=media_type_val, media_path=media_path)
+                               media_type=media_type_val, media_path=media_path,
+                               original_filename=original_filename or _display_filename_from_path(media_path),
+                               mime_type=mime_type, file_size=file_size,
+                               duration_sec=duration_sec, width=width, height=height)
                 wish_id = existing.id
             else:
                 return _add_cors_headers(web.json_response({"ok": False, "error": "wish_not_found_or_forbidden"}))
         else:
             wish_id = db.add_wish(user_id, content_txt,
-                                  media_type=media_type_val, media_path=media_path)
+                                  media_type=media_type_val, media_path=media_path,
+                                  original_filename=original_filename or _display_filename_from_path(media_path),
+                                  mime_type=mime_type, file_size=file_size,
+                                  duration_sec=duration_sec, width=width, height=height)
         if not wish_id or wish_id == -1:
             return _add_cors_headers(web.json_response({"ok": False, "error": "db error"}))
     except Exception as e:
@@ -8137,6 +8365,8 @@ async def upload_media_general(request: web.Request) -> web.Response:
         reader = await request.multipart()
         saved_path = None
         media_type_str = None
+        original_filename = None
+        content_type = ""
         max_size = _UPLOAD_MAX_BY_PATH.get("/api/upload_media", 100 * 1024 * 1024)
 
         async for field in reader:
@@ -8150,7 +8380,15 @@ async def upload_media_general(request: web.Request) -> web.Response:
             if not allowed_ext:
                 logger.warning("upload_media_general: запрещённый тип файла filename=%r ct=%r visitor=%s", filename, content_type, visitor_id)
                 return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden_file_type"}, status=415))
-            media_type_str = "video" if allowed_ext in _ALLOWED_VIDEO_EXT else "photo"
+            if allowed_ext in _ALLOWED_VIDEO_EXT:
+                media_type_str = "video"
+            elif allowed_ext in _ALLOWED_IMAGE_EXT:
+                media_type_str = "photo"
+            elif allowed_ext in _ALLOWED_AUDIO_EXT:
+                media_type_str = "audio"
+            else:
+                media_type_str = "document"
+            original_filename = _sanitize_original_filename(filename, allowed_ext)
 
             ts = int(datetime.now(timezone.utc).timestamp() * 1000)
             safe_name = f"u{int(user_id)}_{ts}_{secrets.token_hex(4)}{allowed_ext}"
@@ -8200,16 +8438,26 @@ async def upload_media_general(request: web.Request) -> web.Response:
         elif media_type_str == "video":
             _spawn_background_task(_generate_video_preview(Path(saved_path)), "video_preview_generation")
 
+        probe_meta = await _ffprobe_media_info(Path(saved_path))
+
         resp_data = {
             "ok": True,
             "path": saved_path,
             "media_type": media_type_str,
+            "original_filename": original_filename or _display_filename_from_path(saved_path),
+            "stored_filename": Path(saved_path).name,
+            "mime_type": content_type or None,
+            "file_size": size,
         }
         if width and height:
             resp_data["width"] = width
             resp_data["height"] = height
         if thumb_path:
             resp_data["thumb_path"] = thumb_path
+        for key in ("duration_sec", "width", "height"):
+            value = probe_meta.get(key)
+            if value is not None and key not in resp_data:
+                resp_data[key] = value
 
         elapsed_ms = round((time.monotonic() - started_at) * 1000, 1)
         logger.info(

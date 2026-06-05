@@ -96,6 +96,12 @@ class Wish:
     media_path: Optional[str]
     created_at: str
     updated_at: str
+    original_filename: Optional[str] = None
+    mime_type: Optional[str] = None
+    file_size: Optional[int] = None
+    duration_sec: Optional[int] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
     status: str = "created"  # created | in_progress | done
     wish_number: int = 0  # DEPRECATED: kept for backward compat only
 
@@ -113,6 +119,12 @@ class ScheduledEvent:
     media_type: Optional[str] = None
     media_file_id: Optional[str] = None
     media_path: Optional[str] = None
+    original_filename: Optional[str] = None
+    mime_type: Optional[str] = None
+    file_size: Optional[int] = None
+    duration_sec: Optional[int] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
     original_event_datetime: str = ""
     is_recurring: int = 0
 
@@ -138,6 +150,12 @@ class ScheduledEvent:
             'media_type': self.media_type,
             'media_file_id': self.media_file_id,
             'media_path': self.media_path,
+            'original_filename': self.original_filename,
+            'mime_type': self.mime_type,
+            'file_size': self.file_size,
+            'duration_sec': self.duration_sec,
+            'width': self.width,
+            'height': self.height,
             'is_recurring': self.is_recurring,
         }
 
@@ -156,6 +174,12 @@ def _row_to_scheduled_event(row) -> ScheduledEvent:
         media_type=d.get('media_type'),
         media_file_id=d.get('media_file_id'),
         media_path=d.get('media_path'),
+        original_filename=d.get('original_filename'),
+        mime_type=d.get('mime_type'),
+        file_size=d.get('file_size'),
+        duration_sec=d.get('duration_sec'),
+        width=d.get('width'),
+        height=d.get('height'),
         is_recurring=d.get('is_recurring', 0) if d.get('is_recurring') is not None else 0,
     )
 
@@ -606,6 +630,12 @@ class Database:
                 "media_type TEXT",
                 "media_file_id TEXT",
                 "media_path TEXT",
+                "original_filename TEXT",
+                "mime_type TEXT",
+                "file_size INTEGER",
+                "duration_sec INTEGER",
+                "width INTEGER",
+                "height INTEGER",
             ]:
                 try:
                     conn.execute(f"ALTER TABLE wishes ADD COLUMN {column_def}")
@@ -638,7 +668,11 @@ class Database:
                     logger.debug("Migration skipped for scheduled_events column %r: %s", col, e)
 
             # Миграция: медиа и форматирование описания (как у воспоминаний)
-            for col in ["media_type TEXT", "media_file_id TEXT", "media_path TEXT"]:
+            for col in [
+                "media_type TEXT", "media_file_id TEXT", "media_path TEXT",
+                "original_filename TEXT", "mime_type TEXT", "file_size INTEGER",
+                "duration_sec INTEGER", "width INTEGER", "height INTEGER"
+            ]:
                 try:
                     conn.execute(f"ALTER TABLE scheduled_events ADD COLUMN {col}")
                 except Exception as e:
@@ -1253,6 +1287,10 @@ class Database:
                 thumb_path = str(item.get("thumb_path") or "").strip()
                 thumb_url = str(item.get("thumb_url") or "").strip()
                 original_url = str(item.get("original_url") or "").strip()
+                original_filename = str(item.get("original_filename") or "").strip()
+                mime_type = str(item.get("mime_type") or "").strip()
+                file_size = item.get("file_size")
+                duration_sec = item.get("duration_sec")
                 width = item.get("width")
                 height = item.get("height")
                 if thumb_path:
@@ -1261,6 +1299,14 @@ class Database:
                     decoded["thumb_url"] = thumb_url
                 if original_url:
                     decoded["original_url"] = original_url
+                if original_filename:
+                    decoded["original_filename"] = original_filename
+                if mime_type:
+                    decoded["mime_type"] = mime_type
+                if isinstance(file_size, int) and file_size >= 0:
+                    decoded["file_size"] = file_size
+                if isinstance(duration_sec, int) and duration_sec >= 0:
+                    decoded["duration_sec"] = duration_sec
                 if isinstance(width, int) and width > 0:
                     decoded["width"] = width
                 if isinstance(height, int) and height > 0:
@@ -1902,14 +1948,20 @@ class Database:
         media_type: Optional[str] = None,
         media_file_id: Optional[str] = None,
         media_path: Optional[str] = None,
+        original_filename: Optional[str] = None,
+        mime_type: Optional[str] = None,
+        file_size: Optional[int] = None,
+        duration_sec: Optional[int] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
     ) -> int:
         """Создаёт новое желание."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.execute('''
-                    INSERT INTO wishes (user_id, content, media_type, media_file_id, media_path)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (user_id, content, media_type, media_file_id, media_path))
+                    INSERT INTO wishes (user_id, content, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (user_id, content, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height))
                 conn.commit()
                 wish_id = cursor.lastrowid
                 logger.info(f"Добавлено желание #{wish_id} пользователя {user_id}")
@@ -1925,6 +1977,12 @@ class Database:
         media_type: Optional[str] = None,
         media_file_id: Optional[str] = None,
         media_path: Optional[str] = None,
+        original_filename: Optional[str] = None,
+        mime_type: Optional[str] = None,
+        file_size: Optional[int] = None,
+        duration_sec: Optional[int] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
     ) -> bool:
         """Обновляет текст и медиа желания"""
         try:
@@ -1935,9 +1993,15 @@ class Database:
                         media_type = ?,
                         media_file_id = ?,
                         media_path = ?,
+                        original_filename = ?,
+                        mime_type = ?,
+                        file_size = ?,
+                        duration_sec = ?,
+                        width = ?,
+                        height = ?,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE id = ?
-                ''', (content, media_type, media_file_id, media_path, wish_id))
+                ''', (content, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height, wish_id))
                 conn.commit()
                 logger.info(f"Обновлено желание #{wish_id}")
                 return True
@@ -2002,6 +2066,12 @@ class Database:
                     media_type=row['media_type'] if 'media_type' in keys else None,
                     media_file_id=row['media_file_id'] if 'media_file_id' in keys else None,
                     media_path=row['media_path'] if 'media_path' in keys else None,
+                    original_filename=row['original_filename'] if 'original_filename' in keys else None,
+                    mime_type=row['mime_type'] if 'mime_type' in keys else None,
+                    file_size=row['file_size'] if 'file_size' in keys else None,
+                    duration_sec=row['duration_sec'] if 'duration_sec' in keys else None,
+                    width=row['width'] if 'width' in keys else None,
+                    height=row['height'] if 'height' in keys else None,
                     created_at=row['created_at'],
                     updated_at=row['updated_at'],
                     status=(row['status'] if 'status' in keys else None) or 'created',
@@ -2031,6 +2101,12 @@ class Database:
                         media_type=row['media_type'] if keys and 'media_type' in keys else None,
                         media_file_id=row['media_file_id'] if keys and 'media_file_id' in keys else None,
                         media_path=row['media_path'] if keys and 'media_path' in keys else None,
+                        original_filename=row['original_filename'] if keys and 'original_filename' in keys else None,
+                        mime_type=row['mime_type'] if keys and 'mime_type' in keys else None,
+                        file_size=row['file_size'] if keys and 'file_size' in keys else None,
+                        duration_sec=row['duration_sec'] if keys and 'duration_sec' in keys else None,
+                        width=row['width'] if keys and 'width' in keys else None,
+                        height=row['height'] if keys and 'height' in keys else None,
                         created_at=row['created_at'],
                         updated_at=row['updated_at'],
                         status=(row['status'] if keys and 'status' in keys else None) or 'created',
@@ -5495,6 +5571,12 @@ class Database:
         media_type: Optional[str] = None,
         media_file_id: Optional[str] = None,
         media_path: Optional[str] = None,
+        original_filename: Optional[str] = None,
+        mime_type: Optional[str] = None,
+        file_size: Optional[int] = None,
+        duration_sec: Optional[int] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
         is_recurring: int = 0,
     ) -> int:
         """Добавляет ожидаемое событие (описание может быть HTML, с медиа как у воспоминаний)."""
@@ -5502,9 +5584,9 @@ class Database:
             with self._get_connection() as conn:
                 cursor = conn.execute('''
                     INSERT INTO scheduled_events
-                    (user_id, title, description, event_datetime, media_type, media_file_id, media_path, is_recurring)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (user_id, title, description or "", event_datetime, media_type, media_file_id, media_path, is_recurring))
+                    (user_id, title, description, event_datetime, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height, is_recurring)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (user_id, title, description or "", event_datetime, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height, is_recurring))
                 conn.commit()
                 event_id = cursor.lastrowid
                 logger.info(f"Добавлено событие #{event_id} пользователем {user_id}")
@@ -5536,6 +5618,12 @@ class Database:
                     media_type=d.get('media_type'),
                     media_file_id=d.get('media_file_id'),
                     media_path=d.get('media_path'),
+                    original_filename=d.get('original_filename'),
+                    mime_type=d.get('mime_type'),
+                    file_size=d.get('file_size'),
+                    duration_sec=d.get('duration_sec'),
+                    width=d.get('width'),
+                    height=d.get('height'),
                     is_recurring=d.get('is_recurring', 0) if d.get('is_recurring') is not None else 0,
                 )
         except Exception as e:
@@ -5658,7 +5746,7 @@ class Database:
 
     def update_scheduled_event(self, event_id: int, **kwargs) -> bool:
         """Обновляет событие (в т.ч. description, media_type, media_file_id, media_path)."""
-        allowed = ['title', 'description', 'event_datetime', 'media_type', 'media_file_id', 'media_path', 'is_recurring']
+        allowed = ['title', 'description', 'event_datetime', 'media_type', 'media_file_id', 'media_path', 'original_filename', 'mime_type', 'file_size', 'duration_sec', 'width', 'height', 'is_recurring']
         updates = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
         if not updates:
             return False

@@ -260,10 +260,63 @@
     if (!src) return null;
     var thumb = _mcThumbUrl(item) || src;
     var type = String(item.type || item.media_type || '').trim().toLowerCase();
-    var name = String(item.name || item.filename || item.media_name || '').trim() || _mcFileNameFromUrl(src);
+    var name = String(item.original_filename || item.name || item.filename || item.media_name || '').trim() || _mcFileNameFromUrl(src);
     var ext = _mcExtFromName(name || src);
     var kind = _mcKind(type, ext);
-    return { src: src, thumb: thumb, type: type, name: name, ext: ext, kind: kind };
+    return {
+      src: src, thumb: thumb, type: type, name: name, ext: ext, kind: kind,
+      mimeType: String(item.mime_type || '').trim(),
+      fileSize: Number.isFinite(Number(item.file_size)) ? Number(item.file_size) : null,
+      durationSec: Number.isFinite(Number(item.duration_sec)) ? Number(item.duration_sec) : null,
+      width: Number.isFinite(Number(item.width)) ? Number(item.width) : null,
+      height: Number.isFinite(Number(item.height)) ? Number(item.height) : null
+    };
+  }
+
+  function _mcFmtSize(bytes) {
+    var value = Number(bytes);
+    if (!isFinite(value) || value < 0) return '';
+    if (value < 1024) return Math.round(value) + ' Б';
+    var units = ['КБ','МБ','ГБ','ТБ'];
+    var size = value / 1024;
+    var idx = 0;
+    while (size >= 1024 && idx < units.length - 1) { size /= 1024; idx += 1; }
+    return size.toFixed(size >= 10 ? 0 : 1) + ' ' + units[idx];
+  }
+
+  function _mcFmtResolution(w, h) {
+    w = Number(w); h = Number(h);
+    if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return '';
+    return Math.round(w) + '×' + Math.round(h);
+  }
+
+  function _mcMetaLines(media) {
+    if (!media) return [];
+    var lines = [];
+    var duration = (isFinite(media.durationSec) && media.durationSec >= 0) ? _mcFmtDuration(media.durationSec) : '';
+    var resolution = _mcFmtResolution(media.width, media.height);
+    var size = _mcFmtSize(media.fileSize);
+    if (media.kind === 'photo') {
+      if (resolution) lines.push(resolution);
+      if (size) lines.push(size);
+      return lines;
+    }
+    if (media.kind === 'video') {
+      if (duration) lines.push(duration);
+      if (resolution) lines.push(resolution);
+      if (size) lines.push(size);
+      return lines;
+    }
+    if (media.kind === 'audio') {
+      if (duration) lines.push(duration);
+      if (size) lines.push(size);
+      return lines;
+    }
+    if (media.name) lines.push(media.name);
+    if (size) lines.push(size);
+    if (media.ext) lines.push('.' + media.ext.toUpperCase());
+    if (media.mimeType) lines.push(media.mimeType);
+    return lines;
   }
 
   // ── Media viewer state + core functions ───────────────────────────────────
@@ -537,14 +590,23 @@
       ui.action.kind.textContent = isArchive ? '📦 ' + _t('mediaArchive') : '📄 ' + _t('mediaDocument');
       ui.action.title.textContent = media.name || _mcFileNameFromUrl(media.src) || _t('mediaDocument');
     }
-    ui.action.meta.textContent = '';
-    if (kind === 'video' || kind === 'audio') {
-      _mcGetDuration(media.src, function (dur) {
-        if (_vs.media === media && dur && isFinite(dur))
-          ui.action.meta.textContent = _mcFmtDuration(dur);
+    ui.action.meta.innerHTML = '';
+    var renderMeta = function () {
+      ui.action.meta.innerHTML = '';
+      _mcMetaLines(media).forEach(function (line) {
+        var row = document.createElement('div');
+        row.textContent = line;
+        ui.action.meta.appendChild(row);
       });
-    } else if (ext) {
-      ui.action.meta.textContent = '.' + ext.toUpperCase();
+    };
+    renderMeta();
+    if ((kind === 'video' || kind === 'audio') && !media.durationSec) {
+      _mcGetDuration(media.src, function (dur) {
+        if (_vs.media === media && dur && isFinite(dur)) {
+          media.durationSec = Math.round(dur);
+          renderMeta();
+        }
+      });
     }
     ui.action.preview.innerHTML = '';
     if (kind === 'photo') {

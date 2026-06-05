@@ -5,7 +5,7 @@ import hashlib
 import base64
 import secrets
 
-from typing import Any, Optional
+from typing import Any, Optional, Dict
 
 import aiohttp
 

@@ -1742,7 +1742,7 @@ def _event_to_public_dict(e: ScheduledEvent, timezone_id: str | None = None) -> 
 
     user = db.get_user(e.user_id) or {}
 
-    display_name = db.get_display_name(e.user_id) if e.user_id else ""
+    user_display_name = db.get_display_name(e.user_id) if e.user_id else ""
 
     event_utc = _event_datetime_to_utc(e.event_datetime or "", e.user_id)
 
@@ -1750,7 +1750,7 @@ def _event_to_public_dict(e: ScheduledEvent, timezone_id: str | None = None) -> 
 
     media_url = f"/media/{Path(e.media_path).name}" if e.media_path else None
     preview_url = _thumb_url_for(e.media_path) if e.media_type == "photo" else media_url
-    display_name = _display_filename_from_path(e.media_path, getattr(e, "original_filename", None))
+    media_display_name = _display_filename_from_path(e.media_path, getattr(e, "original_filename", None))
     return {
 
         "id": e.id,
@@ -1763,7 +1763,7 @@ def _event_to_public_dict(e: ScheduledEvent, timezone_id: str | None = None) -> 
 
         "last_name": user.get("last_name"),
 
-        "display_name": display_name,
+        "display_name": user_display_name,
 
         "title": e.title,
 
@@ -1787,10 +1787,10 @@ def _event_to_public_dict(e: ScheduledEvent, timezone_id: str | None = None) -> 
         "preview_url": preview_url,
         "thumb_url": preview_url,
         "original_url": media_url,
-        "name": display_name,
-        "filename": display_name,
+        "name": media_display_name,
+        "filename": media_display_name,
         "stored_filename": Path(e.media_path).name if e.media_path else None,
-        "original_filename": display_name,
+        "original_filename": media_display_name,
         "mime_type": getattr(e, "mime_type", None),
         "file_size": getattr(e, "file_size", None),
         "duration_sec": getattr(e, "duration_sec", None),

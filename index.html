@@ -5486,16 +5486,13 @@
       }
 
       function _getAIVisitorSig() {
-        try { return localStorage.getItem(AI_VISITOR_SIG_STORAGE_KEY) || ''; } catch(e) { return ''; }
+        try { return getCookie('visitor_sig') || ''; } catch(e) { return ''; }
       }
 
       function _setAIAuth(sessionToken, visitorSig) {
         try {
           if (sessionToken) localStorage.setItem(AI_SESSION_STORAGE_KEY, sessionToken);
-          if (visitorSig) {
-            localStorage.setItem(AI_VISITOR_SIG_STORAGE_KEY, visitorSig);
-            setCookie('visitor_sig', visitorSig, 365);
-          }
+          // visitor_sig is set server-side as HttpOnly cookie; do not store in localStorage
         } catch(e) {}
       }
 
@@ -13463,6 +13460,15 @@
         let showInvalidTokenModalOnStart = false;
         const _urlParams = new URLSearchParams(window.location.search);
         const _urlToken = _urlParams.get('token');
+        // Remove token from URL immediately — before any fetch or logging
+        // This prevents token leakage into browser history and Referer headers
+        if (_urlToken) {
+          const _cleanParams = new URLSearchParams(window.location.search);
+          _cleanParams.delete('token');
+          const _cleanSearch = _cleanParams.toString();
+          const _cleanUrl = window.location.pathname + (_cleanSearch ? '?' + _cleanSearch : '') + window.location.hash;
+          history.replaceState(null, '', _cleanUrl);
+        }
         if (_urlToken) {
           const existingRoleBeforeToken = getCurrentRole();
           const existingVidBeforeToken = getCookie('visitor_id');
@@ -13484,9 +13490,6 @@
             token_auth_result: null,
             treated_as: (existingRoleBeforeToken && existingVidBeforeToken) ? "logged-in" : "logged-out"
           };
-          console.log(`[auth-debug:${authDebugId}] Token detected:`, _urlToken.substring(0, 4) + '...');
-          console.log(`[auth-debug:${authDebugId}] existingRoleBeforeToken:`, existingRoleBeforeToken);
-          console.log(`[auth-debug:${authDebugId}] existingVidBeforeToken:`, existingVidBeforeToken);
 
           // ANY existing role means the user believes they are logged in.
           // Even if visitor_id is missing (e.g. cleared or expired), we must fail-closed 
@@ -13670,25 +13673,15 @@
             }
           }
 
-          debugState.should_consume_token = shouldConsumeToken;
-          try {
-            await fetch('/api/auth_debug_log', {
-              method: 'POST',
-              headers: withOptionalApiKey({ 'Content-Type': 'application/json' }),
-              body: JSON.stringify(debugState),
-              keepalive: true
-            });
-          } catch(e) {}
 
-          // Убираем токен и rebind из URL без перезагрузки страницы
+          // Remove rebind param from URL if present
           const isRebind = _urlParams.get('rebind') === '1';
-          if (isRebind) _urlParams.delete('rebind');
-          if (!showInvalidTokenModalOnStart) {
-            _urlParams.delete('token');
+          if (isRebind) {
+            _urlParams.delete('rebind');
+            const _rebindSearch = _urlParams.toString();
+            const _rebindUrl = window.location.pathname + (_rebindSearch ? '?' + _rebindSearch : '') + window.location.hash;
+            history.replaceState(null, '', _rebindUrl);
           }
-          const _newSearch = _urlParams.toString();
-          const _newUrl = window.location.pathname + (_newSearch ? '?' + _newSearch : '') + window.location.hash;
-          history.replaceState(null, '', _newUrl);
 
           if (tokenValidationFailed) {
             setCookie(ROLE_COOKIE_NAME, '', -1);

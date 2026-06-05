@@ -988,10 +988,8 @@ function _authHeaders() {
   const h = {};
   const vid = _getCookie('visitor_id');
   if (vid) h['X-Visitor-Id'] = vid;
-  try {
-    const sig = localStorage.getItem('ai_visitor_sig');
-    if (sig) h['X-Visitor-Signature'] = sig;
-  } catch(e) {}
+  const sig = _getCookie('visitor_sig');
+  if (sig) h['X-Visitor-Signature'] = sig;
   return h;
 }
 
@@ -1313,20 +1311,31 @@ function loadSessions() {
   });
 }
 
+function _esc(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderActiveSessions(sessions) {
   const container = document.getElementById('sessionsDynamicContainer');
   if (!sessions.length) {
     container.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--text-3);padding:20px;">${_t('profUnknownDevice')}</div>`;
     return;
   }
-  
+
   const current = sessions.find(s => s.is_current);
   const others = sessions.filter(s => !s.is_current);
-  
+
   let html = '';
-  
+
   if (current) {
-    const geo = [current.city, current.country].filter(Boolean).join(', ') || '—';
+    const geo = _esc([current.city, current.country].filter(Boolean).join(', ') || '—');
+    const uaPretty = _esc(current.ua_pretty || _t('profUnknownDevice'));
+    const ip = _esc(current.ip_server || current.ip_webrtc || current.ip || '—');
     html += `
       <div class="section-label" data-i18n="profThisDevice">Это устройство</div>
       <div class="card" style="margin-bottom:20px;">
@@ -1335,15 +1344,15 @@ function renderActiveSessions(sessions) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/></svg>
           </div>
           <div class="item-body">
-            <div class="item-title">${current.ua_pretty || _t('profUnknownDevice')}</div>
-            <div class="item-sub">${geo} • ${current.ip_server || current.ip_webrtc || current.ip || '—'}</div>
+            <div class="item-title">${uaPretty}</div>
+            <div class="item-sub">${geo} • ${ip}</div>
           </div>
           <div class="item-right"><span class="badge-success">Онлайн</span></div>
         </div>
       </div>
     `;
   }
-  
+
   if (others.length > 0) {
     html += `
       <div class="section-label" data-i18n="profActiveDevices">Активные сессии</div>
@@ -1353,21 +1362,22 @@ function renderActiveSessions(sessions) {
           const iconSvg = isMobile
             ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`
             : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
-          
-          const geo = [s.city, s.country].filter(Boolean).join(', ') || '—';
-          const timeStr = s.last_seen_utc ? _formatActivityTime(s.last_seen_utc) : '';
-          
-          // Escaping device data safely
+
+          const geo = _esc([s.city, s.country].filter(Boolean).join(', ') || '—');
+          const uaPretty = _esc(s.ua_pretty || _t('profUnknownDevice'));
+          const ip = _esc(s.ip_server || s.ip_webrtc || s.ip || '—');
+          const timeStr = _esc(s.last_seen_utc ? _formatActivityTime(s.last_seen_utc) : '');
+
           const sJson = JSON.stringify(s).replace(/"/g, '&quot;');
-          
+
           return `
             <button class="card-item" onclick="openDeviceModal(${sJson})">
               <div class="item-icon icon-slate">
                 ${iconSvg}
               </div>
               <div class="item-body">
-                <div class="item-title">${s.ua_pretty || _t('profUnknownDevice')}</div>
-                <div class="item-sub">${geo} • ${s.ip_server || s.ip_webrtc || s.ip || '—'}</div>
+                <div class="item-title">${uaPretty}</div>
+                <div class="item-sub">${geo} • ${ip}</div>
               </div>
               <div class="item-right">
                 <span style="font-size: 11.2px; color: var(--text-3); font-weight: 400;">${timeStr}</span>
@@ -1379,9 +1389,9 @@ function renderActiveSessions(sessions) {
       </div>
     `;
   }
-  
+
   container.innerHTML = html;
-  
+
   // Re-apply I18N to ensure the labels translate
   _applyI18n();
 }

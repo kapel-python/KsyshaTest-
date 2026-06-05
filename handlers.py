@@ -2427,6 +2427,26 @@ async def _trigger_local_restart() -> tuple[bool, str]:
         pass
 
     host_root_dir = (getattr(config, "RESTART_HOST_ROOT_DIR", "") or RESTART_HOST_ROOT_DIR).strip()
+
+    # Убеждаемся, что образ для runner собран локально
+    build_check = subprocess.run(
+        ["docker", "inspect", RESTART_RUNNER_IMAGE],
+        capture_output=True,
+    )
+    if build_check.returncode != 0:
+        try:
+            proc_build = await asyncio.create_subprocess_exec(
+                "docker", "build", "-t", RESTART_RUNNER_IMAGE, "-f", f"{host_root_dir}/Dockerfile", host_root_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, build_err = await proc_build.communicate()
+            if proc_build.returncode != 0:
+                detail = (build_err or b"").decode("utf-8", errors="ignore").strip() or "build failed"
+                return False, detail
+        except Exception as e:
+            return False, str(e)
+
     runner_name = f"{RESTART_RUNNER_PREFIX}{int(time.time())}"
     cmd = [
         "docker", "run", "-d", "--rm",

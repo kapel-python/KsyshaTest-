@@ -475,7 +475,12 @@ def _verify_visitor_signature(visitor_id: str, signature: str) -> bool:
 
 def _check_ai_request_auth(request: web.Request, visitor_id: str) -> bool:
     session_token = (request.headers.get("X-AI-Session") or "").strip()
-    visitor_sig = (request.headers.get("X-Visitor-Signature") or "").strip()
+    # visitor_sig is HttpOnly — read from cookie first, fall back to header for clients
+    # that still send it explicitly (e.g. non-browser API callers)
+    visitor_sig = (
+        (request.cookies.get("visitor_sig") or "").strip()
+        or (request.headers.get("X-Visitor-Signature") or "").strip()
+    )
     if not _verify_ai_session(session_token, visitor_id):
         return False
     if not _verify_visitor_signature(visitor_id, visitor_sig):
@@ -3866,7 +3871,10 @@ async def refresh_ai_session(request: web.Request) -> web.Response:
     except Exception:
         payload = {}
     visitor_id = _pstr(payload.get("visitor_id")).strip()
-    visitor_sig = (request.headers.get("X-Visitor-Signature") or "").strip()
+    visitor_sig = (
+        (request.cookies.get("visitor_sig") or "").strip()
+        or (request.headers.get("X-Visitor-Signature") or "").strip()
+    )
     if not visitor_id or not visitor_sig:
         return _add_cors_headers(web.json_response({"ok": False, "error": "visitor_required"}, status=401))
     if not _verify_visitor_signature(visitor_id, visitor_sig):
@@ -4511,6 +4519,10 @@ def _ensure_monitor_task() -> None:
 
 async def ws_admin_monitor(request: web.Request) -> web.WebSocketResponse:
     """GET /api/admin/monitor/ws — WebSocket для системного мониторинга в реальном времени."""
+    if not _check_api_secret(request):
+        ip = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+        logger.warning("ws_admin_monitor: unauthorized connection attempt from ip=%s", ip)
+        raise web.HTTPForbidden()
     ws = web.WebSocketResponse(heartbeat=15)
     await ws.prepare(request)
     _admin_monitor_clients.add(ws)
@@ -5156,12 +5168,7 @@ async def token_check(request: web.Request) -> web.Response:
     }))
 
 async def auth_debug_log(request: web.Request) -> web.Response:
-    try:
-        payload = await request.json()
-        if isinstance(payload, dict):
-            logger.warning("[auth-debug-client] %s", payload)
-    except Exception:
-        pass
+    # Endpoint kept for backward compatibility but no longer logs anything
     return _add_cors_headers(web.json_response({"ok": True}))
 
 async def token_auth(request: web.Request) -> web.Response:
@@ -5438,54 +5445,69 @@ async def site_save_settings(request: web.Request) -> web.Response:
 
 
 async def memory_unlock(request: web.Request) -> web.Response:
-
     """Проверяет пароль для приватного воспоминания (тип privacy_type = password)."""
 
     if not _check_api_secret(request):
-
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
-    try:
+    # Resolve caller's identity — required for ownership check and rate limiting
+    visitor_id = _get_trusted_visitor_id(request, payload=None)
+    if not visitor_id:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
+    # Per-visitor rate limit: 5 attempts per 10 minutes
+    now = time.monotonic()
+    bucket = _unlock_rl_buckets[visitor_id]
+    _unlock_rl_buckets[visitor_id] = [t for t in bucket if now - t < _UNLOCK_RL_WINDOW]
+    if len(_unlock_rl_buckets[visitor_id]) >= _UNLOCK_RL_LIMIT:
+        logger.warning("memory_unlock rate limit hit: visitor_id=%s attempts=%d", visitor_id, len(_unlock_rl_buckets[visitor_id]))
+        return _add_cors_headers(web.json_response({"ok": False, "error": "rate_limited"}, status=429))
+    _unlock_rl_buckets[visitor_id].append(now)
+
+    try:
         payload = await request.json()
         if not isinstance(payload, dict):
             payload = {}
-
     except web.HTTPException:
-
         raise
-
     except Exception:
-
         payload = {}
 
     memory_id = payload.get("memory_id")
-
     answer = _pstr(payload.get("answer")).strip()
 
     if not isinstance(memory_id, int):
-
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_memory_id"}))
 
+    # Ownership check: memory must belong to a member of caller's couple
+    caller_uid = _visitor_to_user_id(visitor_id)
+    caller_couple = db.get_couple_by_user(caller_uid) if caller_uid else None
+    if not caller_couple:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "access_denied"}, status=403))
+
     privacy = db.get_memory_privacy(memory_id)
+    owner_id = privacy.get("owner_id")
+
+    # Verify owner_id is in the caller's couple — prevents cross-couple enumeration
+    couple_members = {caller_couple.get("user1_id"), caller_couple.get("user2_id")} - {None}
+    if not owner_id or owner_id not in couple_members:
+        # Return same response as wrong password to avoid acting as an oracle
+        return _add_cors_headers(web.json_response({"ok": False, "error": "access_denied"}, status=403))
 
     p_type = (privacy.get("privacy_type") or "").strip()
-
     correct = (privacy.get("privacy_answer") or "").strip()
 
     if p_type != "password" or not correct:
-
-        return _add_cors_headers(web.json_response({"ok": False, "error": "not_password_protected"}))
+        return _add_cors_headers(web.json_response({"ok": False, "error": "access_denied"}, status=403))
 
     if not answer:
-
         return _add_cors_headers(web.json_response({"ok": False, "error": "empty_answer"}))
 
     if db.verify_privacy_answer(correct, answer):
-
         return _add_cors_headers(web.json_response({"ok": True, "memory_id": memory_id}))
 
-    return _add_cors_headers(web.json_response({"ok": False, "error": "wrong_answer"}))
+    return _add_cors_headers(web.json_response({"ok": False, "error": "access_denied"}))
+
 
 async def memory_view_start(request: web.Request) -> web.Response:
 
@@ -7084,6 +7106,11 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     most_visits = db.get_most_visits_in_day(visitor_id)
 
+    # Escape all user-controlled strings before they are injected into HTML
+    fav_mem_title     = _html_module.escape(fav_mem_title)
+    fav_mem_cat_label = _html_module.escape(fav_mem_cat_label)
+    device_str        = _html_module.escape(device_str)
+
     record_rows = []
 
     # 1) Самый длинный визит (день с макс. временем просмотра)
@@ -7301,6 +7328,12 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 # ── 1. Sliding window buckets ─────────────────────────────────────────
 # { "ip:prefix": [monotonic_timestamp, ...] }
 _rl_buckets: dict = defaultdict(list)
+
+# Per-visitor rate limit for memory_unlock (brute-force protection)
+# { visitor_id: [monotonic_timestamp, ...] }
+_unlock_rl_buckets: dict = defaultdict(list)
+_UNLOCK_RL_WINDOW  = 600   # 10 minutes
+_UNLOCK_RL_LIMIT   = 5     # max 5 attempts per visitor per window
 
 # (path_prefix, max_requests, window_seconds, enforce_ban)
 # Порядок важен — первый совпавший префикс применяется

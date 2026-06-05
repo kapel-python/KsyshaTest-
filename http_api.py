@@ -3926,7 +3926,7 @@ async def admin_page(request: web.Request) -> web.Response:
             return web.Response(text="cannot read admin.html", status=500)
         html = html.replace("{{API_SECRET_KEY}}", "")
         html = html.replace("{{ADMIN_CHALLENGE_MODE}}", challenge_mode)
-        return web.Response(text=html, content_type="text/html", charset="utf-8", status=200)
+        return web.Response(text=html, content_type="text/html", charset="utf-8", status=401)
 
     project_root = Path(__file__).resolve().parent
     admin_path = project_root / "admin.html"
@@ -8601,17 +8601,10 @@ async def stars_send(request: web.Request) -> web.Response:
     recipient = "partner" if sender == "creator" else "creator"
     new_total = _stars_add(recipient, count, couple_id)
 
-    # Также пушим через WS если получатель онлайн
-    payload_ws = json.dumps({"type": "star_sent", "from": sender, "count": count})
-    dead = []
-    for ws in _ws_clients(couple_id, recipient):
-        try:
-            await ws.send_str(payload_ws)
-        except Exception:
-            dead.append(ws)
-    for ws in dead:
-        _ws_discard(couple_id, recipient, ws)
-
+    # WS-push перенесён на сторону клиента (btnSend click → _wsSendRaw):
+    # клиент посылает star_sent через WS немедленно (realtime),
+    # а API занимается только записью в БД (персистентность).
+    # Двойной WS-пуш отсюда убран чтобы исключить дублирование на стороне получателя.
     logger.info("stars_send: %s → %s (count=%d, total=%d)", sender, recipient, count, new_total)
     return _add_cors_headers(web.json_response({"ok": True, "pending": new_total}))
 

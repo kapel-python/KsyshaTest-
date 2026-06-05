@@ -1781,7 +1781,15 @@ function initSkyWS() {
     return;
   }
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url   = proto + '//' + location.host + '/ws/site?v=' + encodeURIComponent(role);
+  // WS URL должен содержать visitor_id (не role name).
+  // _get_trusted_visitor_id на сервере имеет tenant isolation:
+  // если ?v=claimed не совпадает с signed session_vid → соединение блокируется.
+  // Поэтому передаём настоящий visitor_id из cookie.
+  const _wsVid = (() => {
+    const m = document.cookie.match(/(?:^|;)\s*visitor_id=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : role;  // fallback на role если cookie нет
+  })();
+  const url   = proto + '//' + location.host + '/ws/site?v=' + encodeURIComponent(_wsVid);
   _log('WS', 'connecting to ' + url);
   try {
     _wsConn = new WebSocket(url);
@@ -2028,6 +2036,12 @@ document.getElementById('btnSend').addEventListener('click', () => {
   _log('Stars', 'btnSend clicked, wsState=' + (_wsConn ? _wsConn.readyState : 'null'));
   launchStar();
   showStarNotif();
+  // Мгновенный WS-push к получателю на каждый клик (не ждём 2с таймера).
+  // Сервер relay'ит через _ws_clients получателю — это путь realtime.
+  // API внутри showStarNotif пишет в БД без WS push (убран из stars_send),
+  // поэтому двойной доставки нет.
+  const _sndRole = (window.SKY_CFG && window.SKY_CFG.viewerRole) || getUserRole();
+  _wsSendRaw({ type: 'star_sent', from: _sndRole, count: 1 });
 });
 
 // ── STAR INBOX ────────────────────────────────────────────────────

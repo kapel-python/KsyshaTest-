@@ -1795,14 +1795,15 @@ function initSkyWS() {
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === 'star_sent') {
-          const myRole     = getUserRole();
+          // Определяем свою роль из SKY_CFG (сервер-авторитетный) чтобы не ошибиться
+          const myRole     = (window.SKY_CFG && window.SKY_CFG.viewerRole) || getUserRole();
           const senderRole = msg.from || '';
           _log('WS', 'star_sent myRole=' + myRole + ' senderRole=' + senderRole + ' count=' + msg.count);
-          if (myRole === senderRole) { _log('WS', 'ignoring own stars'); return; }
+          if (myRole && senderRole && myRole === senderRole) { _log('WS', 'ignoring own stars'); return; }
           const count = parseInt(msg.count) || 1;
           const from  = senderRole === 'creator'
-            ? (_skyCfg.leftName  || 'создателя')
-            : (_skyCfg.rightName || 'партнёра');
+            ? (_skyCfg.leftName  || 'собеседника')
+            : (_skyCfg.rightName || 'собеседника');
           const skyView = document.getElementById('skyView');
           if (skyView && skyView.style.display !== 'none') {
             _log('WS', 'sky open → showStarInbox');
@@ -1855,7 +1856,12 @@ function _wsSendRaw(data) {
 function _siteWsSend(data) { _wsSendRaw(data); }
 
 // ── Счётчик отправленных звёзд (до подтверждения партнёром) ──────
-function _sentKey() { return 'sky_sent_total_' + getUserRole(); }
+function _sentKey() {
+  // Ключ строится из viewerRole (сервер-авторитетный) чтобы он не менялся
+  // при смене cookies. Fallback — getUserRole(), но SKY_CFG.viewerRole приоритетнее.
+  const role = (window.SKY_CFG && window.SKY_CFG.viewerRole) || getUserRole() || 'unknown';
+  return 'sky_sent_total_' + role;
+}
 
 function _addSentTotal(n) {
   const cur = parseInt(localStorage.getItem(_sentKey()) || '0') + n;
@@ -1895,26 +1901,49 @@ function _updateSentCounterUI(n) {
 }
 
 function _initSentCounter() {
+  // Быстрый рендер из localStorage — исправим значение после ответа сервера
   const cur = parseInt(localStorage.getItem(_sentKey()) || '0');
   _updateSentCounterUI(cur);
 }
 
-// ── Проверка pending звёзд через сервер ──────────────────────────
-// Вызывается при открытии неба — проверяем есть ли звёзды в БД
-async function _checkInboxOnLoad() {
-  const role = getUserRole();
-  if (!role) return;
-  _log('Stars', 'checkInboxOnLoad: checking server');
+// ── Синхронизация состояния звёзд с сервером ─────────────────────
+// Один запрос на загрузке: получаем и входящие и исходящие pending звёзды.
+// Это гарантирует что счётчик отправителя всегда соответствует БД,
+// даже если WS-событие stars_seen было пропущено при перезагрузке.
+async function _syncStarsOnLoad() {
+  _log('Stars', 'syncStarsOnLoad: checking server');
   try {
-    const d = await _apiFetch('/api/stars/pending?role=' + role);
-    _log('Stars', 'server pending: count=' + d.count);
-    if (d.ok && d.count > 0) {
+    const d = await _apiFetch('/api/stars/pending');
+    _log('Stars', 'server state: incoming=' + d.count + ' outgoing(partner_count)=' + d.partner_count);
+    if (!d.ok) return;
+
+    // 1. Входящие звёзды (для нас как получателя)
+    if (d.count > 0) {
       setTimeout(() => {
-        showStarInbox(d.count, d.from || _skyCfg.leftName || 'создателя');
+        showStarInbox(d.count, d.from || _skyCfg.leftName || '');
       }, 800);
     }
-  } catch(e) { _logErr('Stars', 'checkInboxOnLoad error: ' + e); }
+
+    // 2. Исходящие звёзды (отправленные нами, партнёр ещё не подтвердил)
+    // partner_count = сколько звёзд на стороне партнёра ждут подтверждения
+    const serverSent = typeof d.partner_count === 'number' ? d.partner_count : -1;
+    if (serverSent >= 0) {
+      const localSent = parseInt(localStorage.getItem(_sentKey()) || '0');
+      if (serverSent === 0 && localSent > 0) {
+        // Партнёр уже видел звёзды (partner_count=0), но localStorage не обновился
+        // (WS events был пропущен при перезагрузке). Сбрасываем.
+        _log('Stars', 'server says partner_count=0 but local=' + localSent + ' → clearing');
+        _clearSentTotal();
+      } else if (serverSent > 0 && localSent === 0) {
+        // У партнёра есть непрочитанные от нас, но localStorage потерян
+        _log('Stars', 'server says partner_count=' + serverSent + ' but local=0 → restoring');
+        localStorage.setItem(_sentKey(), String(serverSent));
+        _updateSentCounterUI(serverSent);
+      }
+    }
+  } catch(e) { _logErr('Stars', 'syncStarsOnLoad error: ' + e); }
 }
+
 
 // _startInboxPoll / _stopInboxPoll — больше не нужны (сервер хранит), оставляем no-op
 function _startInboxPoll() {}
@@ -1933,7 +1962,7 @@ function showStarNotif() {
   const notif = document.getElementById('starNotif');
   const text  = document.getElementById('starNotifText');
   if (!notif || !text) { _logErr('Stars', 'starNotif elements not found!'); return; }
-  if (_starHideTimer) { clearTimeout(_starHideTimer); _starHideTimer = null; }
+  // Обновляем текст с актуальным накопленным счётчиком
   const myRole  = (window.SKY_CFG && window.SKY_CFG.viewerRole) || getUserRole();
   const partner = myRole === 'creator'
     ? (_skyCfg.rightName || 'собеседнику')
@@ -1942,17 +1971,18 @@ function showStarNotif() {
   text.textContent = n === 1 ? 'Звезда отправлена — ' + partner
     : (n <= 4 ? 'Отправлено ' + n + ' звезды — ' + partner : 'Отправлено ' + n + ' звёзд — ' + partner);
   notif.classList.add('visible');
-  // Снимаем снапшот и сбрасываем счётчик сразу — до таймера.
-  // Это исключает race если пользователь нажмёт ещё раз во время ожидания.
-  const total = _starCount;
-  _starCount = 0;
+  // Таймер перезапускается при каждом нажатии — это нормально.
+  // _starCount НЕ сбрасывается здесь: он накапливается пока таймер не сработает.
+  // Снапшот берётся только при срабатывании таймера.
+  if (_starHideTimer) { clearTimeout(_starHideTimer); _starHideTimer = null; }
   _starHideTimer = setTimeout(async () => {
     notif.classList.remove('visible');
     _starHideTimer = null;
-    _log('Stars', 'hide timer: sending total=' + total + ' via API');
-    // Единственный путь отправки — API.
-    // stars_send сам делает WS-push получателю. Клиентский WS send убран —
-    // он вызывал двойную доставку (сервер пушил И клиент пушил).
+    // Снапшот накопленного за всё время пока таймер перезапускался
+    const total = _starCount;
+    _starCount = 0;  // сбрасываем только здесь
+    _log('Stars', 'hide timer fired: sending total=' + total + ' via API');
+    if (total <= 0) return;
     try {
       const d = await _apiFetch('/api/stars/send', {
         method: 'POST',
@@ -1960,14 +1990,12 @@ function showStarNotif() {
       });
       _log('Stars', 'api/stars/send ok=' + d.ok + ' pending=' + d.pending);
       if (d.ok) {
-        // Счётчик отправленных обновляем только при успехе — нет успеха, нет счётчика
         _addSentTotal(total);
       } else {
         _logErr('Stars', 'api/stars/send returned ok=false: ' + JSON.stringify(d));
       }
     } catch(e) {
       _logErr('Stars', 'api/stars/send error: ' + e);
-      // При сетевой ошибке не обновляем счётчик — звезда не дошла
     }
   }, 2000);
 }
@@ -3051,9 +3079,9 @@ async function enterSky() {
   }
   _skyRafLoop();
   if (!_wsConn) initSkyWS();
-  _checkInboxOnLoad();
+  _initSentCounter();   // быстрый рендер из localStorage
+  _syncStarsOnLoad();   // асинхронная коррекция из БД (inbox + sent counter)
   _startInboxPoll();
-  _initSentCounter();
   _log('Sky', 'enterSky done, panel=' + _activePanel);
 }
 

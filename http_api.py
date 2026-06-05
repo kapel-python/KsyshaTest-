@@ -8646,10 +8646,15 @@ async def stars_pending(request: web.Request) -> web.Response:
     else:
         sender_name = None
 
+    # Также возвращаем сколько звёзд viewer отправил и партнёр ещё не подтвердил.
+    # Это нужно отправителю для синхронизации sent counter при загрузке страницы.
+    partner_count = _stars_get(sender_role, couple_id)
+
     return _add_cors_headers(web.json_response({
         "ok": True,
         "count": count,
         "from": sender_name,
+        "partner_count": partner_count,  # сколько отправленных viewer ещё ждут подтверждения
     }))
 
 

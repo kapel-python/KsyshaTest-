@@ -8938,7 +8938,11 @@
       }
 
       async function _runAIClearHistory() {
-        const modal = document.getElementById('aiModal');
+        const modal   = document.getElementById('aiModal');
+        const overlay = document.getElementById('aiOverlay');
+
+        // Блокируем клики на тёмный фон — ничто не должно закрыть модалку
+        if (overlay) overlay.style.pointerEvents = 'none';
 
         // --- Лоадер с блюром ---
         const loader = document.createElement('div');
@@ -8959,7 +8963,7 @@
             '<span style="width:8px;height:8px;background:#c850c0;border-radius:50%;animation:bounce 1.2s ease-in-out infinite;animation-delay:0.3s"></span>' +
           '</div>' +
           '<div style="color:#fff;font-size:0.9rem;font-weight:500;opacity:0.9">' + _ui('aiHistoryClearing') + '</div>';
-        if (modal) { modal.style.position = 'relative'; modal.appendChild(loader); }
+        if (modal) modal.appendChild(loader);
         requestAnimationFrame(() => { loader.style.opacity = '1'; });
 
         try {

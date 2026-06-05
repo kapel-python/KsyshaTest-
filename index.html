@@ -8991,28 +8991,14 @@
            document.body.appendChild(done);
         }
 
-        // 1 секунда — потом убираем галочку и чистим чат локально
+        // Небольшая пауза чтобы пользователь увидел галочку
         await new Promise(r => setTimeout(r, 1000));
-        if (done.parentNode) done.parentNode.removeChild(done);
 
-        // Очищаем историю ИИ без закрытия модалки
-        aiChatHistory = [];
-        _aiLastMsgDateKey = null;
-        const msgs = document.getElementById('aiMessages');
-        if (msgs) {
-           const keep = msgs.querySelectorAll('#welcomeDateSep, .msg.ai:first-of-type');
-           msgs.innerHTML = '';
-           keep.forEach(el => msgs.appendChild(el));
-        }
-        
-        const sug = document.getElementById('aiSuggestions');
-        if (sug) sug.style.display = 'flex';
+        // Ставим флаг — после перезагрузки автоматически открыть модалку ИИ
+        try { sessionStorage.setItem('__openAIAfterReload', '1'); } catch(e) {}
 
-        aiIsTyping = false;
-        const aiInp = document.getElementById('aiInput');
-        if (aiInp) { aiInp.value = ''; aiInp.style.height = 'auto'; aiInp.disabled = false; }
-        const aiBtn = document.getElementById('aiSendBtn');
-        if (aiBtn) aiBtn.disabled = false;
+        // Перезагружаем страницу — чистый старт, без скачков DOM
+        location.reload();
       }
 
       function toggleAISearch() {
@@ -13637,6 +13623,14 @@
           connectSiteWs();
 
           await startApp(isNew, storedTheme);
+
+          // Если удаление чата запросило перезагрузку — открываем модалку ИИ
+          try {
+            if (sessionStorage.getItem('__openAIAfterReload') === '1') {
+              sessionStorage.removeItem('__openAIAfterReload');
+              setTimeout(() => { openAI(); }, 300);
+            }
+          } catch(e) {}
 
           if (showInvalidTokenModalOnStart) {
             showInvalidTokenModal();

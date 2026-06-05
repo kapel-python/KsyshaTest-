@@ -5577,41 +5577,25 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
     .doc-back {{
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      font-size: 0.875rem;
+      gap: 6px;
+      font-size: 0.8rem;
       font-weight: 600;
       color: var(--muted);
       text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 10px;
+      padding: 5px 10px;
+      border-radius: 8px;
       border: 1.5px solid var(--pink-border);
       transition: color 0.18s, border-color 0.18s;
     }}
     .doc-back:hover {{ color: var(--accent); border-color: var(--accent); }}
-    .doc-logo {{
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--text);
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      letter-spacing: -0.02em;
-    }}
-    .doc-logo-dot {{
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--accent);
-      flex-shrink: 0;
-    }}
     .doc-theme-btn {{
-      width: 34px; height: 34px;
+      width: 32px; height: 32px;
       border-radius: 9px;
       border: 1.5px solid var(--pink-border);
       background: transparent;
       color: var(--muted);
       font-family: inherit;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: border-color 0.18s, color 0.18s;
@@ -5759,12 +5743,8 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
   <header class="doc-nav">
     <div class="doc-nav-inner">
       <a class="doc-back" href="/main" id="doc-back-btn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         На главную
-      </a>
-      <a class="doc-logo" href="/main">
-        <div class="doc-logo-dot"></div>
-        SureMemory
       </a>
       <button class="doc-theme-btn" id="docThemeBtn" aria-label="Переключить тему">
         <span class="icon-sun">☀️</span>

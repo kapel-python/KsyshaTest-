@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>История пары — SureMemory</title>
+<meta name="description" content="История вашей пары: воспоминания, события, желания и статистика">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Theme: same init as stats.html -->
+<script>
+(function(){
+  var theme = typeof localStorage !== 'undefined' && localStorage.getItem('memories_theme');
+  if (!theme && typeof window.matchMedia === 'function')
+    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+})();
+</script>
+
+<style>
+/* ── Colour tokens — exact copy of stats.html :root ── */
+:root, html.theme-light {
+  --bg:          #fdf6f9;
+  --surface:     #ffffff;
+  --accent:      #d43f8d;
+  --accent2:     #7c3aed;
+  --accent3:     #4158d0;
+  --pink-soft:   #fff0f7;
+  --pink-border: #fce4f2;
+  --text:        #1a1a2e;
+  --muted:       #9b7fa8;
+  --meta:        #c4a8cc;
+}
+html.theme-dark {
+  --bg:          #0d0b14;
+  --surface:     #18152a;
+  --text:        #f0ecff;
+  --muted:       #a090b8;
+  --meta:        #6a5880;
+  --pink-soft:   rgba(212,63,141,0.12);
+  --pink-border: rgba(212,63,141,0.18);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Фоновые глоу-пятна (mirrors stats.html body::before/::after) */
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(212,63,141,0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -150px; left: -150px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(65,88,208,0.07) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.page {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 0 16px 80px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Sticky header ── */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 10px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(253,246,249,0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--pink-border);
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+html.theme-dark .sticky-header {
+  background: rgba(13,11,20,0.82);
+}
+.sticky-header-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--pink-soft);
+  border: 1px solid var(--pink-border);
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s, background 0.15s;
+  text-decoration: none;
+}
+.back-btn:hover { transform: scale(1.08); background: var(--pink-border); }
+
+/* ── Hero section (mirrors stats.html .hero) ── */
+.hero {
+  padding: 44px 0 32px;
+  text-align: center;
+  position: relative;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: var(--pink-soft);
+  border: 1px solid var(--pink-border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 8vw, 2.8rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.hero-title em {
+  font-style: italic;
+  background: linear-gradient(135deg, #d43f8d, #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-amp {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem;
+  font-style: italic;
+  color: var(--muted);
+  margin: 6px 0;
+}
+.hero-sub {
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin-top: 14px;
+  line-height: 1.6;
+}
+.hero-sub span { display: block; }
+
+/* ── Counter-wrap (mirrors stats.html .counter-wrap) ── */
+.counter-wrap {
+  background: linear-gradient(135deg, #d43f8d 0%, #7c3aed 60%, #4158d0 100%);
+  border-radius: 28px;
+  padding: 28px 24px;
+  text-align: center;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.counter-wrap::before {
+  content: '';
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 180px; height: 180px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 50%;
+}
+.counter-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: -60px; left: -30px;
+  width: 150px; height: 150px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 50%;
+}
+.counter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  position: relative;
+}
+.counter-col {
+  padding: 0 6px;
+  border-right: 1px solid rgba(255,255,255,0.15);
+}
+.counter-col:last-child { border-right: none; }
+.counter-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.counter-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.65);
+}
+.counter-days {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.8);
+  position: relative;
+}
+.counter-days strong {
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ── Mini-card grid (mirrors stats.html .mini-grid) ── */
+.mini-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.mini-card {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 16px 14px;
+  border: 1.5px solid var(--pink-border);
+  position: relative;
+  overflow: hidden;
+}
+.mini-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 20px 20px 0 0;
+}
+.mini-card.mc1::before { background: linear-gradient(90deg, #ff9fd4, #d43f8d); }
+.mini-card.mc2::before { background: linear-gradient(90deg, #ffb347, #ff6b35); }
+.mini-card.mc3::before { background: linear-gradient(90deg, #7c3aed, #4158d0); }
+.mini-card.mc4::before { background: linear-gradient(90deg, #16a34a, #0d9488); }
+.mini-card.mc5::before { background: linear-gradient(90deg, #db2777, #be185d); }
+.mini-card.mc6::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.mini-card-icon { font-size: 1.3rem; margin-bottom: 6px; display: block; }
+.mini-card-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+.mini-card-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── Section title (mirrors stats.html .section-title) ── */
+.section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+  margin-top: 20px;
+}
+
+/* ── Cat bar (activity / category breakdown) ── */
+.cat-bar-card {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 20px 18px;
+  border: 1.5px solid var(--pink-border);
+  margin-bottom: 12px;
+}
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--pink-border);
+}
+.cat-row:last-child { border-bottom: none; padding-bottom: 0; }
+.cat-row:first-child { padding-top: 0; }
+.cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 96px;
+  flex-shrink: 0;
+}
+.cat-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: var(--pink-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.cat-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff9fd4, #d43f8d);
+  transition: width 0.8s cubic-bezier(.22,1,.36,1);
+}
+.cat-bar-fill.cf-orange { background: linear-gradient(90deg, #ffb347, #ff6b35); }
+.cat-bar-fill.cf-violet { background: linear-gradient(90deg, #7c3aed, #4158d0); }
+.cat-bar-fill.cf-green  { background: linear-gradient(90deg, #16a34a, #0d9488); }
+.cat-bar-fill.cf-rose   { background: linear-gradient(90deg, #db2777, #be185d); }
+.cat-cnt {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent);
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Memory card (mirrors stats.html .stat-card) ── */
+.memory-card {
+  background: var(--surface);
+  border-radius: 22px;
+  padding: 16px 16px 14px 20px;
+  border: 1.5px solid var(--pink-border);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.memory-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(212,63,141,0.1);
+}
+.memory-card-stripe {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 4px 0 0 4px;
+}
+.stripe-pink   { background: linear-gradient(180deg, #ff9fd4, #d43f8d); }
+.stripe-orange { background: linear-gradient(180deg, #ffb347, #ff6b35); }
+.stripe-violet { background: linear-gradient(180deg, #7c3aed, #4158d0); }
+.stripe-green  { background: linear-gradient(180deg, #16a34a, #0d9488); }
+.stripe-rose   { background: linear-gradient(180deg, #db2777, #be185d); }
+.stripe-amber  { background: linear-gradient(180deg, #f59e0b, #d97706); }
+
+.memory-card-body { flex: 1; min-width: 0; }
+
+.memory-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+.memory-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.cat-memories        { background: #fce7f3; color: #9d174d; }
+.cat-important_moments { background: #fef3c7; color: #92400e; }
+.cat-important_dates  { background: #ede9fe; color: #5b21b6; }
+.cat-events           { background: #fce7f3; color: #9d174d; }
+.cat-wishes           { background: #d1fae5; color: #065f46; }
+.cat-default          { background: #f3f0ff; color: #5b21b6; }
+
+.memory-date {
+  font-size: 0.7rem;
+  color: var(--meta);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.memory-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 5px;
+  word-break: break-word;
+}
+.memory-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.memory-text {
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.55;
+  word-break: break-word;
+}
+.memory-text.collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.toggle-text {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* ── Media preview inside card ── */
+.memory-media {
+  margin-top: 10px;
+}
+.media-photo {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+.media-video-wrap {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  max-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.media-video-thumb {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  opacity: 0.85;
+  display: block;
+}
+.media-play-btn {
+  position: absolute;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.92);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+.media-play-btn svg { color: #d43f8d; }
+.media-duration {
+  position: absolute;
+  bottom: 7px; right: 9px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.media-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--pink-soft);
+  border: 1px solid var(--pink-border);
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+.media-file-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.media-file-name {
+  flex: 1;
+  font-weight: 500;
+  word-break: break-all;
+}
+.media-file-size {
+  font-size: 0.7rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* ── Year heading (mirrors stats timeline) ── */
+.year-heading {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--accent);
+  margin-top: 24px;
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+.month-heading {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--muted);
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+/* ── Section divider ── */
+.section-divider {
+  height: 1px;
+  background: var(--pink-border);
+  margin: 22px 0 14px;
+}
+
+/* ── Action buttons ── */
+.action-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: linear-gradient(135deg, #d43f8d, #7c3aed);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 5px 18px rgba(212,63,141,0.3);
+  text-decoration: none;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(212,63,141,0.4);
+}
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: var(--surface);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: 1.5px solid var(--pink-border);
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+  text-decoration: none;
+}
+.btn-secondary:hover {
+  background: var(--pink-soft);
+  transform: translateY(-1px);
+}
+.btn-loading { opacity: 0.7; pointer-events: none; }
+
+/* ── Scroll reveal (mirrors main.html .observe-fade) ── */
+.observe-fade {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.48s ease, transform 0.48s ease;
+}
+.observe-fade.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .observe-fade { opacity: 1; transform: none; transition: none; }
+}
+
+/* ── Hero enter animations (mirrors stats.html) ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero          { animation: fadeUp 0.5s ease both; }
+.counter-wrap  { animation: fadeUp 0.5s 0.08s ease both; }
+.mini-grid     { animation: fadeUp 0.5s 0.14s ease both; }
+
+/* ── Loading / error states ── */
+.state-loading, .state-error {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+.state-error { color: var(--accent); }
+.spinner {
+  display: inline-block;
+  width: 32px; height: 32px;
+  border: 3px solid var(--pink-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Empty state ── */
+.empty-note {
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--meta);
+  font-style: italic;
+  padding: 18px 0;
+}
+
+/* ── Footer ── */
+.export-footer {
+  text-align: center;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--pink-border);
+  color: var(--meta);
+  font-size: 0.75rem;
+}
+.export-footer a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+html.theme-dark .cat-memories         { background: rgba(212,63,141,0.15); color: #f090c0; }
+html.theme-dark .cat-important_moments { background: rgba(251,191,36,0.15); color: #fbbf24; }
+html.theme-dark .cat-important_dates   { background: rgba(124,58,237,0.15); color: #c4b5fd; }
+html.theme-dark .cat-events            { background: rgba(219,39,119,0.15); color: #f472b6; }
+html.theme-dark .cat-wishes            { background: rgba(22,163,74,0.15);  color: #86efac; }
+html.theme-dark .cat-default           { background: rgba(124,58,237,0.15); color: #c4b5fd; }
+html.theme-dark .memory-card { border-color: rgba(212,63,141,0.18); }
+html.theme-dark .mini-card   { border-color: rgba(212,63,141,0.18); }
+html.theme-dark .cat-bar-card { border-color: rgba(212,63,141,0.18); }
+html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
+</style>
+</head>
+
+<body>
+<!-- Sticky header bar -->
+<div class="sticky-header" id="stickyHeader">
+  <a class="back-btn" href="/" id="backBtn" aria-label="На главную">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 12H5M12 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <span class="sticky-header-title" id="stickyTitle">История пары</span>
+  <button class="btn-secondary" id="btnDownloadPdf"
+    style="padding:7px 14px; font-size:0.75rem; border-radius:999px; margin-left:auto;"
+    onclick="downloadPdf(this)">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <path d="M8 2v8M5 7l3 3 3-3M2 13h12" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    PDF
+  </button>
+</div>
+
+<div class="page" id="mainPage" style="display:none">
+
+  <!-- ── HERO ── -->
+  <section class="hero" id="heroCover">
+    <div class="hero-badge" id="heroBadge">SureMemory · История пары</div>
+    <h1 class="hero-title" id="heroName1">—</h1>
+    <span class="hero-amp">&amp;</span>
+    <h1 class="hero-title" id="heroName2">—</h1>
+    <div class="hero-sub" id="heroSub"></div>
+  </section>
+
+  <!-- ── COUNTER WRAP ── -->
+  <div class="counter-wrap" id="counterWrap">
+    <div class="counter-grid">
+      <div class="counter-col">
+        <div class="counter-num" id="cntMemories">0</div>
+        <div class="counter-label">воспоминаний</div>
+      </div>
+      <div class="counter-col">
+        <div class="counter-num" id="cntEvents">0</div>
+        <div class="counter-label">событий</div>
+      </div>
+      <div class="counter-col">
+        <div class="counter-num" id="cntWishes">0</div>
+        <div class="counter-label">желаний</div>
+      </div>
+    </div>
+    <div class="counter-days" id="counterDays"></div>
+  </div>
+
+  <!-- ── MINI-GRID STATS ── -->
+  <div class="mini-grid" id="miniGrid">
+    <div class="mini-card mc1">
+      <span class="mini-card-icon">📸</span>
+      <div class="mini-card-value" id="mcPhotos">0</div>
+      <div class="mini-card-label">фотографий</div>
+    </div>
+    <div class="mini-card mc2">
+      <span class="mini-card-icon">🎬</span>
+      <div class="mini-card-value" id="mcVideos">0</div>
+      <div class="mini-card-label">видео</div>
+    </div>
+    <div class="mini-card mc3">
+      <span class="mini-card-icon">🎙</span>
+      <div class="mini-card-value" id="mcVoices">0</div>
+      <div class="mini-card-label">голосовых</div>
+    </div>
+    <div class="mini-card mc4">
+      <span class="mini-card-icon">📎</span>
+      <div class="mini-card-value" id="mcFiles">0</div>
+      <div class="mini-card-label">файлов</div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY STATS ── -->
+  <div id="catSection"></div>
+
+  <!-- ── MEMORIES ── -->
+  <div id="memoriesSection"></div>
+
+  <!-- ── EVENTS ── -->
+  <div id="eventsSection"></div>
+
+  <!-- ── WISHES ── -->
+  <div id="wishesSection"></div>
+
+  <!-- ── FOOTER ── -->
+  <div class="export-footer">
+    <div id="exportDate"></div>
+    <div style="margin-top:6px">
+      <a href="/">SureMemory</a> · История вашей пары
+    </div>
+  </div>
+
+</div>
+
+<!-- Loading state -->
+<div id="stateLoading" class="state-loading">
+  <div class="spinner"></div>
+  <div>Загружаем вашу историю…</div>
+</div>
+
+<!-- Error state -->
+<div id="stateError" class="state-error" style="display:none">
+  <div style="font-size:2rem; margin-bottom:12px">🔒</div>
+  <div id="errorMsg">Произошла ошибка</div>
+  <div style="margin-top:16px">
+    <a href="/" class="btn-secondary" style="display:inline-flex">На главную</a>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+// Extract couple_id from URL: /export/{couple_id}
+var pathParts = window.location.pathname.split('/').filter(Boolean);
+var coupleId = pathParts[pathParts.length - 1];
+
+var CAT_LABELS = {
+  important_moments: 'важный момент',
+  memories:          'воспоминание',
+  important_dates:   'важная дата',
+  events:            'событие',
+  wishes:            'желание',
+  default:           'запись',
+};
+
+var CAT_STRIPE = {
+  important_moments: 'stripe-orange',
+  memories:          'stripe-pink',
+  important_dates:   'stripe-violet',
+  events:            'stripe-rose',
+  wishes:            'stripe-green',
+  default:           'stripe-amber',
+};
+
+var CAT_PILL = {
+  important_moments: 'cat-important_moments',
+  memories:          'cat-memories',
+  important_dates:   'cat-important_dates',
+  events:            'cat-events',
+  wishes:            'cat-wishes',
+  default:           'cat-default',
+};
+
+var CAT_BAR_COLOR = {
+  important_moments: 'cf-orange',
+  memories:          '',
+  important_dates:   'cf-violet',
+  events:            'cf-rose',
+  wishes:            'cf-green',
+  default:           '',
+};
+
+function esc(s) {
+  var d = document.createElement('div');
+  d.textContent = String(s || '');
+  return d.innerHTML;
+}
+
+function daysWord(n) {
+  n = Math.abs(Math.round(n)) % 100;
+  if (n >= 11 && n <= 14) return 'дней';
+  n = n % 10;
+  if (n === 1) return 'день';
+  if (n >= 2 && n <= 4) return 'дня';
+  return 'дней';
+}
+
+function formatDuration(sec) {
+  if (!sec) return '';
+  sec = Math.round(sec);
+  var m = Math.floor(sec / 60), s = sec % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// ── Setup scroll reveal ────────────────────────────────────────────────────
+function setupReveal() {
+  if (!('IntersectionObserver' in window)) {
+    document.querySelectorAll('.observe-fade').forEach(function(el) {
+      el.classList.add('visible');
+    });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.06, rootMargin: '0px 0px -30px 0px' });
+
+  document.querySelectorAll('.observe-fade').forEach(function(el) {
+    io.observe(el);
+  });
+}
+
+// ── Staggered delay on repeated elements ──────────────────────────────────
+function applyStagger(container, selector, base, step) {
+  container.querySelectorAll(selector).forEach(function(el, i) {
+    el.style.transitionDelay = (base + i * step) + 'ms';
+  });
+}
+
+// ── Build media preview ───────────────────────────────────────────────────
+function buildMedia(item) {
+  var mt = (item.media_type || '').toLowerCase();
+  var mp = item.media_path || '';
+  var ms = item.media_size || 0;
+  var mf = item.media_filename || '';
+  var dur = item.media_duration || 0;
+
+  if (!mt) return null;
+
+  var wrap = document.createElement('div');
+  wrap.className = 'memory-media';
+
+  if (mt === 'photo') {
+    var img = document.createElement('img');
+    img.className = 'media-photo';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.alt = '';
+    img.src = mp ? '/media/' + mp.replace(/^\/media\//, '').replace(/^media\//, '') : '';
+    if (!img.src || img.src === '/media/') return null;
+    wrap.appendChild(img);
+
+  } else if (mt === 'video' || mt === 'video_note') {
+    var vw = document.createElement('div');
+    vw.className = 'media-video-wrap';
+    if (mp) {
+      var thumb = document.createElement('img');
+      thumb.className = 'media-video-thumb';
+      thumb.loading = 'lazy';
+      thumb.alt = '';
+      // Use the media path; video thumbnail is usually available as _thumb.jpg
+      var thumbSrc = mp.replace(/^\/media\//, '').replace(/^media\//, '');
+      var dotIdx = thumbSrc.lastIndexOf('.');
+      if (dotIdx >= 0) thumbSrc = thumbSrc.slice(0, dotIdx) + '_thumb.jpg';
+      thumb.src = '/media/' + thumbSrc;
+      thumb.onerror = function() { this.style.display = 'none'; };
+      vw.appendChild(thumb);
+    }
+    var playBtn = document.createElement('div');
+    playBtn.className = 'media-play-btn';
+    playBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>';
+    vw.appendChild(playBtn);
+    if (dur) {
+      var durEl = document.createElement('div');
+      durEl.className = 'media-duration';
+      durEl.textContent = formatDuration(dur);
+      vw.appendChild(durEl);
+    }
+    wrap.appendChild(vw);
+
+  } else if (mt === 'voice' || mt === 'audio') {
+    var row = document.createElement('div');
+    row.className = 'media-file-row';
+    row.innerHTML = '<span class="media-file-icon">🎙</span>' +
+      '<span class="media-file-name">' + esc(mf || 'Голосовое сообщение') + '</span>' +
+      (dur ? '<span class="media-file-size">' + esc(formatDuration(dur)) + '</span>' : '');
+    wrap.appendChild(row);
+
+  } else if (mt === 'document') {
+    var row2 = document.createElement('div');
+    row2.className = 'media-file-row';
+    var sizeStr = ms ? (ms > 1048576 ? (ms / 1048576).toFixed(1) + ' МБ' : Math.round(ms / 1024) + ' КБ') : '';
+    row2.innerHTML = '<span class="media-file-icon">📎</span>' +
+      '<span class="media-file-name">' + esc(mf || 'Файл') + '</span>' +
+      (sizeStr ? '<span class="media-file-size">' + esc(sizeStr) + '</span>' : '');
+    wrap.appendChild(row2);
+
+  } else {
+    return null;
+  }
+
+  return wrap;
+}
+
+// ── Build one memory card ─────────────────────────────────────────────────
+function buildCard(item) {
+  var cat = item.category || 'default';
+
+  var card = document.createElement('div');
+  card.className = 'memory-card observe-fade';
+
+  var stripe = document.createElement('div');
+  stripe.className = 'memory-card-stripe ' + (CAT_STRIPE[cat] || 'stripe-amber');
+  card.appendChild(stripe);
+
+  var body = document.createElement('div');
+  body.className = 'memory-card-body';
+
+  // Top row: category pill + date
+  var top = document.createElement('div');
+  top.className = 'memory-card-top';
+  var pill = document.createElement('span');
+  pill.className = 'memory-cat-pill ' + (CAT_PILL[cat] || 'cat-default');
+  pill.textContent = CAT_LABELS[cat] || 'запись';
+  var dateEl = document.createElement('span');
+  dateEl.className = 'memory-date';
+  dateEl.textContent = item.date || '';
+  top.appendChild(pill);
+  top.appendChild(dateEl);
+  body.appendChild(top);
+
+  // Title
+  if (item.title) {
+    var titleEl = document.createElement('div');
+    titleEl.className = 'memory-title';
+    titleEl.textContent = item.title;
+    body.appendChild(titleEl);
+  }
+
+  // Author meta
+  if (item.author) {
+    var metaEl = document.createElement('div');
+    metaEl.className = 'memory-meta';
+    metaEl.textContent = item.author;
+    body.appendChild(metaEl);
+  }
+
+  // Body text with collapse
+  if (item.text) {
+    var textEl = document.createElement('div');
+    textEl.className = 'memory-text';
+    textEl.textContent = item.text;
+    if (item.text.length > 320) {
+      textEl.classList.add('collapsed');
+      var toggle = document.createElement('button');
+      toggle.className = 'toggle-text';
+      toggle.textContent = 'Читать полностью';
+      toggle.onclick = function() {
+        var collapsed = textEl.classList.toggle('collapsed');
+        toggle.textContent = collapsed ? 'Читать полностью' : 'Свернуть';
+      };
+      body.appendChild(textEl);
+      body.appendChild(toggle);
+    } else {
+      body.appendChild(textEl);
+    }
+  }
+
+  // Media
+  var mediaEl = buildMedia(item);
+  if (mediaEl) body.appendChild(mediaEl);
+
+  card.appendChild(body);
+  return card;
+}
+
+// ── Build section (memories / events / wishes) ────────────────────────────
+function buildSection(containerId, items, sectionTitle, groupByDate) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  if (!items || !items.length) {
+    container.innerHTML = '<div class="empty-note">Пока нет записей в этом разделе</div>';
+    return;
+  }
+
+  var divider = document.createElement('div');
+  divider.className = 'section-divider observe-fade';
+  container.appendChild(divider);
+
+  var titleEl = document.createElement('div');
+  titleEl.className = 'section-title observe-fade';
+  titleEl.textContent = sectionTitle;
+  container.appendChild(titleEl);
+
+  if (!groupByDate) {
+    items.forEach(function(item) {
+      container.appendChild(buildCard(item));
+    });
+    return;
+  }
+
+  // Group by year → month
+  var byYear = {};
+  var undated = [];
+  var MONTHS = ['','январь','февраль','март','апрель','май','июнь',
+                'июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+  items.forEach(function(item) {
+    var iso = item.date_iso || '';
+    var m = iso.match(/^(\d{4})-(\d{2})/);
+    if (m) {
+      var y = m[1], mo = parseInt(m[2], 10);
+      if (!byYear[y]) byYear[y] = {};
+      if (!byYear[y][mo]) byYear[y][mo] = [];
+      byYear[y][mo].push(item);
+    } else {
+      undated.push(item);
+    }
+  });
+
+  Object.keys(byYear).sort().forEach(function(year) {
+    var yh = document.createElement('div');
+    yh.className = 'year-heading observe-fade';
+    yh.textContent = year;
+    container.appendChild(yh);
+
+    Object.keys(byYear[year]).sort(function(a,b){return +a - +b;}).forEach(function(mo) {
+      var mh = document.createElement('div');
+      mh.className = 'month-heading observe-fade';
+      mh.textContent = MONTHS[+mo] || '';
+      container.appendChild(mh);
+      byYear[year][mo].forEach(function(item) {
+        container.appendChild(buildCard(item));
+      });
+    });
+  });
+
+  if (undated.length) {
+    var uh = document.createElement('div');
+    uh.className = 'month-heading observe-fade';
+    uh.textContent = 'Разное';
+    container.appendChild(uh);
+    undated.forEach(function(item) {
+      container.appendChild(buildCard(item));
+    });
+  }
+}
+
+// ── Build category stats bar ──────────────────────────────────────────────
+function buildCatSection(allItems) {
+  var container = document.getElementById('catSection');
+  if (!container) return;
+  var counts = {};
+  allItems.forEach(function(item) {
+    var cat = item.category || 'default';
+    counts[cat] = (counts[cat] || 0) + 1;
+  });
+  var total = Object.values(counts).reduce(function(a,b){return a+b;}, 0) || 1;
+  var sorted = Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];}).slice(0,5);
+  if (!sorted.length) return;
+
+  var divider = document.createElement('div');
+  divider.className = 'section-divider observe-fade';
+  container.appendChild(divider);
+
+  var title = document.createElement('div');
+  title.className = 'section-title observe-fade';
+  title.textContent = 'Популярные категории';
+  container.appendChild(title);
+
+  var card = document.createElement('div');
+  card.className = 'cat-bar-card observe-fade';
+
+  sorted.forEach(function(cat) {
+    var cnt = counts[cat];
+    var pct = Math.round(cnt / total * 100);
+    var row = document.createElement('div');
+    row.className = 'cat-row';
+    var pill = document.createElement('span');
+    pill.className = 'memory-cat-pill ' + (CAT_PILL[cat] || 'cat-default');
+    pill.style.minWidth = '96px';
+    pill.textContent = CAT_LABELS[cat] || cat;
+    var bg = document.createElement('div');
+    bg.className = 'cat-bar-bg';
+    var fill = document.createElement('div');
+    fill.className = 'cat-bar-fill ' + (CAT_BAR_COLOR[cat] || '');
+    fill.style.width = '0%';
+    // Animate after mount
+    setTimeout(function() { fill.style.width = pct + '%'; }, 200);
+    bg.appendChild(fill);
+    var cntEl = document.createElement('div');
+    cntEl.className = 'cat-cnt';
+    cntEl.textContent = cnt;
+    row.appendChild(pill);
+    row.appendChild(bg);
+    row.appendChild(cntEl);
+    card.appendChild(row);
+  });
+
+  container.appendChild(card);
+}
+
+// ── Render full page from data ────────────────────────────────────────────
+function render(data) {
+  var names = data.couple_names || ['—', '—'];
+  document.getElementById('heroName1').textContent = names[0] || '—';
+  document.getElementById('heroName2').textContent = names[1] || '—';
+  document.title = (names[0] || '') + ' & ' + (names[1] || '') + ' — SureMemory';
+  document.getElementById('stickyTitle').textContent = (names[0] || '') + ' & ' + (names[1] || '');
+
+  var sub = [];
+  if (data.met_date_display) sub.push('познакомились ' + data.met_date_display);
+  document.getElementById('heroSub').innerHTML = sub.map(function(s) {
+    return '<span>' + esc(s) + '</span>';
+  }).join('');
+
+  var stats = data.stats || {};
+  document.getElementById('cntMemories').textContent = stats.memories || 0;
+  document.getElementById('cntEvents').textContent   = stats.events   || 0;
+  document.getElementById('cntWishes').textContent   = stats.wishes   || 0;
+  document.getElementById('mcPhotos').textContent    = stats.photos   || 0;
+  document.getElementById('mcVideos').textContent    = stats.videos   || 0;
+  document.getElementById('mcVoices').textContent    = stats.voices   || 0;
+  document.getElementById('mcFiles').textContent     = stats.files    || 0;
+
+  var days = data.days_together;
+  if (days != null) {
+    document.getElementById('counterDays').innerHTML =
+      'Вместе <strong>' + days + '</strong> ' + daysWord(days);
+  }
+
+  if (data.export_date) {
+    document.getElementById('exportDate').textContent = 'Сформировано ' + data.export_date;
+  }
+
+  var sections = data.sections || {};
+  var allItems = (sections.memories || []).concat(sections.events || []).concat(sections.wishes || []);
+
+  buildCatSection(allItems);
+  buildSection('memoriesSection', sections.memories || [], 'Воспоминания', true);
+  buildSection('eventsSection',   sections.events   || [], 'События',       false);
+  buildSection('wishesSection',   sections.wishes   || [], 'Желания',        false);
+
+  document.getElementById('stateLoading').style.display = 'none';
+  document.getElementById('mainPage').style.display = '';
+
+  // Stagger mini-cards
+  applyStagger(document.getElementById('miniGrid'), '.mini-card', 0, 50);
+
+  setupReveal();
+}
+
+// ── PDF download ──────────────────────────────────────────────────────────
+window.downloadPdf = function(btn) {
+  if (!btn) return;
+  btn.classList.add('btn-loading');
+  var origText = btn.innerHTML;
+  btn.innerHTML = '<svg class="spinner" width="14" height="14" viewBox="0 0 14 14" style="animation:spin 0.7s linear infinite;border:none;margin:0;padding:0;">' +
+    '<circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="20" stroke-dashoffset="14"/></svg> Генерируем…';
+  fetch('/api/export_pdf', { method: 'POST', credentials: 'include' })
+    .then(function(r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.blob();
+    })
+    .then(function(blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'suremomory_history.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    })
+    .catch(function() {
+      alert('Не удалось сгенерировать PDF. Попробуйте позже.');
+    })
+    .finally(function() {
+      btn.innerHTML = origText;
+      btn.classList.remove('btn-loading');
+    });
+};
+
+// ── Show error ─────────────────────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('stateLoading').style.display = 'none';
+  var errEl = document.getElementById('stateError');
+  errEl.style.display = '';
+  document.getElementById('errorMsg').textContent = msg || 'Произошла ошибка';
+}
+
+// ── Load data ─────────────────────────────────────────────────────────────
+fetch('/api/export_data/' + encodeURIComponent(coupleId), {
+  credentials: 'include',
+})
+  .then(function(r) {
+    if (r.status === 401 || r.status === 403) {
+      throw new Error('forbidden');
+    }
+    if (!r.ok) throw new Error('http_' + r.status);
+    return r.json();
+  })
+  .then(function(data) {
+    if (!data.ok) throw new Error(data.error || 'not_ok');
+    render(data.data);
+  })
+  .catch(function(err) {
+    if (err.message === 'forbidden') {
+      showError('Доступ запрещён. Эта история доступна только участникам пары.');
+    } else {
+      showError('Не удалось загрузить данные. Попробуйте обновить страницу.');
+    }
+  });
+
+})();
+</script>
+</body>
+</html>

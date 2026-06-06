@@ -6357,6 +6357,353 @@ async def profile_page(request: web.Request) -> web.Response:
     )
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# EXPORT — web page + JSON API + PDF download
+# ══════════════════════════════════════════════════════════════════════════════
+
+_MONTHS_GEN = [
+    "", "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+]
+_MONTHS_NOM = [
+    "", "январь", "февраль", "март", "апрель", "май", "июнь",
+    "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+]
+
+
+def _export_fmt_date(date_str: str) -> str:
+    """Format DB date string as Russian date label."""
+    raw = (date_str or "").strip()
+    if not raw:
+        return "—"
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            from datetime import datetime as _dt
+            d = _dt.strptime(raw[:len(fmt)], fmt).date()
+            return f"{d.day} {_MONTHS_GEN[d.month]} {d.year}"
+        except Exception:
+            pass
+    return raw
+
+
+def _export_sanitize(text: str) -> str:
+    """Strip potentially unsafe HTML from user-generated content."""
+    if not text:
+        return text
+    text = re.sub(r'<\s*img\s+[^>]*(?:onerror|onload|onclick)[^>]*>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<\s*(script|iframe|object|embed|form)[^>]*>.*?</\s*\1\s*>', '',
+                  text, flags=re.DOTALL | re.IGNORECASE)
+    return text
+
+
+def _export_media_web_path(media_path: str | None) -> str | None:
+    """Convert a local media filesystem path to a /media/ web URL path segment."""
+    if not media_path:
+        return None
+    p = str(media_path).replace("\\", "/").strip("/")
+    # Strip leading media/ prefix if present (the route is /media/{rest})
+    marker = "/media/"
+    idx = p.find(marker)
+    if idx >= 0:
+        p = p[idx + len(marker):]
+    elif p.startswith("media/"):
+        p = p[len("media/"):]
+    return p.lstrip("/") or None
+
+
+def _build_export_payload(user_id: int) -> dict:
+    """
+    Build the full export data dict for a user's couple.
+    Returns {} on error. Mirrors handlers._build_couple_pdf_payload but
+    lives here for the HTTP layer and converts media paths to web URLs.
+    """
+    try:
+        import os as _os
+        from datetime import date as _date_type
+
+        couple = db.get_couple_by_user(user_id) or {}
+        if not couple:
+            logger.warning("[Export] No couple for user_id=%s", user_id)
+            return {}
+
+        u1 = couple["user1_id"]
+        u2 = couple.get("user2_id")
+        user_ids = [uid for uid in (u1, u2) if uid]
+        couple_id = couple["id"]
+
+        name1 = db.get_display_name(u1, "Участник")
+        name2 = db.get_display_name(u2, "Партнёр") if u2 else "Партнёр"
+
+        # Meeting date
+        met_date_obj = db.get_couple_met_date(user_id)
+        met_date_iso = met_date_obj.isoformat() if met_date_obj else None
+        met_date_display = ""
+        days_together = None
+        if met_date_obj:
+            met_date_display = (
+                f"{met_date_obj.day} {_MONTHS_GEN[met_date_obj.month]} {met_date_obj.year}"
+            )
+            days_together = (_date_type.today() - met_date_obj).days
+
+        export_date = datetime.now(timezone.utc).strftime("%d.%m.%Y")
+
+        # Fetch all items
+        memories = []
+        for cat in ("important_moments", "memories", "important_dates"):
+            memories.extend(db.get_memories_by_category(cat, limit=1000, couple_id=couple_id) or [])
+        memories = sorted(memories, key=lambda m: m.created_at or "")
+
+        events = sorted(
+            db.get_scheduled_events_for_users(user_ids) or [],
+            key=lambda e: e.created_at or "",
+        )
+
+        wishes = []
+        for uid in user_ids:
+            wishes.extend(db.get_user_wishes(uid) or [])
+        wishes = sorted(wishes, key=lambda w: w.created_at or "")
+
+        def _mtype(obj) -> str:
+            return (getattr(obj, "media_type", None) or "").lower()
+
+        photos = sum(1 for m in memories if _mtype(m) == "photo")
+        videos = sum(1 for m in memories if _mtype(m) in ("video", "video_note"))
+        voices = sum(1 for m in memories if _mtype(m) in ("voice", "audio"))
+        files  = sum(1 for m in memories if _mtype(m) == "document")
+
+        def _mem_dict(m) -> dict:
+            mt = _mtype(m)
+            mp_local = getattr(m, "media_path", None) or None
+            # Verify file exists locally before exposing the web path
+            mp_web = None
+            if mp_local and _os.path.isfile(str(mp_local)):
+                mp_web = _export_media_web_path(mp_local)
+            return {
+                "title":           _export_sanitize((m.title    or "Момент")[:120]),
+                "date":            _export_fmt_date(m.created_at),
+                "date_iso":        (m.created_at or "")[:10],
+                "text":            _export_sanitize((m.content  or "")[:1500]),
+                "author":          db.get_display_name(m.user_id, "Участник"),
+                "category":        m.category or "memories",
+                "media_type":      mt or None,
+                "media_path":      mp_web,
+                "media_filename":  getattr(m, "original_filename", None),
+                "media_size":      getattr(m, "file_size", None),
+                "media_duration":  getattr(m, "duration_sec", None),
+            }
+
+        def _event_dict(e) -> dict:
+            return {
+                "title":    _export_sanitize((e.title       or "Событие")[:120]),
+                "date":     _export_fmt_date(e.event_datetime or e.created_at),
+                "date_iso": (e.event_datetime or e.created_at or "")[:10],
+                "text":     _export_sanitize((e.description or "")[:1500]),
+                "author":   db.get_display_name(e.user_id, "Участник"),
+                "category": "events",
+                "media_type": None, "media_path": None,
+            }
+
+        def _wish_dict(w) -> dict:
+            return {
+                "title":    "Желание",
+                "date":     _export_fmt_date(w.created_at),
+                "date_iso": (w.created_at or "")[:10],
+                "text":     _export_sanitize((w.content or "")[:1500]),
+                "author":   db.get_display_name(w.user_id, "Участник"),
+                "category": "wishes",
+                "media_type": None, "media_path": None,
+            }
+
+        return {
+            "couple_id":        couple_id,
+            "couple_names":     [name1, name2],
+            "met_date":         met_date_iso,
+            "met_date_display": met_date_display,
+            "days_together":    days_together,
+            "export_date":      export_date,
+            "stats": {
+                "memories": len(memories),
+                "events":   len(events),
+                "wishes":   len(wishes),
+                "photos":   photos,
+                "videos":   videos,
+                "voices":   voices,
+                "files":    files,
+            },
+            "sections": {
+                "memories": [_mem_dict(m) for m in memories],
+                "events":   [_event_dict(e) for e in events],
+                "wishes":   [_wish_dict(w) for w in wishes],
+            },
+        }
+
+    except Exception:
+        logger.exception("[Export] _build_export_payload failed for user_id=%s", user_id)
+        return {}
+
+
+async def export_redirect(request: web.Request) -> web.Response:
+    """GET /export/ — redirect authenticated user to their couple's export page."""
+    session_vid = _get_trusted_visitor_id(request)
+    if not session_vid:
+        raise web.HTTPFound("/main")
+    uid = _visitor_to_user_id(session_vid)
+    couple = db.get_couple_by_user(uid) if uid else None
+    if not couple:
+        raise web.HTTPFound("/main")
+    raise web.HTTPFound(f"/export/{couple['id']}")
+
+
+async def export_page(request: web.Request) -> web.Response:
+    """GET /export/{couple_id} — serve the couple history web page.
+
+    Security checks:
+      1. visitor_id cookie must be present and have a valid HMAC signature.
+      2. The authenticated user must belong to the couple identified by couple_id
+         in the URL — prevents IDOR (a user cannot view another couple's data).
+    """
+    session_vid = _get_trusted_visitor_id(request)
+    if not session_vid:
+        raise web.HTTPFound("/main")
+
+    uid = _visitor_to_user_id(session_vid)
+    if not uid:
+        raise web.HTTPFound("/main")
+
+    # Parse couple_id from URL
+    try:
+        url_couple_id = int(request.match_info.get("couple_id", "0"))
+    except (ValueError, TypeError):
+        raise web.HTTPFound("/main")
+
+    # IDOR check: verify the requesting user actually belongs to this couple
+    user_couple = db.get_couple_by_user(uid)
+    if not user_couple or user_couple.get("id") != url_couple_id:
+        logger.warning(
+            "[Export] IDOR attempt or wrong couple: user_id=%s, url_couple_id=%s, "
+            "actual_couple_id=%s",
+            uid, url_couple_id,
+            user_couple.get("id") if user_couple else None,
+        )
+        raise web.HTTPFound("/main")
+
+    if db.get_setting("test_version") == "1":
+        html = _render_maintenance_page()
+        return web.Response(text=html, content_type="text/html", charset="utf-8")
+
+    project_root = Path(__file__).resolve().parent
+    page_path = project_root / "export.html"
+    if not page_path.exists():
+        return web.Response(text="export.html not found", status=404)
+    try:
+        html = page_path.read_text(encoding="utf-8")
+    except Exception:
+        logger.exception("[Export] Cannot read export.html")
+        return web.Response(text="internal error", status=500)
+
+    return web.Response(
+        text=html,
+        content_type="text/html",
+        charset="utf-8",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma":        "no-cache",
+            "Expires":       "0",
+        },
+    )
+
+
+async def api_export_data(request: web.Request) -> web.Response:
+    """GET /api/export_data/{couple_id} — return full export JSON.
+
+    Same IDOR protection as export_page: the requesting user must belong
+    to the couple_id in the URL. Returns 403 for any auth failure.
+    """
+    session_vid = _get_trusted_visitor_id(request)
+    if not session_vid:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    uid = _visitor_to_user_id(session_vid)
+    if not uid:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        url_couple_id = int(request.match_info.get("couple_id", "0"))
+    except (ValueError, TypeError):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "bad_request"}, status=400))
+
+    user_couple = db.get_couple_by_user(uid)
+    if not user_couple or user_couple.get("id") != url_couple_id:
+        logger.warning(
+            "[Export API] IDOR: user_id=%s url_couple_id=%s actual=%s",
+            uid, url_couple_id,
+            user_couple.get("id") if user_couple else None,
+        )
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    data = _build_export_payload(uid)
+    if not data:
+        return _add_cors_headers(
+            web.json_response({"ok": False, "error": "no_data"}, status=404)
+        )
+
+    return _add_cors_headers(web.json_response({"ok": True, "data": data}))
+
+
+async def api_export_pdf(request: web.Request) -> web.Response:
+    """POST /api/export_pdf — generate PDF and return it as a download.
+
+    Reuses _build_export_payload (same data structure as handlers.py PDF generator)
+    but is triggered from the web page rather than the Telegram bot.
+    """
+    session_vid = _get_trusted_visitor_id(request)
+    if not session_vid:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    uid = _visitor_to_user_id(session_vid)
+    if not uid:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    user_couple = db.get_couple_by_user(uid)
+    if not user_couple:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "no_couple"}, status=403))
+
+    data = _build_export_payload(uid)
+    if not data:
+        return _add_cors_headers(
+            web.json_response({"ok": False, "error": "no_data"}, status=500)
+        )
+
+    try:
+        from pdf_story_template import generate_couple_story_pdf
+        import tempfile
+        import os as _os
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pdf_path = _os.path.join(tmp_dir, "couple_story.pdf")
+            generate_couple_story_pdf(data, pdf_path)
+            with open(pdf_path, "rb") as f:
+                pdf_bytes = f.read()
+
+        names = data.get("couple_names", ["couple"])
+        fname = f"suremomory_{'_'.join(n[:12] for n in names)}.pdf"
+        fname = re.sub(r'[^\w._-]', '_', fname)
+
+        return web.Response(
+            body=pdf_bytes,
+            content_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{fname}"',
+                "Cache-Control": "no-store",
+            },
+        )
+    except Exception:
+        logger.exception("[Export PDF] generation failed for user_id=%s", uid)
+        return _add_cors_headers(
+            web.json_response({"ok": False, "error": "pdf_failed"}, status=500)
+        )
+
+
 async def api_sessions(request: web.Request) -> web.Response:
     """Возвращает список активных сессий пользователя.
     GET /api/sessions
@@ -9285,6 +9632,15 @@ def create_app() -> web.Application:
     app.router.add_get("/sky", sky_page)
     app.router.add_get("/api/sky_cfg", api_sky_cfg)
     app.router.add_get("/profile", profile_page)
+
+    # Export routes
+    app.router.add_get("/export", export_redirect)
+    app.router.add_get("/export/", export_redirect)
+    app.router.add_get("/export/{couple_id}", export_page)
+    app.router.add_route("OPTIONS", "/api/export_data/{couple_id}", handle_options)
+    app.router.add_get("/api/export_data/{couple_id}", api_export_data)
+    app.router.add_route("OPTIONS", "/api/export_pdf", handle_options)
+    app.router.add_post("/api/export_pdf", api_export_pdf)
     app.router.add_route("OPTIONS", "/api/logout", handle_options)
     app.router.add_post("/api/logout", logout)
     app.router.add_route("OPTIONS", "/api/sessions", handle_options)

@@ -8175,13 +8175,24 @@
       function updateAILimitsUI() {
           const el = document.getElementById('aiDaysCounter');
           if (!el) return;
-          const usage = (window.APP_DATA && window.APP_DATA.ai_usage) ? window.APP_DATA.ai_usage : null;
-          if (!usage || usage.remaining === undefined || usage.remaining === null) {
+          const sub = window.APP_DATA && window.APP_DATA.subscription;
+          if (sub && sub.is_premium) {
              el.textContent = "Безлимитный доступ";
              return;
           }
-          if (usage.remaining > 0) {
-             el.textContent = `Осталось сообщений: ${usage.remaining}`;
+          const usage = window.APP_DATA && window.APP_DATA.ai_usage;
+          const planLimit = (sub && sub.limit) || 50;
+          if (!usage || typeof usage.used === 'undefined') {
+             el.textContent = `Лимит: 0 / ${planLimit}`;
+             return;
+          }
+          const used = usage.used || 0;
+          if (usage.remaining === null) {
+             el.textContent = "Безлимитный доступ";
+             return;
+          }
+          if ((usage.remaining || 0) > 0) {
+             el.textContent = `Лимит: ${used} / ${planLimit}`;
           } else {
              if (usage.resets_at) {
                 const resetTime = new Date(usage.resets_at + 'Z');
@@ -8194,12 +8205,12 @@
                    let timeStr = "";
                    if (hours > 0) timeStr += hours + " ч. ";
                    timeStr += mins + " мин.";
-                   el.textContent = `Лимит исчерпан. Обновление через ${timeStr.trim()}`;
+                   el.textContent = `Лимит: ${used} / ${planLimit} · Сбросится через ${timeStr.trim()}`;
                 } else {
                    el.textContent = "Лимит восстанавливается...";
                 }
              } else {
-                el.textContent = "Лимит исчерпан";
+                el.textContent = `Лимит: ${used} / ${planLimit}`;
              }
           }
       }
@@ -9942,8 +9953,9 @@
               if (bubble) bubble.innerHTML = parseMarkdown(fullReply);
             }
             if (suggestions.length) addAISuggestions(suggestions);
-            if (window.APP_DATA && window.APP_DATA.ai_usage && window.APP_DATA.ai_usage.remaining > 0) {
+            if (window.APP_DATA && window.APP_DATA.ai_usage && typeof window.APP_DATA.ai_usage.remaining === 'number' && window.APP_DATA.ai_usage.remaining > 0) {
                window.APP_DATA.ai_usage.remaining--;
+               window.APP_DATA.ai_usage.used = (window.APP_DATA.ai_usage.used || 0) + 1;
                if (typeof updateAILimitsUI === 'function') updateAILimitsUI();
             }
             success = true;

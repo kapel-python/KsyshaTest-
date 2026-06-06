@@ -1193,11 +1193,12 @@ function _populateProfile(data) {
     ? `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm8-3.5a.75.75 0 01.75.75v3.19l2.28 1.3a.75.75 0 01-.75 1.3L7.5 9.56V5.25A.75.75 0 018 4.5z" fill="currentColor"/></svg>${sinceText}`
     : '';
 
-  // Subscription: show role as plan (real subscription data not in API yet)
-  const isAdmin = data.is_open !== undefined;
+  // Subscription: use server-provided subscription data as single source of truth
+  const sub = data.subscription || {};
+  const isPremium = sub.is_premium || isCreator;
   const subBadge = document.getElementById('subscriptionBadge');
   const subSub   = document.getElementById('subscriptionSub');
-  if (isCreator) {
+  if (isPremium) {
     subBadge.textContent = _t('profSubPremium');
     subBadge.className = 'premium-badge';
     subBadge.style.fontSize = '10.5px';

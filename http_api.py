@@ -1912,6 +1912,8 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
             "partner": wishes_partner if not is_light else [],
         },
         "user_settings": data.get("user_settings"),
+        "subscription": data.get("subscription") or {"tier": "free", "is_premium": False, "limit": 50},
+        "ai_usage": data.get("ai_usage") or {},
         "deferred": {
             "memories": {"page": page, "limit": limit, "total": total_memories, "has_more": ((page - 1) * limit + len(all_memories)) < total_memories} if not is_light else {"page": page, "limit": limit, "total": 0, "has_more": False},
             "events": {"page": 1, "limit": evt_limit, "total": len(all_events), "has_more": evt_limit < len(all_events)} if not is_light else {"page": 1, "limit": evt_limit, "total": 0, "has_more": False},
@@ -2381,19 +2383,20 @@ def _collect_site_data(
     if wants_profile_stats:
         profile_stats = _build_profile_stats_for_visitor(visitor_id, timezone_id)
 
+    subscription = {"tier": "free", "is_premium": False, "limit": 50}
     ai_usage = {}
     if visitor_id:
         try:
-            _limit_key = _get_companion_limit_key(visitor_id)
-            if _limit_key:
-                from constants import COMPANION_LIMIT_BY_TIER
-                _tier  = db.get_user_tier(_limit_key)
-                _limit = COMPANION_LIMIT_BY_TIER.get(_tier, 50)
-                ai_usage = db.get_ai_usage_status(_limit_key, _limit)
+            subscription = _get_user_subscription_info(visitor_id)
+            if not subscription["is_premium"]:
+                _limit_key = _get_companion_limit_key(visitor_id)
+                if _limit_key:
+                    ai_usage = db.get_ai_usage_status(_limit_key, subscription["limit"])
         except Exception as e:
-            logger.error("Failed to get ai_usage for visitor %s: %s", visitor_id, e)
+            logger.error("Failed to get subscription/ai_usage for visitor %s: %s", visitor_id, e)
 
     return {
+        "subscription": subscription,
         "ai_usage": ai_usage,
 
         "creator_id": creator_id,
@@ -2545,12 +2548,10 @@ async def ai_companion(request: web.Request) -> web.Response:
 
         return _add_cors_headers(web.json_response({"ok": False, "error": "rate_limited"}, status=429))
 
-    _limit_key = _get_companion_limit_key(visitor_id)
+    _sub_info = _get_user_subscription_info(visitor_id)
+    _limit_key = _get_companion_limit_key(visitor_id) if not _sub_info["is_premium"] else None
     if _limit_key:
-        from constants import COMPANION_LIMIT_BY_TIER
-        _tier  = db.get_user_tier(_limit_key)
-        _limit = COMPANION_LIMIT_BY_TIER.get(_tier, 50)
-        _usage = db.check_and_record_ai_usage(_limit_key, _limit)
+        _usage = db.check_and_record_ai_usage(_limit_key, _sub_info["limit"])
         if not _usage["allowed"]:
             _lmsg = _companion_limit_message()
             logger.info("AI companion limit exceeded (JSON): key=%s used=%s limit=%s", _limit_key, _usage.get("used"), _usage.get("limit"))
@@ -2560,8 +2561,6 @@ async def ai_companion(request: web.Request) -> web.Response:
             except Exception:
                 logger.exception("Не удалось сохранить limit-сообщение в историю")
             return _add_cors_headers(web.json_response({"ok": True, "reply": _lmsg, "suggestions": []}))
-    else:
-        _limit_key = None
 
 
 
@@ -2872,12 +2871,10 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
 
         return _add_cors_headers(web.json_response({"ok": False, "error": "rate_limited"}, status=429))
 
-    _limit_key = _get_companion_limit_key(visitor_id)
+    _sub_info_stream = _get_user_subscription_info(visitor_id)
+    _limit_key = _get_companion_limit_key(visitor_id) if not _sub_info_stream["is_premium"] else None
     if _limit_key:
-        from constants import COMPANION_LIMIT_BY_TIER
-        _tier  = db.get_user_tier(_limit_key)
-        _limit = COMPANION_LIMIT_BY_TIER.get(_tier, 50)
-        _usage = db.check_and_record_ai_usage(_limit_key, _limit)
+        _usage = db.check_and_record_ai_usage(_limit_key, _sub_info_stream["limit"])
         if not _usage["allowed"]:
             _lmsg = _companion_limit_message()
             logger.info("AI companion limit exceeded (stream): key=%s used=%s limit=%s", _limit_key, _usage.get("used"), _usage.get("limit"))
@@ -7456,6 +7453,36 @@ _AI_MAX_MSG_LEN = 2000 # макс длина сообщения пользова
 def _get_companion_limit_key(visitor_id: str) -> str:
     """Ключ для таблицы ai_usage_window. Сейчас — visitor_id напрямую."""
     return f"vid:{visitor_id}" if visitor_id else ""
+
+
+def _get_user_subscription_info(visitor_id: Optional[str]) -> dict:
+    """
+    Единый источник истины о подписке пользователя.
+
+    Архитектура:
+      - Creator всегда Premium (проверяется через is_creator).
+      - Остальные — по таблице user_subscription_tier (tier + expires_at).
+      - В будущем: покупка, выдача через админку, временный premium_until —
+        всё это реализуется через user_subscription_tier без изменения
+        данной функции и всех потребителей.
+
+    Возвращает:
+      {"tier": "free"|"plus"|"premium", "is_premium": bool, "limit": int|None}
+    """
+    from constants import COMPANION_LIMIT_BY_TIER
+
+    if not visitor_id:
+        return {"tier": "free", "is_premium": False, "limit": COMPANION_LIMIT_BY_TIER.get("free", 50)}
+
+    user_id = _visitor_to_user_id(visitor_id)
+    if user_id and db.is_creator(user_id):
+        return {"tier": "premium", "is_premium": True, "limit": None}
+
+    user_key = _get_companion_limit_key(visitor_id)
+    tier = db.get_user_tier(user_key) if user_key else "free"
+    limit = COMPANION_LIMIT_BY_TIER.get(tier, 50)
+    return {"tier": tier, "is_premium": tier == "premium", "limit": limit}
+
 
 def _companion_limit_message() -> str:
     return (

@@ -78,7 +78,7 @@ body::after {
 .page {
   max-width: 540px;
   margin: 0 auto;
-  padding: 0 16px 80px;
+  padding: 14px 16px 80px;
   position: relative;
   z-index: 1;
 }
@@ -129,59 +129,220 @@ html.theme-dark .sticky-header {
 }
 .back-btn:hover { transform: scale(1.08); background: var(--pink-border); }
 
-/* ── Hero section (mirrors stats.html .hero) ── */
-.hero {
-  padding: 44px 0 32px;
+/* ── Cover — title-page aesthetic, distinct from /main ── */
+.cover {
+  padding: 52px 0 48px;
   text-align: center;
   position: relative;
-}
-
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 16px;
-  background: var(--pink-soft);
+  /* Subtle dot-grid: gives the "journal paper" feel */
+  background-image: radial-gradient(circle, rgba(212,63,141,0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: center center;
+  border-radius: 24px;
   border: 1px solid var(--pink-border);
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--accent);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+html.theme-dark .cover {
+  background-image: radial-gradient(circle, rgba(212,63,141,0.09) 1px, transparent 1px);
+  border-color: rgba(212,63,141,0.18);
 }
 
-.hero-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(2rem, 8vw, 2.8rem);
-  font-weight: 900;
-  line-height: 1.1;
-  color: var(--text);
-  margin-bottom: 4px;
+/* Large ❤ watermark behind everything */
+.cover-watermark {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -55%);
+  font-size: 16rem;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.032;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
 }
-.hero-title em {
+html.theme-dark .cover-watermark { opacity: 0.022; }
+
+/* Eyebrow: "— ИСТОРИЯ ПАРЫ —" */
+.cover-eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 30px;
+  position: relative;
+  z-index: 1;
+}
+.cover-eyebrow-text {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--meta);
+}
+.cover-eyebrow-line {
+  display: inline-block;
+  width: 28px;
+  height: 1px;
+  background: var(--meta);
+  opacity: 0.6;
+}
+
+/* Name lines — large, serif, the "title" of the book */
+.cover-name {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.4rem, 10vw, 3.2rem);
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  position: relative;
+  z-index: 1;
+}
+
+/* Ampersand */
+.cover-amp {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.6rem;
   font-style: italic;
+  font-weight: 700;
   background: linear-gradient(135deg, #d43f8d, #7c3aed);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  margin: 8px 0;
+  position: relative;
+  z-index: 1;
 }
-.hero-amp {
-  display: block;
-  font-family: 'Playfair Display', serif;
-  font-size: 1.3rem;
-  font-style: italic;
-  color: var(--muted);
-  margin: 6px 0;
+
+/* Ornamental rule: —  ❤  — */
+.cover-ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  margin: 22px auto 20px;
+  position: relative;
+  z-index: 1;
 }
-.hero-sub {
+.cover-ornament-line {
+  width: 44px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pink-border), transparent);
+  flex-shrink: 0;
+}
+html.theme-dark .cover-ornament-line {
+  background: linear-gradient(90deg, transparent, rgba(212,63,141,0.35), transparent);
+}
+.cover-ornament-heart {
+  font-size: 0.9rem;
+  color: var(--accent);
+  opacity: 0.75;
+  line-height: 1;
+}
+
+/* "с [date]" — meeting date */
+.cover-since {
   font-size: 0.88rem;
   color: var(--muted);
-  margin-top: 14px;
-  line-height: 1.6;
+  margin-bottom: 5px;
+  position: relative;
+  z-index: 1;
 }
-.hero-sub span { display: block; }
+.cover-since strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* "[N] дней вместе" — italic serif, accent */
+.cover-days {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.05rem;
+  font-style: italic;
+  color: var(--accent);
+  position: relative;
+  z-index: 1;
+  margin-bottom: 20px;
+}
+
+/* Memory count badge — shows total right on the cover */
+.cover-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, rgba(212,63,141,0.1), rgba(124,58,237,0.08));
+  border: 1px solid var(--pink-border);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent);
+  position: relative;
+  z-index: 1;
+  margin-bottom: 18px;
+}
+html.theme-dark .cover-count-badge {
+  background: linear-gradient(135deg, rgba(212,63,141,0.14), rgba(124,58,237,0.12));
+}
+
+/* Colophon line — "сформировано [date]" */
+.cover-colophon {
+  font-size: 0.63rem;
+  color: var(--meta);
+  letter-spacing: 0.07em;
+  position: relative;
+  z-index: 1;
+  opacity: 0.8;
+}
+
+/* ── "Содержание" label above counter-wrap ── */
+.toc-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.toc-label-text {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--meta);
+}
+.toc-label-line {
+  flex: 1;
+  height: 1px;
+  background: var(--pink-border);
+}
+
+/* ── Chapter opener (section headers) ── */
+.chapter-opener {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 12px;
+}
+.chapter-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--meta);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.chapter-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.chapter-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--pink-border), transparent);
+}
 
 /* ── Counter-wrap (mirrors stats.html .counter-wrap) ── */
 .counter-wrap {
@@ -619,14 +780,15 @@ html.theme-dark .sticky-header {
   .observe-fade { opacity: 1; transform: none; transition: none; }
 }
 
-/* ── Hero enter animations (mirrors stats.html) ── */
+/* ── Enter animations ── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.hero          { animation: fadeUp 0.5s ease both; }
-.counter-wrap  { animation: fadeUp 0.5s 0.08s ease both; }
-.mini-grid     { animation: fadeUp 0.5s 0.14s ease both; }
+.cover         { animation: fadeUp 0.55s ease both; }
+.toc-label     { animation: fadeUp 0.5s 0.06s ease both; }
+.counter-wrap  { animation: fadeUp 0.5s 0.1s  ease both; }
+.mini-grid     { animation: fadeUp 0.5s 0.16s ease both; }
 
 /* ── Loading / error states ── */
 .state-loading, .state-error {
@@ -706,16 +868,52 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
 
 <div class="page" id="mainPage" style="display:none">
 
-  <!-- ── HERO ── -->
-  <section class="hero" id="heroCover">
-    <div class="hero-badge" id="heroBadge">SureMemory · История пары</div>
-    <h1 class="hero-title" id="heroName1">—</h1>
-    <span class="hero-amp">&amp;</span>
-    <h1 class="hero-title" id="heroName2">—</h1>
-    <div class="hero-sub" id="heroSub"></div>
+  <!-- ── COVER (title-page of the history book) ── -->
+  <section class="cover" id="heroCover">
+    <!-- Large background watermark -->
+    <div class="cover-watermark" aria-hidden="true">❤</div>
+
+    <!-- Eyebrow label: — ИСТОРИЯ ПАРЫ — -->
+    <div class="cover-eyebrow" aria-hidden="true">
+      <span class="cover-eyebrow-line"></span>
+      <span class="cover-eyebrow-text">История пары</span>
+      <span class="cover-eyebrow-line"></span>
+    </div>
+
+    <!-- Names — the "title" of the book -->
+    <div class="cover-name" id="heroName1">—</div>
+    <span class="cover-amp">&amp;</span>
+    <div class="cover-name" id="heroName2">—</div>
+
+    <!-- Ornamental divider: —  ❤  — -->
+    <div class="cover-ornament" aria-hidden="true">
+      <span class="cover-ornament-line"></span>
+      <span class="cover-ornament-heart">❤</span>
+      <span class="cover-ornament-line"></span>
+    </div>
+
+    <!-- Date and days — the "dedication" block -->
+    <div class="cover-since" id="coverSince"></div>
+    <div class="cover-days"  id="coverDays"></div>
+
+    <!-- Memory count badge — so the user immediately knows the volume -->
+    <div class="cover-count-badge" id="coverCountBadge" style="display:none">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 3C5.5 3 3 5 3 7.5c0 3.5 5 7 5 7s5-3.5 5-7C13 5 10.5 3 8 3z"
+              fill="currentColor" opacity="0.85"/>
+      </svg>
+      <span id="coverCountText">0 воспоминаний</span>
+    </div>
+
+    <!-- Colophon -->
+    <div class="cover-colophon" id="coverColophon"></div>
   </section>
 
-  <!-- ── COUNTER WRAP ── -->
+  <!-- ── COUNTER WRAP (table-of-contents feel) ── -->
+  <div class="toc-label">
+    <span class="toc-label-text">Содержание</span>
+    <span class="toc-label-line"></span>
+  </div>
   <div class="counter-wrap" id="counterWrap">
     <div class="counter-grid">
       <div class="counter-col">
@@ -1038,23 +1236,29 @@ function buildCard(item) {
 }
 
 // ── Build section (memories / events / wishes) ────────────────────────────
-function buildSection(containerId, items, sectionTitle, groupByDate) {
+function buildSection(containerId, items, sectionTitle, groupByDate, chapterNum) {
   var container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
-  if (!items || !items.length) {
-    container.innerHTML = '<div class="empty-note">Пока нет записей в этом разделе</div>';
-    return;
+  if (!items || !items.length) return;
+
+  // Chapter opener — "Глава I  ·  Воспоминания  ──────"
+  var opener = document.createElement('div');
+  opener.className = 'chapter-opener observe-fade';
+  if (chapterNum) {
+    var numEl = document.createElement('span');
+    numEl.className = 'chapter-num';
+    numEl.textContent = chapterNum + ' ·';
+    opener.appendChild(numEl);
   }
-
-  var divider = document.createElement('div');
-  divider.className = 'section-divider observe-fade';
-  container.appendChild(divider);
-
-  var titleEl = document.createElement('div');
-  titleEl.className = 'section-title observe-fade';
+  var titleEl = document.createElement('span');
+  titleEl.className = 'chapter-title';
   titleEl.textContent = sectionTitle;
-  container.appendChild(titleEl);
+  opener.appendChild(titleEl);
+  var lineEl = document.createElement('span');
+  lineEl.className = 'chapter-line';
+  opener.appendChild(lineEl);
+  container.appendChild(opener);
 
   if (!groupByDate) {
     items.forEach(function(item) {
@@ -1168,49 +1372,83 @@ function render(data) {
   var names = data.couple_names || ['—', '—'];
   document.getElementById('heroName1').textContent = names[0] || '—';
   document.getElementById('heroName2').textContent = names[1] || '—';
-  document.title = (names[0] || '') + ' & ' + (names[1] || '') + ' — SureMemory';
+  document.title = (names[0] || '') + ' & ' + (names[1] || '') + ' — История пары';
   document.getElementById('stickyTitle').textContent = (names[0] || '') + ' & ' + (names[1] || '');
 
-  var sub = [];
-  if (data.met_date_display) sub.push('познакомились ' + data.met_date_display);
-  document.getElementById('heroSub').innerHTML = sub.map(function(s) {
-    return '<span>' + esc(s) + '</span>';
-  }).join('');
+  // Cover: meeting date
+  var sinceEl = document.getElementById('coverSince');
+  if (sinceEl && data.met_date_display) {
+    sinceEl.innerHTML = 'вместе с <strong>' + esc(data.met_date_display) + '</strong>';
+  }
 
+  // Cover: days together (italic serif accent)
+  var daysEl = document.getElementById('coverDays');
+  var days = data.days_together;
+  if (daysEl && days != null) {
+    daysEl.textContent = days + ' ' + daysWord(days) + ' вместе';
+  }
+
+  // Cover: memory count badge
   var stats = data.stats || {};
+  var totalMem = (stats.memories || 0) + (stats.events || 0) + (stats.wishes || 0);
+  var badgeEl = document.getElementById('coverCountBadge');
+  var badgeText = document.getElementById('coverCountText');
+  if (badgeEl && totalMem > 0) {
+    badgeEl.style.display = 'inline-flex';
+    badgeText.textContent = totalMem + ' ' + _totalWord(totalMem) + ' в архиве';
+  }
+
+  // Cover: colophon
+  var colophon = document.getElementById('coverColophon');
+  if (colophon && data.export_date) {
+    colophon.textContent = 'сформировано ' + data.export_date + ' · SureMemory';
+  }
+
+  // Counter wrap (table of contents numbers)
   document.getElementById('cntMemories').textContent = stats.memories || 0;
   document.getElementById('cntEvents').textContent   = stats.events   || 0;
   document.getElementById('cntWishes').textContent   = stats.wishes   || 0;
-  document.getElementById('mcPhotos').textContent    = stats.photos   || 0;
-  document.getElementById('mcVideos').textContent    = stats.videos   || 0;
-  document.getElementById('mcVoices').textContent    = stats.voices   || 0;
-  document.getElementById('mcFiles').textContent     = stats.files    || 0;
 
-  var days = data.days_together;
+  // Counter days line
   if (days != null) {
     document.getElementById('counterDays').innerHTML =
-      'Вместе <strong>' + days + '</strong> ' + daysWord(days);
+      'Вместе <strong>' + days + '</strong> ' + daysWord(days);
   }
 
+  document.getElementById('mcPhotos').textContent = stats.photos || 0;
+  document.getElementById('mcVideos').textContent = stats.videos || 0;
+  document.getElementById('mcVoices').textContent = stats.voices || 0;
+  document.getElementById('mcFiles').textContent  = stats.files  || 0;
+
+  // Footer
   if (data.export_date) {
     document.getElementById('exportDate').textContent = 'Сформировано ' + data.export_date;
   }
 
   var sections = data.sections || {};
-  var allItems = (sections.memories || []).concat(sections.events || []).concat(sections.wishes || []);
+  var allItems = (sections.memories || [])
+    .concat(sections.events  || [])
+    .concat(sections.wishes  || []);
 
   buildCatSection(allItems);
-  buildSection('memoriesSection', sections.memories || [], 'Воспоминания', true);
-  buildSection('eventsSection',   sections.events   || [], 'События',       false);
-  buildSection('wishesSection',   sections.wishes   || [], 'Желания',        false);
+  buildSection('memoriesSection', sections.memories || [], 'Воспоминания', true,  'Глава I');
+  buildSection('eventsSection',   sections.events   || [], 'События',      false, 'Глава II');
+  buildSection('wishesSection',   sections.wishes   || [], 'Желания',      false, 'Глава III');
 
   document.getElementById('stateLoading').style.display = 'none';
   document.getElementById('mainPage').style.display = '';
 
-  // Stagger mini-cards
   applyStagger(document.getElementById('miniGrid'), '.mini-card', 0, 50);
-
   setupReveal();
+}
+
+function _totalWord(n) {
+  n = Math.abs(n) % 100;
+  if (n >= 11 && n <= 14) return 'записей';
+  n = n % 10;
+  if (n === 1) return 'запись';
+  if (n >= 2 && n <= 4) return 'записи';
+  return 'записей';
 }
 
 // ── PDF download ──────────────────────────────────────────────────────────

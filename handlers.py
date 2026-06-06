@@ -2171,6 +2171,350 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
     return text, kb
 
 
+def _build_restart_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Обновить статус", callback_data="admin_restart_refresh")],
+        [InlineKeyboardButton(text="🔙 В админ-панель", callback_data="admin_panel")],
+    ])
+
+
+def _read_restart_status() -> dict:
+    try:
+        if RESTART_STATUS_PATH.exists():
+            return json.loads(RESTART_STATUS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _write_restart_status(status: dict) -> None:
+    try:
+        RESTART_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        RESTART_STATUS_PATH.write_text(json.dumps(status, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _is_container_healthy(name: str) -> bool:
+    try:
+        proc = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}", name],
+            capture_output=True,
+            text=True,
+            timeout=6,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return False
+        parts = ((proc.stdout or "").strip()).split()
+        if not parts:
+            return False
+        running = parts[0] == "true"
+        health = parts[1] if len(parts) > 1 else "none"
+        return running and health in {"healthy", "none"}
+    except Exception:
+        return False
+
+
+def _is_restart_stuck(status: dict) -> bool:
+    state = (status.get("status") or "").strip().lower()
+    updated_at = (status.get("updated_at") or "").strip()
+    if state != "running" or not updated_at:
+        return False
+    try:
+        updated_dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+        age_sec = (datetime.now(timezone.utc) - updated_dt).total_seconds()
+        if age_sec <= RESTART_STUCK_SECONDS:
+            return False
+        return not _local_restart_in_progress()
+    except Exception:
+        return False
+
+
+def _recover_restart_status_if_needed(status: dict) -> dict:
+    state = (status.get("status") or "").strip().lower()
+    bot_ok = _is_container_healthy("ksysha-bot")
+    cf_ok = _is_container_healthy("ksysha-cloudflared")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    if bot_ok and cf_ok and state in {"failed", "running"}:
+        fixed = {
+            "status": "success",
+            "message": "restart_recovered_by_healthcheck",
+            "attempt": int(status.get("attempt") or 0),
+            "updated_at": now,
+        }
+        for k in ["build_duration_sec", "total_duration_sec"]:
+            if k in status:
+                fixed[k] = status[k]
+        _write_restart_status(fixed)
+        return fixed
+
+    if _is_restart_stuck(status):
+        fixed = {
+            "status": "failed",
+            "message": "restart_stuck_timeout",
+            "attempt": int(status.get("attempt") or 0),
+            "updated_at": now,
+        }
+        for k in ["build_duration_sec", "total_duration_sec"]:
+            if k in status:
+                fixed[k] = status[k]
+        _write_restart_status(fixed)
+        return fixed
+
+    return status
+
+
+async def _read_deploy_status() -> dict:
+    deploy_url = (getattr(config, "DEPLOYER_URL", "") or "").strip()
+    deploy_secret = (getattr(config, "DEPLOYER_SECRET", "") or "").strip()
+    if not deploy_url or not deploy_secret:
+        return {}
+    try:
+        parts = urlsplit(deploy_url)
+        deploy_path = parts.path or ""
+        health_path = f"{deploy_path[:-7]}/health" if deploy_path.endswith("/deploy") else "/health"
+        health_url = urlunsplit((parts.scheme, parts.netloc, health_path, "", ""))
+        timeout = aiohttp.ClientTimeout(total=8)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(health_url, headers={"X-Deploy-Secret": deploy_secret}) as resp:
+                if resp.status >= 400:
+                    return {}
+                payload = await resp.json(content_type=None)
+        deploy = (payload or {}).get("deploy") or {}
+        return deploy if isinstance(deploy, dict) else {}
+    except Exception:
+        return {}
+
+
+async def _trigger_deploy() -> tuple[bool, str]:
+    deploy_url = (getattr(config, "DEPLOYER_URL", "") or "").strip()
+    deploy_secret = (getattr(config, "DEPLOYER_SECRET", "") or "").strip()
+    if not deploy_url or not deploy_secret:
+        return False, "Не настроены DEPLOYER_URL/DEPLOYER_SECRET."
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(
+                deploy_url,
+                headers={"X-Deploy-Secret": deploy_secret},
+            ) as resp:
+                payload = await resp.json(content_type=None)
+                if resp.status == 200 and (payload or {}).get("ok"):
+                    return True, "accepted"
+                if resp.status == 409:
+                    return False, "in_progress"
+                err = (payload or {}).get("error") or f"http_{resp.status}"
+                return False, str(err)
+    except Exception as e:
+        return False, str(e)
+
+
+def _local_restart_in_progress() -> bool:
+    try:
+        proc = subprocess.run(
+            ["docker", "ps", "--format", "{{.Names}}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return False
+        names = [(line or "").strip() for line in (proc.stdout or "").splitlines()]
+        return any(name.startswith(RESTART_RUNNER_PREFIX) for name in names)
+    except Exception:
+        return False
+
+
+async def _trigger_local_restart() -> tuple[bool, str]:
+    if _local_restart_in_progress():
+        return False, "in_progress"
+    if not RESTART_SCRIPT_PATH.exists():
+        return False, f"restart_script_not_found:{RESTART_SCRIPT_PATH}"
+
+    RESTART_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    status = {
+        "status": "running",
+        "message": "restart_started_local",
+        "attempt": 0,
+        "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    try:
+        RESTART_STATUS_PATH.write_text(json.dumps(status, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+    host_root_dir = (getattr(config, "RESTART_HOST_ROOT_DIR", "") or RESTART_HOST_ROOT_DIR).strip()
+
+    build_check = subprocess.run(
+        ["docker", "inspect", RESTART_RUNNER_IMAGE],
+        capture_output=True,
+    )
+    if build_check.returncode != 0:
+        try:
+            container_app_dir = "/app"
+            proc_build = await asyncio.create_subprocess_exec(
+                "docker", "build", "-t", RESTART_RUNNER_IMAGE, "-f", f"{container_app_dir}/Dockerfile", container_app_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, build_err = await proc_build.communicate()
+            if proc_build.returncode != 0:
+                detail = (build_err or b"").decode("utf-8", errors="ignore").strip() or "build failed"
+                return False, detail
+        except Exception as e:
+            return False, str(e)
+
+    runner_name = f"{RESTART_RUNNER_PREFIX}{int(time.time())}"
+    cmd = [
+        "docker", "run", "-d", "--rm",
+        "--name", runner_name,
+        "-v", "/var/run/docker.sock:/var/run/docker.sock",
+        "-v", f"{host_root_dir}:{RESTART_ROOT_DIR}",
+        "-e", f"ROOT_DIR={RESTART_ROOT_DIR}",
+        "-e", "COMPOSE_PROJECT_NAME=workspace",
+        "-e", f"STATUS_FILE={RESTART_STATUS_FILE_IN_RUNNER}",
+        "-w", RESTART_ROOT_DIR,
+        RESTART_RUNNER_IMAGE,
+        "bash", f"{RESTART_ROOT_DIR}/scripts/restart_clean.sh",
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        detail = (stderr or b"").decode("utf-8", errors="ignore").strip() or (
+            stdout or b""
+        ).decode("utf-8", errors="ignore").strip() or f"docker_run_exit_{proc.returncode}"
+        return False, detail
+    RESTART_PID_PATH.write_text(runner_name, encoding="utf-8")
+    return True, "accepted_local"
+
+
+async def _format_restart_status_text(status: dict) -> str:
+    state = (status.get("status") or "unknown").strip().lower()
+    attempt = int(status.get("attempt") or 0)
+    updated_at = (status.get("updated_at") or "—").strip()
+    message = (status.get("message") or "").strip()
+
+    msg_map = {
+        "restart_started_local": "Локальный перезапуск начат",
+        "attempt_1": "Попытка 1: остановка и пересоздание",
+        "attempt_2": "Попытка 2: остановка и пересоздание",
+        "attempt_3": "Попытка 3: остановка и пересоздание",
+        "restart_verified": "Проверка пройдена, всё работает",
+        "all_attempts_failed": "Все попытки перезапуска провалились",
+        "compose_file_not_found": "Не найден файл docker-compose",
+        "restart_recovered_by_healthcheck": "Восстановлено (проверка здоровья пройдена)",
+        "restart_stuck_timeout": "Таймаут перезапуска (завис)",
+    }
+    human_msg = msg_map.get(message, message)
+
+    if state == "success":
+        head = "✅ Перезапуск завершён успешно."
+    elif state == "failed":
+        head = "❌ Перезапуск завершился ошибкой."
+    elif state == "running":
+        head = "⏳ Перезапуск выполняется."
+    else:
+        head = "ℹ️ Статус перезапуска пока недоступен."
+
+    lines = [head]
+    lines.append("Источник: Локальный перезапуск (safe restart)")
+
+    b_dur = status.get("build_duration_sec")
+    t_dur = status.get("total_duration_sec")
+    if t_dur is not None:
+        dur_str = f"Длительность: {t_dur} сек"
+        if b_dur is not None:
+            dur_str += f" (в т.ч. сборка: {b_dur} сек)"
+        lines.append(dur_str)
+
+    lines.append(f"Попытка: {attempt}")
+    lines.append(f"Обновлено: {updated_at}")
+    if human_msg:
+        lines.append(f"Детали: {human_msg}")
+
+    health_result = "успешно" if state == "success" else ("ошибка" if state == "failed" else "ожидание")
+    lines.append(f"Healthcheck: {health_result}")
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker", "ps", "-a", "--format", "{{.Names}} - {{.Status}}",
+            stdout=asyncio.subprocess.PIPE
+        )
+        stdout, _ = await proc.communicate()
+        out_lines = stdout.decode("utf-8", errors="ignore").strip().split('\n')
+        ksysha_containers = [ln for ln in out_lines if "ksysha-" in ln]
+        if ksysha_containers:
+            lines.append("\nАктивные сервисы:")
+            for c in ksysha_containers:
+                lines.append(f"  • {c}")
+    except Exception:
+        pass
+
+    try:
+        from app_version import version as app_version
+        version_val = app_version or "unknown"
+    except ImportError:
+        version_val = "unknown"
+    commit_val = os.environ.get("GIT_COMMIT")
+    if not commit_val:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "git", "rev-parse", "--short", "HEAD",
+                stdout=asyncio.subprocess.PIPE,
+                cwd="/workspace"
+            )
+            stdout, _ = await proc.communicate()
+            commit_val = stdout.decode("utf-8", errors="ignore").strip() or "unknown"
+        except Exception:
+            commit_val = "unknown"
+
+    lines.append(f"\nВерсия: {version_val}")
+    lines.append(f"Коммит: {commit_val}")
+
+    return "\n".join(lines)
+
+
+@router.callback_query(F.data == "our_couple")
+async def our_couple(callback: CallbackQuery):
+    text, kb = _format_couple_message(callback.from_user.id)
+    await callback_edit_or_answer(callback, text, reply_markup=kb, parse_mode=ParseMode.HTML)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "our_couple_show")
+async def our_couple_show(callback: CallbackQuery):
+    text, kb = _format_couple_message(callback.from_user.id, with_details=True)
+    await callback_edit_or_answer(callback, text, reply_markup=kb, parse_mode=ParseMode.HTML)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "our_couple_hide")
+async def our_couple_hide(callback: CallbackQuery):
+    text, kb = _format_couple_message(callback.from_user.id, with_details=False)
+    await callback_edit_or_answer(callback, text, reply_markup=kb, parse_mode=ParseMode.HTML)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "set_couple_met_date")
+async def set_couple_met_date(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    await state.set_state(CoupleOnboardingStates.waiting_for_met_date_raw)
+    await callback.message.edit_text(
+        "💑 <b>Когда вы познакомились?</b>\n\n"
+        "Напиши дату в любом формате, например:\n"
+        "• <i>15 мая 2024</i>\n"
+        "• <i>15.05.2024</i>",
+        parse_mode=ParseMode.HTML
+    )
+
+
 @router.callback_query(F.data == "bot_site")
 async def bot_site(callback: CallbackQuery):
     """Показать актуальную ссылку на сайт бота"""

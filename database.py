@@ -990,6 +990,19 @@ class Database:
             except Exception as e:
                 logger.debug("Migration skipped for couples.met_date: %s", e)
 
+            # Миграция: токен для постоянной ссылки истории пары
+            try:
+                conn.execute("ALTER TABLE couples ADD COLUMN export_token TEXT")
+            except Exception as e:
+                logger.debug("Migration skipped for couples.export_token: %s", e)
+            try:
+                conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_couples_export_token "
+                    "ON couples(export_token) WHERE export_token IS NOT NULL"
+                )
+            except Exception as e:
+                logger.debug("Migration skipped for couples export_token index: %s", e)
+
             # Миграция: заполняем NULL met_date где это возможно
             # Для пар без даты знакомства используем paired_at (дату когда партнер присоединился)
             # минус 1 день как приблизительную дату знакомства
@@ -3258,6 +3271,49 @@ class Database:
         if not u2:
             return None
         return u2 if u1 == user_id else u1
+
+    def get_export_token(self, couple_id: int) -> Optional[str]:
+        """Возвращает постоянный токен экспорта для пары.
+        Если токена ещё нет — генерирует и сохраняет. Идемпотентно."""
+        import secrets as _secrets
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT export_token FROM couples WHERE id = ?", (couple_id,)
+                ).fetchone()
+                if row and row["export_token"]:
+                    return row["export_token"]
+                # Генерируем: 48-символьный lowercase hex (24 байта энтропии)
+                token = _secrets.token_hex(24)
+                # INSERT OR IGNORE защищает от race condition при параллельных запросах
+                conn.execute(
+                    "UPDATE couples SET export_token = ? "
+                    "WHERE id = ? AND (export_token IS NULL OR export_token = '')",
+                    (token, couple_id),
+                )
+                conn.commit()
+                # Читаем финальное значение (могло быть записано другим потоком)
+                row2 = conn.execute(
+                    "SELECT export_token FROM couples WHERE id = ?", (couple_id,)
+                ).fetchone()
+                return row2["export_token"] if row2 and row2["export_token"] else token
+        except Exception as e:
+            logger.exception("get_export_token failed for couple_id=%s: %s", couple_id, e)
+            return None
+
+    def get_couple_by_export_token(self, token: str) -> Optional[Dict]:
+        """Ищет пару по токену экспорта. Возвращает None если не найдена."""
+        if not token or len(token) < 10:
+            return None
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT * FROM couples WHERE export_token = ?", (token,)
+                ).fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.exception("get_couple_by_export_token failed: %s", e)
+            return None
 
     def get_couple_by_id(self, couple_id: int) -> Optional[Dict]:
         """Возвращает пару по её ID."""

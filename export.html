@@ -17,6 +17,8 @@
   document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
 })();
 </script>
+<!-- Server injects the export token here — JS never needs to parse the URL -->
+<script>window.__exportToken = '__EXPORT_TOKEN_PLACEHOLDER__';</script>
 
 <style>
 /* ── Colour tokens — exact copy of stats.html :root ── */
@@ -997,9 +999,14 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
 (function () {
 'use strict';
 
-// Extract couple_id from URL: /export/{couple_id}
-var pathParts = window.location.pathname.split('/').filter(Boolean);
-var coupleId = pathParts[pathParts.length - 1];
+// Primary: token injected server-side (reliable, no URL parsing needed)
+// Fallback: extract from URL path (works after F5 if placeholder not replaced)
+var coupleToken = (window.__exportToken && window.__exportToken !== '__EXPORT_TOKEN_PLACEHOLDER__')
+  ? window.__exportToken
+  : (function() {
+      var parts = window.location.pathname.split('/').filter(Boolean);
+      return parts[parts.length - 1] || '';
+    })();
 
 var CAT_LABELS = {
   important_moments: 'важный момент',
@@ -1491,7 +1498,12 @@ function showError(msg) {
 }
 
 // ── Load data ─────────────────────────────────────────────────────────────
-fetch('/api/export_data/' + encodeURIComponent(coupleId), {
+if (!coupleToken || coupleToken.length < 10) {
+  showError('Неверная ссылка. Откройте историю через профиль.');
+  return;
+}
+
+fetch('/api/export_data/' + encodeURIComponent(coupleToken), {
   credentials: 'include',
 })
   .then(function(r) {

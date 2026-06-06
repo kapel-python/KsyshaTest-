@@ -1275,11 +1275,11 @@ function _populateProfile(data) {
     ? `<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM0 8a8 8 0 1116 0A8 8 0 010 8zm8-3.5a.75.75 0 01.75.75v3.19l2.28 1.3a.75.75 0 01-.75 1.3L7.5 9.56V5.25A.75.75 0 018 4.5z" fill="currentColor"/></svg>${sinceText}`
     : '';
 
-  // Export link: set full /export/{couple_id} URL on the button
-  const coupleId = data.couple_id;
+  // Export link: use the ready-made URL from bootstrap (contains the opaque token)
+  const exportUrl = data.export_url;
   const exportBtn = document.getElementById('btnOpenExport');
-  if (exportBtn && coupleId) {
-    exportBtn.href = '/export/' + coupleId;
+  if (exportBtn && exportUrl) {
+    exportBtn.href = exportUrl;
   }
 
   // Subscription: use server-provided subscription data as single source of truth

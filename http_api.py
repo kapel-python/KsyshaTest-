@@ -1898,7 +1898,7 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
         "creator_id": data.get("creator_id"),
         "ksusha_id": data.get("ksusha_id"),
         "partner_id": data.get("partner_id"),
-        "couple_id": data.get("couple_id"),
+        "export_url": data.get("export_url"),
         "users": data.get("users") or {},
         "stats": data.get("stats") or {},
         "stats_url": data.get("stats_url") or "/stats",
@@ -2405,7 +2405,11 @@ def _collect_site_data(
         "ksusha_id": partner_id,  # legacy key
         "partner_id": partner_id,
 
-        "couple_id": _couple_id if (_couple_id is not None and _couple_id != -1) else None,
+        # Постоянная ссылка истории пары — токен генерируется лениво при первом обращении
+        "export_url": (
+            f"/export/{db.get_export_token(_couple_id)}"
+            if _couple_id and _couple_id != -1 else None
+        ),
 
         "users": users_info,
 
@@ -6546,7 +6550,11 @@ def _build_export_payload(user_id: int) -> dict:
 
 
 async def export_redirect(request: web.Request) -> web.Response:
-    """GET /export/ — redirect authenticated user to their couple's export page."""
+    """GET /export/ — redirect authenticated user to their couple's token-based export URL.
+
+    Auth is required here (we need to know which couple to redirect to).
+    The target page itself does NOT require navigation-time auth — see export_page().
+    """
     session_vid = _get_trusted_visitor_id(request)
     if not session_vid:
         raise web.HTTPFound("/main")
@@ -6554,40 +6562,40 @@ async def export_redirect(request: web.Request) -> web.Response:
     couple = db.get_couple_by_user(uid) if uid else None
     if not couple:
         raise web.HTTPFound("/main")
-    raise web.HTTPFound(f"/export/{couple['id']}")
+    token = db.get_export_token(couple["id"])
+    if not token:
+        logger.error("[Export] Could not generate export token for couple %s", couple["id"])
+        raise web.HTTPFound("/main")
+    raise web.HTTPFound(f"/export/{token}")
 
 
 async def export_page(request: web.Request) -> web.Response:
-    """GET /export/{couple_id} — serve the couple history web page.
+    """GET /export/{token} — serve the couple history web page.
 
-    Security checks:
-      1. visitor_id cookie must be present and have a valid HMAC signature.
-      2. The authenticated user must belong to the couple identified by couple_id
-         in the URL — prevents IDOR (a user cannot view another couple's data).
+    Security model (two-layer):
+      1. Token lookup: the opaque token must map to a real couple in the DB.
+         Tokens are 48-char random hex — not guessable.
+      2. Data access: the JS page calls /api/export_data/{token} which performs
+         full session-based auth + IDOR check (user must be in the couple).
+
+    The HTML page itself contains no user data — it is safe to serve without
+    requiring navigation-time cookies.  This avoids the first-load failure that
+    occurs when cookies are not yet sent (Telegram WebApp new-tab, cold browser).
+
+    The token is injected server-side as  window.__exportToken  so the JS does
+    not rely on URL parsing, which could break after redirects.
     """
-    session_vid = _get_trusted_visitor_id(request)
-    if not session_vid:
+    token = (request.match_info.get("token") or "").strip().lower()
+
+    # Validate token format — must be a hex string of the expected length
+    if len(token) != 48 or not all(c in "0123456789abcdef" for c in token):
+        logger.info("[Export] Rejected invalid token format: %r", token[:20])
         raise web.HTTPFound("/main")
 
-    uid = _visitor_to_user_id(session_vid)
-    if not uid:
-        raise web.HTTPFound("/main")
-
-    # Parse couple_id from URL
-    try:
-        url_couple_id = int(request.match_info.get("couple_id", "0"))
-    except (ValueError, TypeError):
-        raise web.HTTPFound("/main")
-
-    # IDOR check: verify the requesting user actually belongs to this couple
-    user_couple = db.get_couple_by_user(uid)
-    if not user_couple or user_couple.get("id") != url_couple_id:
-        logger.warning(
-            "[Export] IDOR attempt or wrong couple: user_id=%s, url_couple_id=%s, "
-            "actual_couple_id=%s",
-            uid, url_couple_id,
-            user_couple.get("id") if user_couple else None,
-        )
+    # Verify the token maps to a real couple (no user auth needed here)
+    couple = db.get_couple_by_export_token(token)
+    if not couple:
+        logger.info("[Export] Unknown export token: %r", token[:12] + "...")
         raise web.HTTPFound("/main")
 
     if db.get_setting("test_version") == "1":
@@ -6604,6 +6612,9 @@ async def export_page(request: web.Request) -> web.Response:
         logger.exception("[Export] Cannot read export.html")
         return web.Response(text="internal error", status=500)
 
+    # Inject token so the JS doesn't need to parse it from the URL
+    html = html.replace("__EXPORT_TOKEN_PLACEHOLDER__", token)
+
     return web.Response(
         text=html,
         content_type="text/html",
@@ -6617,11 +6628,23 @@ async def export_page(request: web.Request) -> web.Response:
 
 
 async def api_export_data(request: web.Request) -> web.Response:
-    """GET /api/export_data/{couple_id} — return full export JSON.
+    """GET /api/export_data/{token} — return full export JSON.
 
-    Same IDOR protection as export_page: the requesting user must belong
-    to the couple_id in the URL. Returns 403 for any auth failure.
+    Security (both checks must pass):
+      1. Token → couple lookup: the token must map to a real couple.
+      2. Session auth + IDOR: the requesting user must be authenticated
+         AND must belong to that specific couple.
     """
+    token = (request.match_info.get("token") or "").strip().lower()
+    if len(token) != 48 or not all(c in "0123456789abcdef" for c in token):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "bad_token"}, status=400))
+
+    # Resolve token → couple (no auth needed for the lookup itself)
+    token_couple = db.get_couple_by_export_token(token)
+    if not token_couple:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "not_found"}, status=404))
+
+    # Session auth
     session_vid = _get_trusted_visitor_id(request)
     if not session_vid:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
@@ -6630,25 +6653,18 @@ async def api_export_data(request: web.Request) -> web.Response:
     if not uid:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
-    try:
-        url_couple_id = int(request.match_info.get("couple_id", "0"))
-    except (ValueError, TypeError):
-        return _add_cors_headers(web.json_response({"ok": False, "error": "bad_request"}, status=400))
-
+    # IDOR: the authenticated user must be in the couple that owns this token
     user_couple = db.get_couple_by_user(uid)
-    if not user_couple or user_couple.get("id") != url_couple_id:
+    if not user_couple or user_couple.get("id") != token_couple.get("id"):
         logger.warning(
-            "[Export API] IDOR: user_id=%s url_couple_id=%s actual=%s",
-            uid, url_couple_id,
-            user_couple.get("id") if user_couple else None,
+            "[Export API] IDOR: user_id=%s token_couple=%s user_couple=%s",
+            uid, token_couple.get("id"), user_couple.get("id") if user_couple else None,
         )
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
     data = _build_export_payload(uid)
     if not data:
-        return _add_cors_headers(
-            web.json_response({"ok": False, "error": "no_data"}, status=404)
-        )
+        return _add_cors_headers(web.json_response({"ok": False, "error": "no_data"}, status=404))
 
     return _add_cors_headers(web.json_response({"ok": True, "data": data}))
 
@@ -9639,9 +9655,9 @@ def create_app() -> web.Application:
     # Export routes
     app.router.add_get("/export", export_redirect)
     app.router.add_get("/export/", export_redirect)
-    app.router.add_get("/export/{couple_id}", export_page)
-    app.router.add_route("OPTIONS", "/api/export_data/{couple_id}", handle_options)
-    app.router.add_get("/api/export_data/{couple_id}", api_export_data)
+    app.router.add_get("/export/{token}", export_page)
+    app.router.add_route("OPTIONS", "/api/export_data/{token}", handle_options)
+    app.router.add_get("/api/export_data/{token}", api_export_data)
     app.router.add_route("OPTIONS", "/api/export_pdf", handle_options)
     app.router.add_post("/api/export_pdf", api_export_pdf)
     app.router.add_route("OPTIONS", "/api/logout", handle_options)

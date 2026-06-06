@@ -990,6 +990,23 @@ class Database:
             except Exception as e:
                 logger.debug("Migration skipped for couples.met_date: %s", e)
 
+            # Миграция: заполняем NULL met_date где это возможно
+            # Для пар без даты знакомства используем paired_at (дату когда партнер присоединился)
+            # минус 1 день как приблизительную дату знакомства
+            try:
+                conn.execute("""
+                    UPDATE couples
+                    SET met_date = DATE(
+                        paired_at,
+                        '-1 day'
+                    )
+                    WHERE met_date IS NULL
+                    AND paired_at IS NOT NULL
+                """)
+                logger.info("Migrateraised met_date from paired_at for NULL entries")
+            except Exception as e:
+                logger.debug("Migration failed for filling NULL met_date: %s", e)
+
             # Таблица инвайт-кодов
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS invite_codes (

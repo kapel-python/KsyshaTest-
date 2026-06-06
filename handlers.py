@@ -1671,6 +1671,27 @@ async def _finish_couple_onboarding(message: Message, state: FSMContext, callbac
             await state.clear()
             send_fn = callback.message.edit_text if callback else message.answer
             await send_fn("❌ Ошибка при создании пары. Попробуй снова /start")
+    elif not data.get("joining") and not data.get("creating_couple"):
+        # Пользователь устанавливает дату для существующей пары (из раздела "Наша пара")
+        couple = db.get_couple_by_user(user_id)
+        if couple:
+            met_date_db = data.get("met_date_db")
+            if met_date_db:
+                db.set_couple_met_date(couple["id"], met_date_db[:10])
+
+            await state.clear()
+            send_fn = callback.message.edit_text if callback else message.answer
+            text, kb = _format_couple_message(user_id, with_details=False)
+            await send_fn(
+                f"✅ Дата знакомства установлена: <b>{html.escape(data.get('met_date_display', 'неизвестно'))}</b>\n\n"
+                f"{text}",
+                reply_markup=kb,
+                parse_mode=ParseMode.HTML
+            )
+        else:
+            await state.clear()
+            send_fn = callback.message.edit_text if callback else message.answer
+            await send_fn("❌ Пара не найдена. Попробуй снова /start")
     else:
         await state.clear()
 
@@ -2093,7 +2114,10 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
 
     met_date = db.get_couple_met_date(user_id)
     met_human = _met_date_human(met_date)
-    met_date_line = f"🗓 Вы познакомились {html.escape(met_human)}" if met_human else "🗓 Дата знакомства пока не указана"
+    if met_human:
+        met_date_line = f"🗓 Вы познакомились {html.escape(met_human)}"
+    else:
+        met_date_line = "🗓 Дата знакомства не установлена (нажми кнопку внизу, чтобы добавить)"
     last_item = db.get_last_added_item(couple_id=cid, user_ids=user_ids)
     if last_item:
         when_label = _relative_day(last_item[1])
@@ -2131,12 +2155,15 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
 
     if u2:
         first_row = [InlineKeyboardButton(text="🙈 Скрыть статистику", callback_data="our_couple_hide")] if with_details else [InlineKeyboardButton(text="📊 Статистика пары", callback_data="our_couple_show")]
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            first_row,
+        kb_rows = [first_row]
+        if not met_human:
+            kb_rows.append([InlineKeyboardButton(text="📅 Установить дату знакомства", callback_data="set_couple_met_date")])
+        kb_rows.extend([
             [InlineKeyboardButton(text="➕ Добавить момент", callback_data="cat_menu")],
             [InlineKeyboardButton(text="📄 Экспорт истории (PDF)", callback_data="our_couple_export_pdf")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
         ])
+        kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
     else:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔗 Пригласить партнёра", callback_data="get_invite_link")],
@@ -2585,6 +2612,20 @@ async def our_couple_hide(callback: CallbackQuery):
     text, kb = _format_couple_message(callback.from_user.id, with_details=False)
     await callback_edit_or_answer(callback, text, reply_markup=kb, parse_mode=ParseMode.HTML)
     await callback.answer()
+
+
+@router.callback_query(F.data == "set_couple_met_date")
+async def set_couple_met_date(callback: CallbackQuery, state: FSMContext):
+    """Устанавливает дату знакомства для пары."""
+    await callback.answer()
+    await state.set_state(CoupleOnboardingStates.waiting_for_met_date_raw)
+    await callback.message.edit_text(
+        "💑 <b>Когда вы познакомились?</b>\n\n"
+        "Напиши дату в любом формате, например:\n"
+        "• <i>15 мая 2024</i>\n"
+        "• <i>15.05.2024</i>",
+        parse_mode=ParseMode.HTML
+    )
 
 
 @router.callback_query(F.data == "our_couple_export_pdf")

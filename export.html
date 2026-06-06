@@ -150,20 +150,6 @@ html.theme-dark .cover {
   border-color: rgba(212,63,141,0.18);
 }
 
-/* Large ❤ watermark behind everything */
-.cover-watermark {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -55%);
-  font-size: 16rem;
-  line-height: 1;
-  color: var(--accent);
-  opacity: 0.032;
-  pointer-events: none;
-  user-select: none;
-  z-index: 0;
-}
-html.theme-dark .cover-watermark { opacity: 0.022; }
 
 /* Eyebrow: "— ИСТОРИЯ ПАРЫ —" */
 .cover-eyebrow {
@@ -218,7 +204,7 @@ html.theme-dark .cover-watermark { opacity: 0.022; }
   z-index: 1;
 }
 
-/* Ornamental rule: —  ❤  — */
+/* Ornamental rule */
 .cover-ornament {
   display: flex;
   align-items: center;
@@ -236,12 +222,6 @@ html.theme-dark .cover-watermark { opacity: 0.022; }
 }
 html.theme-dark .cover-ornament-line {
   background: linear-gradient(90deg, transparent, rgba(212,63,141,0.35), transparent);
-}
-.cover-ornament-heart {
-  font-size: 0.9rem;
-  color: var(--accent);
-  opacity: 0.75;
-  line-height: 1;
 }
 
 /* "с [date]" — meeting date */
@@ -1085,8 +1065,6 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
 
   <!-- ── COVER (title-page of the history book) ── -->
   <section class="cover" id="heroCover">
-    <!-- Large background watermark -->
-    <div class="cover-watermark" aria-hidden="true">❤</div>
 
     <!-- Eyebrow label: — ИСТОРИЯ ПАРЫ — -->
     <div class="cover-eyebrow" aria-hidden="true">
@@ -1100,23 +1078,12 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
     <span class="cover-amp">&amp;</span>
     <div class="cover-name" id="heroName2">—</div>
 
-    <!-- Ornamental divider: —  ❤  — -->
-    <div class="cover-ornament" aria-hidden="true">
-      <span class="cover-ornament-line"></span>
-      <span class="cover-ornament-heart">❤</span>
-      <span class="cover-ornament-line"></span>
-    </div>
-
     <!-- Date and days — the "dedication" block -->
     <div class="cover-since" id="coverSince"></div>
     <div class="cover-days"  id="coverDays"></div>
 
-    <!-- Memory count badge — so the user immediately knows the volume -->
+    <!-- Memory count badge -->
     <div class="cover-count-badge" id="coverCountBadge" style="display:none">
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path d="M8 3C5.5 3 3 5 3 7.5c0 3.5 5 7 5 7s5-3.5 5-7C13 5 10.5 3 8 3z"
-              fill="currentColor" opacity="0.85"/>
-      </svg>
       <span id="coverCountText">0 воспоминаний</span>
     </div>
 

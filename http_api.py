@@ -1876,6 +1876,37 @@ async def all_data(request: web.Request) -> web.Response:
 
     return _json_response_with_etag(request, data)
 
+
+def _lazy_sync_missing_avatars(request: web.Request, data: dict) -> None:
+    """Запускает фоновую синхронизацию аватарок, если их нет в users.
+
+    Не блокирует ответ — синхронизация выполняется в фоне,
+    аватарка появится после завершения (обычно 1-3 сек).
+    """
+    users = data.get("users") or {}
+    creator_id = data.get("creator_id")
+    partner_id = data.get("partner_id")
+    needs_sync: list[int] = []
+
+    creator_info = users.get("creator") or {}
+    partner_info = users.get("ksyusha") or users.get("partner") or {}
+
+    if creator_id and creator_id > 0 and not creator_info.get("tg_avatar_url"):
+        needs_sync.append(creator_id)
+    if partner_id and partner_id > 0 and not partner_info.get("tg_avatar_url"):
+        needs_sync.append(partner_id)
+
+    if not needs_sync:
+        return
+
+    bot = request.app.get("bot")
+    if not bot:
+        return
+
+    for uid in needs_sync:
+        asyncio.create_task(avatar_service.sync_user_avatar(bot, uid))
+
+
 async def site_bootstrap_data(request: web.Request) -> web.Response:
 
     """Быстрый payload для первого экрана сайта (без лишних блоков)."""
@@ -1893,6 +1924,11 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
     is_light = request.rel_url.query.get("light") == "true"
     endpoint = "api/site_bootstrap_light" if is_light else "api/site_bootstrap"
     data = _collect_site_data(timezone_id, visitor_id, endpoint=endpoint, page=page, limit=limit)
+
+    # Lazy sync аватарок: если аватарки нет, запускаем фоновую синхронизацию
+    # (синхронизация не блокирует ответ — аватарка появится при следующем запросе)
+    _lazy_sync_missing_avatars(request, data)
+
     all_memories = data.get("memories") or []
     total_memories = data.get("total_memories", 0)
     all_events = data.get("events") or []

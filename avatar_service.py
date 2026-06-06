@@ -32,6 +32,17 @@ from config import config
 logger = logging.getLogger(__name__)
 
 _AVATAR_DIR_NAME = "tg_avatars"
+
+# Per-user locks to prevent concurrent syncs for the same user
+_sync_locks: dict[int, asyncio.Lock] = {}
+_sync_locks_guard = asyncio.Lock()
+
+async def _get_user_sync_lock(user_id: int) -> asyncio.Lock:
+    """Возвращает asyncio.Lock для user_id, создавая при необходимости."""
+    async with _sync_locks_guard:
+        if user_id not in _sync_locks:
+            _sync_locks[user_id] = asyncio.Lock()
+        return _sync_locks[user_id]
 _SINGLE_USER_COOLDOWN = 6 * 3600       # 6 ч между обновлениями одного пользователя
 _BATCH_INTERVAL = 12 * 3600            # 12 ч между полными проходами по всем пользователям
 _BETWEEN_USERS_DELAY = 1.5             # пауза между пользователями в пакетном режиме (сек)
@@ -135,15 +146,24 @@ async def sync_user_avatar(bot, user_id: int, force: bool = False) -> Optional[s
     """
     Синхронизирует аватарку пользователя.
 
+    - Защищён per-user блокировкой от параллельных вызовов
     - Проверяет cooldown (пропускает если обновляли недавно, если не force)
     - Сравнивает file_unique_id — скачивает только если аватарка изменилась
     - Обновляет БД
     - Возвращает URL или None
     """
+    lock = await _get_user_sync_lock(user_id)
+    async with lock:
+        return await _sync_user_avatar_impl(bot, user_id, force=force)
+
+
+async def _sync_user_avatar_impl(bot, user_id: int, force: bool = False) -> Optional[str]:
+    """Внутренняя реализация sync_user_avatar (вызывается под блокировкой)."""
     from database import db
 
     logger.info("[avatar] user=%s sync started force=%s", user_id, force)
 
+    # Перечитываем пользователя под блокировкой — предыдущий sync мог обновить данные
     user = db.get_user(user_id)
     if not user:
         logger.warning("[avatar] user=%s not found in db, abort sync", user_id)

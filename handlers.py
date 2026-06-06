@@ -78,7 +78,7 @@ RESTART_SCRIPT_PATH = Path("/app/scripts/restart_clean.sh")
 RESTART_ROOT_DIR = "/workspace"
 RESTART_STATUS_FILE_IN_RUNNER = "/workspace/data/restart_status.json"
 RESTART_RUNNER_PREFIX = "ksysha-restart-runner-"
-RESTART_RUNNER_IMAGE = "ksyshatest-ksysha-bot:latest"
+RESTART_RUNNER_IMAGE = "workspace-ksysha-bot:latest"
 RESTART_HOST_ROOT_DIR = "/root/KsyshaTest"
 RESTART_STUCK_SECONDS = 420
 PDF_EXPORTS_DIR = Path("/tmp/couple_exports")
@@ -2435,8 +2435,10 @@ async def _trigger_local_restart() -> tuple[bool, str]:
     )
     if build_check.returncode != 0:
         try:
+            # Используем /app — путь внутри контейнера (host_root_dir недоступен изнутри)
+            container_app_dir = "/app"
             proc_build = await asyncio.create_subprocess_exec(
-                "docker", "build", "-t", RESTART_RUNNER_IMAGE, "-f", f"{host_root_dir}/Dockerfile", host_root_dir,
+                "docker", "build", "-t", RESTART_RUNNER_IMAGE, "-f", f"{container_app_dir}/Dockerfile", container_app_dir,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

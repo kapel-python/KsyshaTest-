@@ -8680,9 +8680,7 @@
 
         if (!modal || !overlay) return;
 
-        const modalH  = () => modal.offsetHeight;
-
-        let startY = 0, dragY = 0, dragging = false;
+        let startY = 0, dragY = 0, dragging = false, modalHCache = 0;
 
         function getClientY(e) {
 
@@ -8704,6 +8702,8 @@
 
           dragging = true;
 
+          modalHCache = modal.offsetHeight; // кэшируем высоту один раз
+
           modal.style.transition   = 'none';
 
           overlay.style.transition = 'none';
@@ -8720,7 +8720,7 @@
 
           modal.style.transform = 'translateX(-50%) translateY(' + dragY + 'px)';
 
-          const progress = Math.min(dragY / (modalH() * 0.5), 1);
+          const progress = Math.min(dragY / (modalHCache * 0.5), 1);
 
           overlay.style.opacity = String(1 - progress * 0.7);
 
@@ -8734,17 +8734,16 @@
 
           dragging = false;
 
-          const threshold = modalH() * 0.35; // 35% высоты — порог закрытия
+          const threshold = modalHCache * 0.35; // 35% высоты — порог закрытия
 
           if (dragY > threshold) {
 
             // Закрываем: доезжаем до низа
-
             modal.style.transition   = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
 
-            modal.style.transform    = 'translateX(-50%) translateY(100%)';
-
             overlay.style.transition = 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+
+            modal.style.transform    = 'translateX(-50%) translateY(100%)';
 
             overlay.style.opacity    = '0';
 
@@ -8773,12 +8772,11 @@
           } else {
 
             // Возвращаем модалку обратно вверх
-
             modal.style.transition   = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)';
 
-            modal.style.transform    = 'translateX(-50%) translateY(0)';
-
             overlay.style.transition = 'opacity 0.4s ease';
+
+            modal.style.transform    = 'translateX(-50%) translateY(0)';
 
             overlay.style.opacity    = '1';
 

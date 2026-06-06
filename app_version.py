@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.325'
-description = 'Ручной перезапуск'
+version = '1.0.326'
+description = 'Защита от detached HEAD при откатах'
 
 
 def get_version_metadata() -> tuple[str, str]:

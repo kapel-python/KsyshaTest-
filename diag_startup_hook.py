@@ -19,8 +19,8 @@ def run_checks():
     
     # 2. Consistency Check
     rollback_active = db.get_setting("rollback_active")
-    if not rollback_active and branch == "HEAD":
-        raise ValueError("CRITICAL: Detached HEAD detected but rollback_active is NOT set!")
+    if not rollback_active and branch in ("HEAD", "_rollback"):
+        raise ValueError(f"CRITICAL: {branch} detected but rollback_active is NOT set!")
     print("✅ Rollback consistency is valid.")
     
     # 3. Dependencies

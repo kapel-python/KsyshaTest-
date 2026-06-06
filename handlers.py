@@ -6512,6 +6512,26 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
             ]),
             parse_mode=ParseMode.HTML
         )
+    finally:
+        try:
+            from app_version import _get_repo_root
+            _rb = _get_repo_root()
+            if os.path.isdir(os.path.join(_rb, ".git")):
+                _p = subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    cwd=_rb, capture_output=True, text=True, timeout=5
+                )
+                if _p.returncode == 0 and _p.stdout.strip() in ("HEAD", "_rollback"):
+                    subprocess.run(["git", "branch", "-D", "_rollback"],
+                        cwd=_rb, capture_output=True, timeout=5)
+                    subprocess.run(["git", "checkout", "main"],
+                        cwd=_rb, capture_output=True, timeout=5)
+                    db.delete_setting("rollback_active")
+                    db.delete_setting("rollback_previous_commit")
+                    db.delete_setting("rollback_previous_version")
+                    db.delete_setting("rollback_target_commit")
+        except Exception:
+            pass
 
 
 @router.callback_query(F.data.startswith("admin_version_detail:"))
@@ -6968,8 +6988,14 @@ async def admin_confirm_rollback(callback: CallbackQuery):
             db.set_setting("last_rollback_source_ver", current_ver)
             db.set_setting("last_rollback_dest_ver", ver)
 
+            # Instead of "git checkout <commit>" (detached HEAD), create a named
+            # branch _rollback so the workspace is never in detached HEAD.
+            # This ensures admin_confirm_release can always detect the branch
+            # and recover from errors.
+            subprocess.run(["git", "branch", "-f", "_rollback", commit],
+                cwd=repo_root, capture_output=True, timeout=10)
             checkout_res = subprocess.run(
-                ["git", "checkout", commit],
+                ["git", "checkout", "_rollback"],
                 cwd=repo_root,
                 capture_output=True,
                 text=True,
@@ -7083,7 +7109,11 @@ async def admin_undo_rollback(callback: CallbackQuery):
 
         if checkout_res.returncode != 0:
             raise Exception(f"git checkout main завершился с ошибкой:\nStdout: {checkout_res.stdout}\nStderr: {checkout_res.stderr}")
-            
+
+        # Clean up temporary rollback branch if it exists
+        subprocess.run(["git", "branch", "-D", "_rollback"],
+            cwd=repo_root, capture_output=True, timeout=5)
+
         # 2. Clear DB persistent state
         db.delete_setting("rollback_active")
         db.delete_setting("rollback_previous_commit")

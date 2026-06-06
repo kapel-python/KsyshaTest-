@@ -1307,6 +1307,14 @@ def create_favorites_add_menu_keyboard(user_id: int) -> InlineKeyboardMarkup:
                 row.append(InlineKeyboardButton(text=cat["title"], callback_data=f"category_{key}"))
         if row:
             keyboard.append(row)
+    # Добавляем кастомные категории
+    couple = db.get_couple_by_user(user_id)
+    if couple:
+        custom_cats = db.get_custom_categories(couple.get("id"))
+        for cc in custom_cats:
+            key = f"custom_{cc['id']}"
+            label = f"{cc.get('emoji', '📁')} {cc.get('name', key)}"
+            keyboard.append([InlineKeyboardButton(text=label, callback_data=f"category_{key}")])
     keyboard.append([InlineKeyboardButton(text="🎯 События на дату", callback_data="scheduled_events_menu")])
     partner_id = db.get_couple_partner(user_id)
     if is_wishes_available():

@@ -6465,6 +6465,11 @@ def _build_export_payload(user_id: int) -> dict:
         memories = []
         for cat in ("important_moments", "memories", "important_dates"):
             memories.extend(db.get_memories_by_category(cat, limit=1000, couple_id=couple_id) or [])
+        # Also fetch memories for custom categories
+        custom_cats_export = db.get_custom_categories(couple_id) or []
+        for cc in custom_cats_export:
+            cat_key = f"custom_{cc['id']}"
+            memories.extend(db.get_memories_by_category(cat_key, limit=1000, couple_id=couple_id) or [])
         memories = sorted(memories, key=lambda m: m.created_at or "")
 
         events = sorted(
@@ -6535,6 +6540,7 @@ def _build_export_payload(user_id: int) -> dict:
             "met_date_display": met_date_display,
             "days_together":    days_together,
             "export_date":      export_date,
+            "custom_categories": custom_cats_export,
             "stats": {
                 "memories": len(memories),
                 "events":   len(events),

@@ -1556,6 +1556,15 @@ function buildCatSection(allItems) {
 
 // ── Render full page from data ────────────────────────────────────────────
 function render(data) {
+  // Build custom category label map for the UI
+  if (data.custom_categories && data.custom_categories.length) {
+    data.custom_categories.forEach(function(cc) {
+      var key = 'custom_' + cc.id;
+      var emoji = cc.emoji || '';
+      CAT_LABELS[key] = emoji ? emoji + ' ' + (cc.name || key) : (cc.name || key);
+    });
+  }
+
   var names = data.couple_names || ['—', '—'];
   document.getElementById('heroName1').textContent = names[0] || '—';
   document.getElementById('heroName2').textContent = names[1] || '—';

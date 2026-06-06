@@ -1998,10 +1998,18 @@ class Database:
                     if not m:
                         continue
                     title = (m.title or "").strip()
-                    cat = config.CATEGORIES.get(m.category, {})
-                    type_label = cat.get("title", m.category)
-                    if isinstance(cat, dict) and cat.get("emoji"):
-                        type_label = (type_label or "").replace(cat["emoji"], "", 1).strip() or type_label
+                    if m.category.startswith("custom_"):
+                        cat_id = int(m.category.replace("custom_", ""))
+                        cc = self.get_custom_category(cat_id)
+                        if cc:
+                            type_label = f"{cc.get('emoji', '')} {cc.get('name', m.category)}".strip()
+                        else:
+                            type_label = m.category
+                    else:
+                        cat = config.CATEGORIES.get(m.category, {})
+                        type_label = cat.get("title", m.category)
+                        if isinstance(cat, dict) and cat.get("emoji"):
+                            type_label = (type_label or "").replace(cat["emoji"], "", 1).strip() or type_label
                 elif it == "scheduled_event":
                     e = self.get_scheduled_event(iid)
                     if not e:

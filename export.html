@@ -385,25 +385,27 @@ html.theme-dark .cover-count-badge {
 .counter-col:last-child { border-right: none; }
 .counter-num {
   font-family: 'Playfair Display', serif;
-  font-size: 2.4rem;
+  font-size: 2.6rem;
   font-weight: 900;
   color: #fff;
   line-height: 1;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .counter-label {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.65);
+  color: rgba(255,255,255,0.75);
+  word-break: break-word;
+  line-height: 1.3;
 }
 .counter-days {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 20px;
+  padding-top: 16px;
   border-top: 1px solid rgba(255,255,255,0.15);
-  font-size: 0.88rem;
-  color: rgba(255,255,255,0.8);
+  font-size: 0.95rem;
+  color: rgba(255,255,255,0.85);
   position: relative;
 }
 .counter-days strong {
@@ -421,7 +423,7 @@ html.theme-dark .cover-count-badge {
 .mini-card {
   background: var(--surface);
   border-radius: 20px;
-  padding: 16px 14px;
+  padding: 20px 16px;
   border: 1.5px solid var(--pink-border);
   position: relative;
   overflow: hidden;
@@ -430,7 +432,7 @@ html.theme-dark .cover-count-badge {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 3px;
+  height: 4px;
   border-radius: 20px 20px 0 0;
 }
 .mini-card.mc1::before { background: linear-gradient(90deg, #ff9fd4, #d43f8d); }
@@ -439,16 +441,16 @@ html.theme-dark .cover-count-badge {
 .mini-card.mc4::before { background: linear-gradient(90deg, #16a34a, #0d9488); }
 .mini-card.mc5::before { background: linear-gradient(90deg, #db2777, #be185d); }
 .mini-card.mc6::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
-.mini-card-icon { font-size: 1.3rem; margin-bottom: 6px; display: block; }
+.mini-card-icon { font-size: 1.6rem; margin-bottom: 8px; display: block; }
 .mini-card-value {
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text);
-  line-height: 1.2;
-  margin-bottom: 2px;
+  line-height: 1.1;
+  margin-bottom: 4px;
 }
 .mini-card-label {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   color: var(--muted);
   font-weight: 500;
 }
@@ -468,15 +470,15 @@ html.theme-dark .cover-count-badge {
 .cat-bar-card {
   background: var(--surface);
   border-radius: 24px;
-  padding: 20px 18px;
+  padding: 22px 20px;
   border: 1.5px solid var(--pink-border);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .cat-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 0;
+  padding: 11px 0;
   border-bottom: 1px solid var(--pink-border);
 }
 .cat-row:last-child { border-bottom: none; padding-bottom: 0; }
@@ -485,17 +487,17 @@ html.theme-dark .cover-count-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
   white-space: nowrap;
-  min-width: 96px;
+  min-width: 80px;
   flex-shrink: 0;
 }
 .cat-bar-bg {
   flex: 1;
-  height: 6px;
+  height: 7px;
   background: var(--pink-soft);
   border-radius: 999px;
   overflow: hidden;
@@ -511,21 +513,21 @@ html.theme-dark .cover-count-badge {
 .cat-bar-fill.cf-green  { background: linear-gradient(90deg, #16a34a, #0d9488); }
 .cat-bar-fill.cf-rose   { background: linear-gradient(90deg, #db2777, #be185d); }
 .cat-cnt {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--accent);
-  width: 28px;
+  width: 32px;
   text-align: right;
   flex-shrink: 0;
 }
 
-/* ── Memory card (mirrors stats.html .stat-card) ── */
+/* ── Memory card ── */
 .memory-card {
   background: var(--surface);
   border-radius: 22px;
-  padding: 16px 16px 14px 20px;
+  padding: 20px 18px 18px 24px;
   border: 1.5px solid var(--pink-border);
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   display: flex;
   align-items: flex-start;
   gap: 14px;
@@ -537,8 +539,8 @@ html.theme-dark .cover-count-badge {
 .memory-card-stripe {
   position: absolute;
   left: 0; top: 0; bottom: 0;
-  width: 4px;
-  border-radius: 4px 0 0 4px;
+  width: 5px;
+  border-radius: 5px 0 0 5px;
 }
 .stripe-pink   { background: linear-gradient(180deg, #ff9fd4, #d43f8d); }
 .stripe-orange { background: linear-gradient(180deg, #ffb347, #ff6b35); }
@@ -554,15 +556,15 @@ html.theme-dark .cover-count-badge {
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 7px;
+  margin-bottom: 10px;
 }
 .memory-cat-pill {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 3px 9px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -574,30 +576,30 @@ html.theme-dark .cover-count-badge {
 .cat-default          { background: #f3f0ff; color: #5b21b6; }
 
 .memory-date {
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   color: var(--meta);
   white-space: nowrap;
   flex-shrink: 0;
-  padding-top: 2px;
+  padding-top: 3px;
 }
 
 .memory-title {
-  font-size: 0.98rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text);
-  line-height: 1.3;
-  margin-bottom: 5px;
+  line-height: 1.35;
+  margin-bottom: 6px;
   word-break: break-word;
 }
 .memory-meta {
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   color: var(--muted);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .memory-text {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   color: var(--text);
-  line-height: 1.55;
+  line-height: 1.65;
   word-break: break-word;
 }
 .memory-text.collapsed {
@@ -608,8 +610,8 @@ html.theme-dark .cover-count-badge {
 }
 .toggle-text {
   display: inline-block;
-  margin-top: 5px;
-  font-size: 0.75rem;
+  margin-top: 6px;
+  font-size: 0.82rem;
   color: var(--accent);
   font-weight: 600;
   cursor: pointer;
@@ -691,22 +693,22 @@ html.theme-dark .cover-count-badge {
   flex-shrink: 0;
 }
 
-/* ── Year heading (mirrors stats timeline) ── */
+/* ── Year heading ── */
 .year-heading {
   font-family: 'Playfair Display', serif;
-  font-size: 1.5rem;
+  font-size: 1.7rem;
   font-weight: 900;
   color: var(--accent);
-  margin-top: 24px;
-  margin-bottom: 4px;
+  margin-top: 28px;
+  margin-bottom: 6px;
   letter-spacing: -0.02em;
 }
 .month-heading {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-style: italic;
   color: var(--muted);
-  margin-top: 12px;
-  margin-bottom: 6px;
+  margin-top: 16px;
+  margin-bottom: 8px;
   font-weight: 500;
 }
 
@@ -916,15 +918,15 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
   word-break: keep-all;
 }
 
-/* ── 7. Counter labels — "воспоминаний" в 3 колонки на 320px переполняет ── */
+/* ── 7. Counter — fluid на узких экранах ── */
 .counter-label {
-  font-size: clamp(0.52rem, 1.7vw, 0.68rem);
-  letter-spacing: clamp(0.02em, 0.3vw, 0.1em);
+  font-size: clamp(0.65rem, 2vw, 0.75rem);
+  letter-spacing: clamp(0.01em, 0.2vw, 0.04em);
   word-break: break-word;
   line-height: 1.3;
 }
 .counter-num {
-  font-size: clamp(1.8rem, 6vw, 2.4rem);
+  font-size: clamp(2rem, 7vw, 2.6rem);
 }
 .counter-wrap {
   padding: clamp(18px, 4vw, 28px) clamp(14px, 4vw, 24px);
@@ -1006,16 +1008,17 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
   .counter-wrap { padding: 16px 10px; border-radius: 20px; }
   .counter-num  { font-size: 1.7rem; }
 
-  /* Мини-карточки: чуть компактнее */
+  /* Мини-карточки: компактнее по padding, но текст не ужимаем */
   .mini-grid { gap: 8px; }
-  .mini-card { padding: 12px 10px; border-radius: 16px; }
-  .mini-card-value { font-size: 1.1rem; }
-  .mini-card-icon  { font-size: 1.1rem; margin-bottom: 4px; }
+  .mini-card { padding: 16px 12px; border-radius: 16px; }
+  .mini-card-value { font-size: 1.35rem; }
+  .mini-card-icon  { font-size: 1.4rem; margin-bottom: 6px; }
+  .mini-card-label { font-size: 0.75rem; }
 
   /* Карточки воспоминаний */
-  .memory-card { padding: 12px 12px 10px 16px; border-radius: 16px; }
-  .memory-title { font-size: 0.92rem; }
-  .memory-text  { font-size: 0.84rem; }
+  .memory-card { padding: 16px 14px 14px 20px; border-radius: 18px; }
+  .memory-title { font-size: 1rem; }
+  .memory-text  { font-size: 0.9rem; }
 
   /* Категорийные строки — стекаем на очень узких */
   .cat-row { flex-wrap: wrap; gap: 4px; }

@@ -852,12 +852,6 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
   height: 44px;
 }
 
-/* PDF-кнопка в хедере: увеличиваем зону тапа */
-#btnDownloadPdf {
-  min-height: 44px;
-  padding: 0 16px !important;
-}
-
 /* Кнопка "Читать полностью": была padding: 0 — не тапабельна */
 .toggle-text {
   padding: 6px 0;
@@ -1085,15 +1079,6 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
     </svg>
   </a>
   <span class="sticky-header-title" id="stickyTitle">История пары</span>
-  <button class="btn-secondary" id="btnDownloadPdf"
-    style="padding:7px 14px; font-size:0.75rem; border-radius:999px; margin-left:auto;"
-    onclick="downloadPdf(this)">
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-      <path d="M8 2v8M5 7l3 3 3-3M2 13h12" stroke="currentColor" stroke-width="1.6"
-            stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    PDF
-  </button>
 </div>
 
 <div class="page" id="mainPage" style="display:none">
@@ -1685,37 +1670,6 @@ function _totalWord(n) {
   if (n >= 2 && n <= 4) return 'записи';
   return 'записей';
 }
-
-// ── PDF download ──────────────────────────────────────────────────────────
-window.downloadPdf = function(btn) {
-  if (!btn) return;
-  btn.classList.add('btn-loading');
-  var origText = btn.innerHTML;
-  btn.innerHTML = '<svg class="spinner" width="14" height="14" viewBox="0 0 14 14" style="animation:spin 0.7s linear infinite;border:none;margin:0;padding:0;">' +
-    '<circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="20" stroke-dashoffset="14"/></svg> Генерируем…';
-  fetch('/api/export_pdf', { method: 'POST', credentials: 'include' })
-    .then(function(r) {
-      if (!r.ok) throw new Error(r.status);
-      return r.blob();
-    })
-    .then(function(blob) {
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'suremomory_history.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    })
-    .catch(function() {
-      alert('Не удалось сгенерировать PDF. Попробуйте позже.');
-    })
-    .finally(function() {
-      btn.innerHTML = origText;
-      btn.classList.remove('btn-loading');
-    });
-};
 
 // ── Show error ─────────────────────────────────────────────────────────────
 function showError(msg) {

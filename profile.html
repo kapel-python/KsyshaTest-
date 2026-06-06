@@ -644,48 +644,26 @@
       <div class="nav-spacer"></div>
     </div>
 
-    <!-- Web export card -->
-    <div class="section-label" data-i18n="profExportWebLabel">Веб-версия</div>
     <div class="card">
       <div class="card-item static" style="align-items:flex-start; gap:14px; padding:18px 16px;">
         <div class="item-icon icon-indigo" style="margin-top:2px;">
           <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M2 8h12M8 2c-1.5 2-2 3.8-2 6s.5 4 2 6M8 2c1.5 2 2 3.8 2 6s-.5 4-2 6" stroke="currentColor" stroke-width="1.4"/></svg>
         </div>
         <div class="item-body">
-          <div class="item-title" data-i18n="profExportWebTitle">История пары в браузере</div>
-          <div class="item-sub" data-i18n="profExportWebDesc">Красивая страница со всеми воспоминаниями, фото и статистикой. Одна ссылка для обоих партнёров.</div>
+          <div class="item-title" data-i18n="profExportWebTitle">История пары</div>
+          <div class="item-sub" data-i18n="profExportWebDesc">Все воспоминания, фото и статистика. Одна ссылка для обоих партнёров.</div>
         </div>
       </div>
       <div style="padding: 0 16px 16px;">
-        <a id="btnOpenExport" href="/export/" target="_blank" class="btn-primary" style="width:100%; justify-content:center; text-decoration:none; display:flex; box-sizing:border-box;" data-i18n="profExportOpenBtn">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M3 8V13h10V8M8 3v7M5 6l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <a id="btnOpenExport" href="/export/" class="btn-primary" style="width:100%; justify-content:center; text-decoration:none; display:flex; box-sizing:border-box;" data-i18n="profExportOpenBtn">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Открыть историю
         </a>
       </div>
     </div>
 
-    <!-- PDF export card -->
-    <div class="section-label" data-i18n="profExportPdfLabel">PDF-файл</div>
-    <div class="card">
-      <div class="card-item static" style="align-items:flex-start; gap:14px; padding:18px 16px;">
-        <div class="item-icon icon-slate" style="margin-top:2px;">
-          <svg viewBox="0 0 16 16" fill="none"><rect x="3" y="1" width="10" height="14" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        </div>
-        <div class="item-body">
-          <div class="item-title" data-i18n="profExportPdfTitle">Скачать PDF</div>
-          <div class="item-sub" data-i18n="profExportPdfDesc">Альбом с историей пары. Готов к печати и хранению. Генерируется на сервере.</div>
-        </div>
-      </div>
-      <div style="padding: 0 16px 16px;">
-        <button id="btnDownloadPdfProfile" onclick="profileDownloadPdf(this)" class="btn-secondary" style="width:100%; justify-content:center;" data-i18n="profExportPdfBtn">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M8 2v8M5 7l3 3 3-3M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Скачать PDF
-        </button>
-      </div>
-    </div>
-
     <p class="info-note" data-i18n="profExportNote">
-      История доступна только участникам пары. Ссылка привязана к вашей паре и не требует отдельного входа.
+      История доступна только участникам пары. Ссылка привязана к вашей паре.
     </p>
   </div>
 </div>
@@ -892,13 +870,9 @@ const PROF_I18N = {
     profSecSpace: 'Пространство', profSecSecurity: 'Безопасность', profSecData: 'Данные',
     profSubscription: 'Подписка', profAccessSettings: 'Настройки доступа',
     profSessions: 'Сессии и устройства', profSessionsSub: 'Управление активными сессиями',
-    profExport: 'Экспорт истории', profExportSub: 'История пары в браузере и PDF',
-    profExportWebLabel: 'Веб-версия', profExportWebTitle: 'История пары в браузере',
-    profExportWebDesc: 'Красивая страница со всеми воспоминаниями, фото и статистикой. Одна ссылка для обоих партнёров.',
+    profExport: 'История пары', profExportSub: 'Все воспоминания в одном месте',
+    profExportWebTitle: 'История пары', profExportWebDesc: 'Все воспоминания, фото и статистика. Одна ссылка для обоих партнёров.',
     profExportOpenBtn: 'Открыть историю',
-    profExportPdfLabel: 'PDF-файл', profExportPdfTitle: 'Скачать PDF',
-    profExportPdfDesc: 'Альбом с историей пары. Готов к печати и хранению.',
-    profExportPdfBtn: 'Скачать PDF',
     profExportNote: 'История доступна только участникам пары. Ссылка привязана к вашей паре.',
     profLogout: 'Выйти из аккаунта', profLogoutSub: 'Завершить текущую сессию',
     profLogoutTitle: 'Выход из аккаунта', profLogoutConfirm: 'Ты уверен, что хочешь завершить текущую сессию?',
@@ -939,13 +913,9 @@ const PROF_I18N = {
     profSecSpace: 'Workspace', profSecSecurity: 'Security', profSecData: 'Data',
     profSubscription: 'Subscription', profAccessSettings: 'Access Settings',
     profSessions: 'Sessions & Devices', profSessionsSub: 'Manage active sessions',
-    profExport: 'History Export', profExportSub: 'Couple history in browser & PDF',
-    profExportWebLabel: 'Web version', profExportWebTitle: 'Couple history in browser',
-    profExportWebDesc: 'A beautiful page with all memories, photos and statistics. One link for both partners.',
+    profExport: 'Couple History', profExportSub: 'All memories in one place',
+    profExportWebTitle: 'Couple History', profExportWebDesc: 'All memories, photos and statistics. One link for both partners.',
     profExportOpenBtn: 'Open history',
-    profExportPdfLabel: 'PDF file', profExportPdfTitle: 'Download PDF',
-    profExportPdfDesc: 'A couple story album. Ready to print and keep.',
-    profExportPdfBtn: 'Download PDF',
     profExportNote: 'History is only accessible to couple members. The link is tied to your couple.',
     profLogout: 'Sign Out', profLogoutSub: 'End current session',
     profLogoutTitle: 'Sign Out', profLogoutConfirm: 'Are you sure you want to end the current session?',
@@ -986,13 +956,9 @@ const PROF_I18N = {
     profSecSpace: 'Arbeitsbereich', profSecSecurity: 'Sicherheit', profSecData: 'Daten',
     profSubscription: 'Abonnement', profAccessSettings: 'Zugriffseinstellungen',
     profSessions: 'Sitzungen & Geräte', profSessionsSub: 'Aktive Sitzungen verwalten',
-    profExport: 'Geschichte exportieren', profExportSub: 'Paargeschichte im Browser & PDF',
-    profExportWebLabel: 'Webversion', profExportWebTitle: 'Paargeschichte im Browser',
-    profExportWebDesc: 'Eine schöne Seite mit allen Erinnerungen, Fotos und Statistiken. Ein Link für beide Partner.',
+    profExport: 'Paargeschichte', profExportSub: 'Alle Erinnerungen an einem Ort',
+    profExportWebTitle: 'Paargeschichte', profExportWebDesc: 'Alle Erinnerungen, Fotos und Statistiken. Ein Link für beide Partner.',
     profExportOpenBtn: 'Geschichte öffnen',
-    profExportPdfLabel: 'PDF-Datei', profExportPdfTitle: 'PDF herunterladen',
-    profExportPdfDesc: 'Ein Paar-Album. Druckfertig zum Aufbewahren.',
-    profExportPdfBtn: 'PDF herunterladen',
     profExportNote: 'Die Geschichte ist nur für Paarmitglieder zugänglich.',
     profLogout: 'Abmelden', profLogoutSub: 'Aktuelle Sitzung beenden',
     profLogoutTitle: 'Abmelden', profLogoutConfirm: 'Möchten Sie sich wirklich abmelden?',
@@ -1669,35 +1635,6 @@ async function doLogout() {
   }
 })();
 
-// ── Export: PDF download from profile screen ─────────────────────────────
-function profileDownloadPdf(btn) {
-  if (!btn) return;
-  const origHTML = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner show" style="margin-right:6px;width:14px;height:14px;border-width:2px;"></span>' + _t('profLoading');
-  fetch('/api/export_pdf', { method: 'POST', credentials: 'include' })
-    .then(r => {
-      if (!r.ok) throw new Error(r.status);
-      return r.blob();
-    })
-    .then(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'suremomory_history.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    })
-    .catch(() => {
-      showToast('Не удалось сгенерировать PDF. Попробуйте позже.');
-    })
-    .finally(() => {
-      btn.innerHTML = origHTML;
-      btn.disabled = false;
-    });
-}
 </script>
 
 </body>

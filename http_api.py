@@ -6429,8 +6429,7 @@ def _export_media_web_path(media_path: str | None) -> str | None:
 def _build_export_payload(user_id: int) -> dict:
     """
     Build the full export data dict for a user's couple.
-    Returns {} on error. Mirrors handlers._build_couple_pdf_payload but
-    lives here for the HTTP layer and converts media paths to web URLs.
+    Returns {} on error. Converts media paths to web URLs for browser rendering.
     """
     try:
         import os as _os
@@ -6686,59 +6685,6 @@ async def api_export_data(request: web.Request) -> web.Response:
 
     return _add_cors_headers(web.json_response({"ok": True, "data": data}))
 
-
-async def api_export_pdf(request: web.Request) -> web.Response:
-    """POST /api/export_pdf — generate PDF and return it as a download.
-
-    Reuses _build_export_payload (same data structure as handlers.py PDF generator)
-    but is triggered from the web page rather than the Telegram bot.
-    """
-    session_vid = _get_trusted_visitor_id(request)
-    if not session_vid:
-        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-
-    uid = _visitor_to_user_id(session_vid)
-    if not uid:
-        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-
-    user_couple = db.get_couple_by_user(uid)
-    if not user_couple:
-        return _add_cors_headers(web.json_response({"ok": False, "error": "no_couple"}, status=403))
-
-    data = _build_export_payload(uid)
-    if not data:
-        return _add_cors_headers(
-            web.json_response({"ok": False, "error": "no_data"}, status=500)
-        )
-
-    try:
-        from pdf_story_template import generate_couple_story_pdf
-        import tempfile
-        import os as _os
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            pdf_path = _os.path.join(tmp_dir, "couple_story.pdf")
-            generate_couple_story_pdf(data, pdf_path)
-            with open(pdf_path, "rb") as f:
-                pdf_bytes = f.read()
-
-        names = data.get("couple_names", ["couple"])
-        fname = f"suremomory_{'_'.join(n[:12] for n in names)}.pdf"
-        fname = re.sub(r'[^\w._-]', '_', fname)
-
-        return web.Response(
-            body=pdf_bytes,
-            content_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{fname}"',
-                "Cache-Control": "no-store",
-            },
-        )
-    except Exception:
-        logger.exception("[Export PDF] generation failed for user_id=%s", uid)
-        return _add_cors_headers(
-            web.json_response({"ok": False, "error": "pdf_failed"}, status=500)
-        )
 
 
 async def api_sessions(request: web.Request) -> web.Response:
@@ -9676,8 +9622,6 @@ def create_app() -> web.Application:
     app.router.add_get("/export/{token}", export_page)
     app.router.add_route("OPTIONS", "/api/export_data/{token}", handle_options)
     app.router.add_get("/api/export_data/{token}", api_export_data)
-    app.router.add_route("OPTIONS", "/api/export_pdf", handle_options)
-    app.router.add_post("/api/export_pdf", api_export_pdf)
     app.router.add_route("OPTIONS", "/api/logout", handle_options)
     app.router.add_post("/api/logout", logout)
     app.router.add_route("OPTIONS", "/api/sessions", handle_options)

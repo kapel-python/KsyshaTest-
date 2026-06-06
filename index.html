@@ -9893,6 +9893,7 @@
             }
 
             let bubble = null;
+            let isSearchingBubble = false;
             const reader = resp.body.getReader();
             const decoder = new TextDecoder();
             let fullReply = '';
@@ -9907,9 +9908,20 @@
               buffer = lines.pop();
 
               let nextIsSuggestions = false;
+              let nextIsWebSearch = false;
               for (const line of lines) {
+                if (line.startsWith('event: web_search_start')) { nextIsWebSearch = true; continue; }
                 if (line.startsWith('event: suggestions')) { nextIsSuggestions = true; continue; }
                 if (line.startsWith('data: ')) {
+                  if (nextIsWebSearch) {
+                    nextIsWebSearch = false;
+                    if (!bubble) {
+                      hideAITyping();
+                      bubble = addAIMessage('ai', '🔎 Ищу информацию в интернете...');
+                      isSearchingBubble = true;
+                    }
+                    continue;
+                  }
                   const raw = line.slice(6);
                   if (raw === '[DONE]') continue;
                   if (raw.startsWith('[ERROR]')) {
@@ -9934,6 +9946,9 @@
                   if (!bubble) {
                     hideAITyping();
                     bubble = addAIMessage('ai', '');
+                  } else if (isSearchingBubble) {
+                    isSearchingBubble = false;
+                    bubble.innerHTML = '';
                   }
                   await typeAITextFast(bubble, token);
                   const msgs = document.getElementById('aiMessages');

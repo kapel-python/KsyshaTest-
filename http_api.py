@@ -3045,7 +3045,7 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
         return response
 
     extra = {"timezone_id": tz or "", "ip": request.remote or "", "site_role": site_role or ""}
-    from api import ask_companion_stream, route_companion_request
+    from api import ask_companion_stream, route_companion_request, do_web_search
     try:
         import asyncio as _asyncio
         loop = _asyncio.get_running_loop()
@@ -3054,11 +3054,28 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
             lambda: route_companion_request(message, history_for_ai, extra, router_timeout_seconds=40),
         )
         endpoint = (routing.get("endpoint") or "api/all").strip().lower()
-        try:
-            site_data = _collect_site_data(tz, visitor_id, endpoint=endpoint) if routing.get("needs_data") else {}
-        except Exception:
-            logger.exception("AI-companion-stream: collect_site_data failed for endpoint=%s, using empty payload", endpoint)
-            site_data = {}
+
+        if endpoint == "api/web_search":
+            # Notify frontend immediately so it shows the "searching" bubble.
+            try:
+                await response.write(b"event: web_search_start\ndata: searching\n\n")
+                await response.drain()
+            except (ConnectionResetError, RuntimeError, asyncio.CancelledError):
+                return response
+            search_query = ((routing.get("tool_params") or {}).get("query") or message)[:200]
+            logger.info("AI-companion-stream: web search query=%r", search_query)
+            try:
+                search_results = await loop.run_in_executor(None, lambda: do_web_search(search_query))
+            except Exception:
+                logger.exception("AI-companion-stream: web search failed")
+                search_results = "Поиск временно недоступен."
+            site_data = {"web_search_results": search_results, "search_query": search_query}
+        else:
+            try:
+                site_data = _collect_site_data(tz, visitor_id, endpoint=endpoint) if routing.get("needs_data") else {}
+            except Exception:
+                logger.exception("AI-companion-stream: collect_site_data failed for endpoint=%s, using empty payload", endpoint)
+                site_data = {}
     except Exception:
         logger.exception("AI-companion-stream: router precheck failed, fallback to api/all")
         routing = {"needs_data": True, "reply": "", "suggestions": []}

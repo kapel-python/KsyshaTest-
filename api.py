@@ -21,6 +21,9 @@ API_CHAT_URL = "https://gptunnel.ru/v1/chat/completions"
 API_BALANCE_URL = "https://gptunnel.ru/v1/balance"
 
 MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "qwen3-14b"
+
+SERPER_API_KEY = (os.getenv("SERPER_API_KEY", "") or "").strip()
+SERPER_SEARCH_URL = "https://google.serper.dev/search"
 DATE_PARSER_MODEL = "qwen3-14b"
 COMPANION_MODEL = "gpt-5.4-nano"
 
@@ -61,6 +64,7 @@ _COMPANION_TOOL_TO_ENDPOINT = {
     "user_settings": "api/user_settings",
     "profile_stats": "api/profile_stats",
     "all": "api/all",
+    "web_search": "api/web_search",
     # legacy aliases
     "api/memories": "api/memories",
     "api/memories_recent": "api/memories_recent",
@@ -73,6 +77,7 @@ _COMPANION_TOOL_TO_ENDPOINT = {
     "api/user_settings": "api/user_settings",
     "api/profile_stats": "api/profile_stats",
     "api/all": "api/all",
+    "api/web_search": "api/web_search",
 }
 
 _COMPANION_ALLOWED_ENDPOINTS = {
@@ -87,6 +92,7 @@ _COMPANION_ALLOWED_ENDPOINTS = {
     "api/user_settings",
     "api/profile_stats",
     "api/all",
+    "api/web_search",
 }
 
 _COMPANION_GUIDE_MAX_CHARS = 12000
@@ -141,6 +147,80 @@ def _resolve_companion_endpoint(tool: str) -> str | None:
     if tool_str.startswith("api/event/") and tool_str.split("/")[-1].isdigit():
         return tool_str
     return None
+
+
+def do_web_search(query: str, num_results: int = 5) -> str:
+    """Searches the web using Serper API and returns AI-ready formatted results."""
+    if not SERPER_API_KEY:
+        logger.warning("Web search requested but SERPER_API_KEY is not set")
+        return "Поиск в интернете недоступен: API-ключ не настроен."
+
+    safe_query = (query or "").strip()[:300]
+    if not safe_query:
+        return "Поисковый запрос пустой."
+
+    try:
+        resp = requests.post(
+            SERPER_SEARCH_URL,
+            headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
+            json={"q": safe_query, "num": num_results, "gl": "ru", "hl": "ru"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        logger.error("Web search failed for query=%r: %s", safe_query, e)
+        return "Поиск в интернете временно недоступен."
+
+    lines: List[str] = []
+
+    answer_box = data.get("answerBox") or {}
+    direct = answer_box.get("answer") or answer_box.get("snippet") or ""
+    if direct:
+        lines.append(f"Быстрый ответ: {direct}")
+
+    for item in (data.get("organic") or [])[:num_results]:
+        title   = (item.get("title")   or "").strip()
+        snippet = (item.get("snippet") or "").strip()
+        date    = (item.get("date")    or "").strip()
+        if snippet:
+            date_part = f" ({date})" if date else ""
+            lines.append(f"• {title}{date_part}: {snippet}")
+
+    return "\n".join(lines) if lines else "Результаты поиска не найдены."
+
+
+def _build_web_search_system_prompt(
+    search_results: str,
+    query: str,
+    extra: Dict[str, Any] | None = None,
+) -> str:
+    """System prompt for the web-search answer mode."""
+    from companion_personality import COMPANION_CORE_IDENTITY, COMPANION_SUGGESTION_RULES
+
+    extra = extra or {}
+    timezone_id = extra.get("timezone_id") or "неизвестен"
+    try:
+        now = datetime.now(ZoneInfo(timezone_id)) if timezone_id != "неизвестен" else datetime.now()
+    except Exception:
+        now = datetime.now()
+
+    now_date = now.strftime("%d.%m.%Y")
+    now_time = now.strftime("%H:%M")
+
+    return (
+        f"{COMPANION_CORE_IDENTITY}\n\n"
+        f"Текущее время пользователя: {now_date} {now_time}, timezone={timezone_id}.\n\n"
+        "ДАННЫЕ ИЗ ИНТЕРНЕТА (актуальная информация):\n"
+        f"Поисковый запрос: {query or ''}\n"
+        f"{search_results}\n\n"
+        "Ответь на вопрос пользователя, используя эти данные. "
+        "Отвечай естественно — не упоминай, что делала поиск. "
+        "Если точного ответа в результатах нет — скажи честно.\n\n"
+        "ВАЖНО: в конце ответа добавь блок подсказок в XML-формате:\n"
+        "<suggestions>\nПодсказка 1\nПодсказка 2\nПодсказка 3\n</suggestions>\n"
+        f"{COMPANION_SUGGESTION_RULES}\n"
+    )
 
 
 def _load_companion_guide() -> str:
@@ -1029,12 +1109,21 @@ def build_companion_system_prompt(
 
     extra = extra or {}
 
+    endpoint = (endpoint or "").strip().lower() or "api/all"
+
+    # Web-search mode: use a focused prompt based solely on search results.
+    if endpoint == "api/web_search" and all_data.get("web_search_results"):
+        return _build_web_search_system_prompt(
+            all_data["web_search_results"],
+            all_data.get("search_query") or "",
+            extra,
+        )
+
     stats = all_data.get("stats") or {}
 
     # В зависимости от выбранного "эндпоинта" подаём в prompt только нужные данные.
     # ВНУТРИ КАЖДОЙ категории (memories, events, wishes, user_stats, favorites) отдаются ВСЕ доступные поля,
     # ничего дополнительно не обрезается и не придумывается.
-    endpoint = (endpoint or "").strip().lower() or "api/all"
 
     raw_memories = all_data.get("memories") or []
 
@@ -1417,7 +1506,9 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
         "- user_stats       — статистика текущего пользователя по его роли (без данных об устройстве)\n"
         "- user_settings    — настройки текущего пользователя (ip, часовые пояса, уведомления, избранное и прочее)\n"
         "- profile_stats    — базовая статистика профиля как на странице /stats (серия, награды, любимое время и т.п.)\n"
-        "- all              — все данные сразу (воспоминания, события, желания, избранное, настройки, статистика и т.д.)\n\n"
+        "- all              — все данные сразу (воспоминания, события, желания, избранное, настройки, статистика и т.д.)\n"
+        "- web_search       — поиск актуальной информации в интернете: текущая погода, курсы валют, новости, цены, сведения о компаниях и сайтах, события после 2024 года. "
+        "Используй ТОЛЬКО для вопросов о реальном мире. НЕ используй для вопросов о паре, воспоминаниях, событиях или желаниях.\n\n"
         "НИ ПРИ КАКИХ ОБСТОЯТЕЛЬСТВАХ НЕ ПРИДУМЫВАЙ СВОИ СОБСТВЕННЫЕ НАЗВАНИЯ TOOLS ИЛИ ЭНДПОИНТОВ. "
         "МОЖНО ИСПОЛЬЗОВАТЬ ТОЛЬКО перечисленные выше варианты.\n\n"
         "Ты всегда отвечаешь СТРОГО ОДНОЙ СТРОКОЙ В ВИДЕ ВАЛИДНОГО JSON-БЛОКА, БЕЗ ПРЕДИСЛОВИЙ И КОММЕНТАРИЕВ.\n\n"
@@ -1439,6 +1530,13 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
         '    // необязательный объект с параметрами, как в боте;\n'
         '    // используй ТОЛЬКО простые ключи и значения (id, дата, тип события и т.п.)\n'
         "  }\n"
+        "}\n\n"
+        "3) Если нужна АКТУАЛЬНАЯ информация из интернета (погода, курс валют, новости, цены, компании, сайты):\n"
+        "{\n"
+        '  \"tool\": \"web_search\",\n'
+        '  \"answer\": null,\n'
+        '  \"suggestions\": [],\n'
+        '  \"params\": {\"query\": \"<краткий поисковый запрос на русском языке>\"}\n'
         "}\n\n"
         "Примеры params (НЕ выдумывай другие структуры, только подобные этим):\n"
         "- для memories:        {\"memory_id\": \"...\"} или {\"date_from\": \"2025-10-01\", \"date_to\": \"2025-10-31\"}\n"

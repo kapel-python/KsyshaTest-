@@ -2199,6 +2199,14 @@ def _fmt_ru_date(date_str: str) -> str:
         return raw
 
 
+def _fmt_ru_size(n) -> str:
+    try:
+        n = int(n)
+        return f"{n // 1024} КБ" if n >= 1024 else f"{n} Б"
+    except Exception:
+        return ""
+
+
 def _sanitize_for_pdf(text: str) -> str:
     """Очищает текст от потенциально опасного HTML/XML контента для PDF."""
     import re
@@ -2213,6 +2221,7 @@ def _sanitize_for_pdf(text: str) -> str:
 
 def _build_couple_pdf_payload(user_id: int) -> dict:
     try:
+        from datetime import date as _date_type
         couple = db.get_couple_by_user(user_id) or {}
         if not couple:
             logger.warning(f"[PDF Payload] No couple found for user_id={user_id}")
@@ -2227,6 +2236,20 @@ def _build_couple_pdf_payload(user_id: int) -> dict:
         name2 = db.get_display_name(u2, "Партнёр") if u2 else "Партнёр"
 
         logger.info(f"[PDF Payload] Couple ID={couple_id}, names=({name1}, {name2})")
+
+        # met_date & days_together
+        met_date_obj = db.get_couple_met_date(user_id)
+        met_date_iso = met_date_obj.isoformat() if met_date_obj else None
+        met_date_display = ""
+        days_together = None
+        if met_date_obj:
+            MONTHS_GEN = ["","января","февраля","марта","апреля","мая","июня",
+                          "июля","августа","сентября","октября","ноября","декабря"]
+            met_date_display = f"{met_date_obj.day} {MONTHS_GEN[met_date_obj.month]} {met_date_obj.year}"
+            days_together = (_date_type.today() - met_date_obj).days
+
+        now_utc = datetime.now(timezone.utc)
+        export_date = now_utc.strftime("%d.%m.%Y")
 
         memories = []
         for cat in ("important_moments", "memories", "important_dates"):
@@ -2244,72 +2267,132 @@ def _build_couple_pdf_payload(user_id: int) -> dict:
         for uid in user_ids:
             user_wishes = db.get_user_wishes(uid) or []
             wishes.extend(user_wishes)
-            logger.info(f"[PDF Payload] User {uid} wishes: {len(user_wishes)}")
-
         wishes = sorted(wishes, key=lambda w: (w.created_at or ""))
         logger.info(f"[PDF Payload] Total wishes: {len(wishes)}")
 
+        # Media stats
+        _mtype = lambda obj: (getattr(obj, "media_type", None) or "").lower()
+        photos = sum(1 for m in memories if _mtype(m) == "photo")
+        videos = sum(1 for m in memories if _mtype(m) in ("video", "video_note"))
+        voices = sum(1 for m in memories if _mtype(m) in ("voice", "audio"))
+        files  = sum(1 for m in memories if _mtype(m) == "document")
+
+        def _mem_to_dict(m):
+            date_iso = (m.created_at or "")[:10]
+            media_path = getattr(m, "media_path", None) or None
+            if media_path and not os.path.isfile(str(media_path)):
+                media_path = None
+            media_text = None
+            mt = _mtype(m)
+            if mt:
+                icons = {"photo": "фото", "video": "видео", "video_note": "видео",
+                         "voice": "голосовое", "audio": "аудио", "document": "файл"}
+                parts = [icons.get(mt, mt)]
+                fn = getattr(m, "original_filename", None)
+                if fn:
+                    parts.append(fn[:40])
+                sz = getattr(m, "file_size", None)
+                if sz:
+                    parts.append(_fmt_ru_size(sz))
+                dur = getattr(m, "duration_sec", None)
+                if dur:
+                    m_d, s_d = divmod(int(dur), 60)
+                    parts.append(f"{m_d}:{s_d:02d}")
+                media_text = "  ".join(parts)
+            return {
+                "title":      _sanitize_for_pdf((m.title or "Момент")[:120]),
+                "date":       _fmt_ru_date(m.created_at),
+                "date_iso":   date_iso,
+                "text":       _sanitize_for_pdf((m.content or "")[:1500]),
+                "author":     db.get_display_name(m.user_id, "Участник"),
+                "category":   m.category or "memories",
+                "media_type": mt or None,
+                "media_path": media_path,
+                "media_text": media_text,
+            }
+
+        def _event_to_dict(e):
+            date_iso = (e.event_datetime or e.created_at or "")[:10]
+            return {
+                "title":    _sanitize_for_pdf((e.title or "Событие")[:120]),
+                "date":     _fmt_ru_date(e.event_datetime or e.created_at),
+                "date_iso": date_iso,
+                "text":     _sanitize_for_pdf((e.description or "Без описания")[:1500]),
+                "author":   db.get_display_name(e.user_id, "Участник"),
+                "category": "events",
+                "media_type": _mtype(e) or None,
+                "media_path": None,
+                "media_text": None,
+            }
+
+        def _wish_to_dict(w):
+            return {
+                "title":    "Желание",
+                "date":     _fmt_ru_date(w.created_at),
+                "date_iso": (w.created_at or "")[:10],
+                "text":     _sanitize_for_pdf((w.content or "")[:1500]),
+                "author":   db.get_display_name(w.user_id, "Участник"),
+                "category": "wishes",
+                "media_type": _mtype(w) or None,
+                "media_path": None,
+                "media_text": None,
+            }
+
+        # Legacy timeline (kept for backward compat)
         timeline = []
         for m in memories[-20:]:
             timeline.append({
                 "sort": m.created_at or "",
                 "date": _fmt_ru_date(m.created_at),
-                "item": {"type": "moment", "title": _sanitize_for_pdf(m.title or "Момент"), "text": _sanitize_for_pdf((m.content or "")[:260])},
+                "item": {"type": "moment", "title": _sanitize_for_pdf(m.title or "Момент"),
+                         "text": _sanitize_for_pdf((m.content or "")[:260])},
             })
         for e in events[-20:]:
             timeline.append({
                 "sort": e.created_at or "",
                 "date": _fmt_ru_date(e.created_at),
-                "item": {"type": "event", "title": _sanitize_for_pdf(e.title or "Событие"), "text": _sanitize_for_pdf((e.description or "")[:260])},
-            })
-        for w in wishes[-20:]:
-            timeline.append({
-                "sort": w.created_at or "",
-                "date": _fmt_ru_date(w.created_at),
-                "item": {"type": "wish", "title": "Желание", "text": _sanitize_for_pdf((w.content or "")[:260])},
+                "item": {"type": "event", "title": _sanitize_for_pdf(e.title or "Событие"),
+                         "text": _sanitize_for_pdf((e.description or "")[:260])},
             })
         timeline = sorted(timeline, key=lambda x: x["sort"])
-
         grouped = {}
         for row in timeline:
             grouped.setdefault(row["date"], []).append(row["item"])
         timeline_final = [{"date": d, "items": grouped[d]} for d in grouped.keys()]
 
-        logger.info(f"[PDF Payload] Timeline built: {len(timeline_final)} days")
-
         payload = {
-            "couple_names": [name1, name2],
+            # Identity
+            "couple_names":     [name1, name2],
+            "met_date":         met_date_iso,
+            "met_date_display": met_date_display,
+            "days_together":    days_together,
+            "export_date":      export_date,
+            # Legacy date strings
             "period_start": _fmt_ru_date(couple.get("created_at") or ""),
-            "period_end": _fmt_ru_date(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")),
+            "period_end":   _fmt_ru_date(now_utc.strftime("%Y-%m-%d %H:%M:%S")),
+            # Stats
             "stats": {
                 "memories": len(memories),
-                "events": len(events),
-                "wishes": len(wishes),
+                "events":   len(events),
+                "wishes":   len(wishes),
+                "photos":   photos,
+                "videos":   videos,
+                "voices":   voices,
+                "files":    files,
             },
+            # Legacy timeline
             "timeline": timeline_final,
+            # Rich sections (new template)
             "sections": {
-                "memories": [{
-                    "title": _sanitize_for_pdf((m.title or "Момент")[:120]),
-                    "date": _fmt_ru_date(m.created_at),
-                    "text": _sanitize_for_pdf((m.content or "")[:1200]),
-                    "author": db.get_display_name(m.user_id, "Участник"),
-                } for m in memories[-80:]],
-                "events": [{
-                    "title": _sanitize_for_pdf((e.title or "Событие")[:120]),
-                    "date": _fmt_ru_date(e.event_datetime or e.created_at),
-                    "text": _sanitize_for_pdf((e.description or "")[:1200] or "Без описания"),
-                    "author": db.get_display_name(e.user_id, "Участник"),
-                } for e in events[-80:]],
-                "wishes": [{
-                    "title": "Желание",
-                    "date": _fmt_ru_date(w.created_at),
-                    "text": _sanitize_for_pdf((w.content or "")[:1200]),
-                    "author": db.get_display_name(w.user_id, "Участник"),
-                } for w in wishes[-80:]],
+                "memories": [_mem_to_dict(m) for m in memories],
+                "events":   [_event_to_dict(e) for e in events],
+                "wishes":   [_wish_to_dict(w) for w in wishes],
             },
         }
 
-        logger.info(f"[PDF Payload] Payload built successfully")
+        logger.info(f"[PDF Payload] Built: {len(memories)} memories, "
+                    f"{len(events)} events, {len(wishes)} wishes, "
+                    f"{photos} photos, {videos} videos")
         return payload
 
     except Exception as e:

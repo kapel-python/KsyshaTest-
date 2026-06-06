@@ -8704,7 +8704,9 @@
 
           dragging = true;
 
-          modal.style.transition = 'none';
+          modal.style.transition   = 'none';
+
+          overlay.style.transition = 'none';
 
           if (e.cancelable) e.preventDefault();
 
@@ -8736,25 +8738,29 @@
 
           if (dragY > threshold) {
 
-            // Закрываем: доезжаем до низа
+            requestAnimationFrame(() => {
 
-            modal.style.transition = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+              modal.style.transition   = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
 
-            modal.style.transform  = 'translateX(-50%) translateY(100%)';
+              modal.style.transform    = 'translateX(-50%) translateY(100%)';
 
-            overlay.style.transition = 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+              overlay.style.transition = 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
 
-            overlay.style.opacity = '0';
+              overlay.style.opacity    = '0';
+
+            });
 
             setTimeout(() => {
+
+              overlay.classList.remove('open');
 
               overlay.style.transition = '';
 
               overlay.style.opacity    = '';
 
-              overlay.classList.remove('open');
+              modal.style.transition   = '';
 
-            }, 350);
+            }, 380);
 
             closeAISearch();
 
@@ -8770,21 +8776,27 @@
 
             // Возвращаем модалку обратно вверх
 
-            modal.style.transition = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)';
+            requestAnimationFrame(() => {
 
-            modal.style.transform  = 'translateX(-50%) translateY(0)';
+              modal.style.transition   = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)';
 
-            overlay.style.transition = 'opacity 0.4s ease';
+              modal.style.transform    = 'translateX(-50%) translateY(0)';
 
-            overlay.style.opacity  = '1';
+              overlay.style.transition = 'opacity 0.4s ease';
+
+              overlay.style.opacity    = '1';
+
+            });
 
             setTimeout(() => {
+
+              modal.style.transition   = '';
 
               overlay.style.transition = '';
 
               overlay.style.opacity    = '';
 
-            }, 400);
+            }, 420);
 
           }
 

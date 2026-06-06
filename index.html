@@ -8738,17 +8738,15 @@
 
           if (dragY > threshold) {
 
-            requestAnimationFrame(() => {
+            // Закрываем: доезжаем до низа
 
-              modal.style.transition   = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+            modal.style.transition   = 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
 
-              modal.style.transform    = 'translateX(-50%) translateY(100%)';
+            modal.style.transform    = 'translateX(-50%) translateY(100%)';
 
-              overlay.style.transition = 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+            overlay.style.transition = 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
 
-              overlay.style.opacity    = '0';
-
-            });
+            overlay.style.opacity    = '0';
 
             setTimeout(() => {
 
@@ -8776,17 +8774,13 @@
 
             // Возвращаем модалку обратно вверх
 
-            requestAnimationFrame(() => {
+            modal.style.transition   = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)';
 
-              modal.style.transition   = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)';
+            modal.style.transform    = 'translateX(-50%) translateY(0)';
 
-              modal.style.transform    = 'translateX(-50%) translateY(0)';
+            overlay.style.transition = 'opacity 0.4s ease';
 
-              overlay.style.transition = 'opacity 0.4s ease';
-
-              overlay.style.opacity    = '1';
-
-            });
+            overlay.style.opacity    = '1';
 
             setTimeout(() => {
 

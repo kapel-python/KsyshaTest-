@@ -25,7 +25,7 @@ MODEL = (os.getenv("GPTUNNEL_MODEL", "") or "").strip() or "qwen3-14b"
 SERPER_API_KEY = (os.getenv("SERPER_API_KEY", "") or "").strip()
 SERPER_SEARCH_URL = "https://google.serper.dev/search"
 DATE_PARSER_MODEL = "qwen3-14b"
-COMPANION_MODEL = "gpt-5.4-nano"
+COMPANION_MODEL = "gemini-2.5-flash"
 
 # ── Компактная сериализация данных для промпта ─────────────────────────────
 

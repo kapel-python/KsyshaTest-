@@ -13,6 +13,7 @@ import os
 import json
 import random
 import html
+import logging
 from datetime import datetime
 
 from reportlab.lib import colors
@@ -28,6 +29,8 @@ from reportlab.platypus import (
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+
+logger = logging.getLogger(__name__)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -149,7 +152,7 @@ class HeroDate(Flowable):
     def __init__(self, text):
         Flowable.__init__(self)
 
-        self.text = text
+        self.text = str(text) if text else "—"
         self.width = CW
         self.height = 120
 
@@ -159,7 +162,11 @@ class HeroDate(Flowable):
 
         c.saveState()
 
-        c.setFont("B", 34)
+        try:
+            c.setFont("B", 34)
+        except Exception:
+            c.setFont(FONT_BOLD, 34)
+
         c.setFillColor(P)
 
         c.drawString(0, 52, self.text)
@@ -327,12 +334,12 @@ def section_card(item, st, bg_color, offset=0):
 
     inner = [
 
-        Paragraph(item.get("title", "Без названия"), st["card_title"]),
+        Paragraph(html.escape(item.get("title", "Без названия")), st["card_title"]),
 
         Paragraph(
-            item.get("date", "—")
+            html.escape(item.get("date", "—"))
             + (
-                f"  ·  {item['author']}"
+                f"  ·  {html.escape(item.get('author', ''))}"
                 if item.get("author")
                 else ""
             ),
@@ -343,7 +350,7 @@ def section_card(item, st, bg_color, offset=0):
 
     if item.get("text"):
         inner.append(
-            Paragraph(item["text"], st["body"])
+            Paragraph(html.escape(item["text"]), st["body"])
         )
 
     card = MemoryCard(inner, CW - offset, bg_color)
@@ -441,7 +448,7 @@ def timeline(data, st):
                     {
                         "title": item.get("title"),
                         "date": t,
-                        "text": item.get("text"),
+                        "text": html.escape(item.get("text") or ""),
                     },
                     st,
                     bg_color,
@@ -506,7 +513,7 @@ def section(title, items, st, bg_color):
 
             out.append(
                 Paragraph(
-                    item.get("text", ""),
+                    html.escape(item.get("text", "")),
                     st["scene"]
                 )
             )
@@ -576,83 +583,110 @@ def final_page(data, st):
 # ════════════════════════════════════════════════════════════════════════════
 
 def generate_couple_story_pdf(data, output_path):
+    logger.info(f"[PDF] START: output_path={output_path}")
+
     if not isinstance(data, dict):
         raise ValueError("data must be a dict")
     if not output_path or not isinstance(output_path, str):
         raise ValueError("output_path must be a non-empty string")
 
-    safe_data = {
-        "couple_names": list((data.get("couple_names") or ["Имя1", "Имя2"]))[:2],
-        "period_start": str(data.get("period_start") or "—"),
-        "period_end": str(data.get("period_end") or "настоящее время"),
-        "timeline": data.get("timeline") if isinstance(data.get("timeline"), list) else [],
-        "sections": data.get("sections") if isinstance(data.get("sections"), dict) else {},
-    }
-    if len(safe_data["couple_names"]) < 2:
-        safe_data["couple_names"] = (safe_data["couple_names"] + ["Имя2"])[:2]
+    try:
+        safe_data = {
+            "couple_names": list((data.get("couple_names") or ["Имя1", "Имя2"]))[:2],
+            "period_start": str(data.get("period_start") or "—"),
+            "period_end": str(data.get("period_end") or "настоящее время"),
+            "timeline": data.get("timeline") if isinstance(data.get("timeline"), list) else [],
+            "sections": data.get("sections") if isinstance(data.get("sections"), dict) else {},
+        }
+        if len(safe_data["couple_names"]) < 2:
+            safe_data["couple_names"] = (safe_data["couple_names"] + ["Имя2"])[:2]
 
-    os.makedirs(
-        os.path.dirname(os.path.abspath(output_path)),
-        exist_ok=True,
-    )
+        logger.info(f"[PDF] Data prepared: couple_names={safe_data['couple_names']}, "
+                   f"timeline_items={len(safe_data['timeline'])}")
 
-    doc = SimpleDocTemplate(
-        output_path,
-        pagesize=(PW, PH),
-        leftMargin=MG,
-        rightMargin=MG,
-        topMargin=MG,
-        bottomMargin=MG,
-    )
+        os.makedirs(
+            os.path.dirname(os.path.abspath(output_path)),
+            exist_ok=True,
+        )
+        logger.info(f"[PDF] Output directory created: {os.path.dirname(output_path)}")
 
-    st = S()
+        doc = SimpleDocTemplate(
+            output_path,
+            pagesize=(PW, PH),
+            leftMargin=MG,
+            rightMargin=MG,
+            topMargin=MG,
+            bottomMargin=MG,
+        )
+        logger.info(f"[PDF] SimpleDocTemplate created")
 
-    story = []
+        st = S()
+        logger.info(f"[PDF] Styles initialized")
 
-    # cover
-    story += cover(safe_data, st)
+        story = []
 
-    # timeline
-    story += timeline(safe_data, st)
+        # cover
+        logger.info(f"[PDF] Building cover page")
+        story += cover(safe_data, st)
 
-    # memories
-    story += section(
-        "Воспоминания",
-        safe_data.get("sections", {}).get("memories", []),
-        st,
-        BG_MEM,
-    )
+        # timeline
+        logger.info(f"[PDF] Building timeline ({len(safe_data['timeline'])} days)")
+        story += timeline(safe_data, st)
 
-    story.append(PageBreak())
+        # memories
+        memories_count = len(safe_data.get("sections", {}).get("memories", []))
+        logger.info(f"[PDF] Building memories section ({memories_count} items)")
+        story += section(
+            "Воспоминания",
+            safe_data.get("sections", {}).get("memories", []),
+            st,
+            BG_MEM,
+        )
 
-    # events
-    story += section(
-        "События",
-        safe_data.get("sections", {}).get("events", []),
-        st,
-        BG_EVENT,
-    )
+        story.append(PageBreak())
 
-    story.append(PageBreak())
+        # events
+        events_count = len(safe_data.get("sections", {}).get("events", []))
+        logger.info(f"[PDF] Building events section ({events_count} items)")
+        story += section(
+            "События",
+            safe_data.get("sections", {}).get("events", []),
+            st,
+            BG_EVENT,
+        )
 
-    # wishes
-    story += section(
-        "Желания",
-        safe_data.get("sections", {}).get("wishes", []),
-        st,
-        BG_WISH,
-    )
+        story.append(PageBreak())
 
-    # ending
-    story += final_page(safe_data, st)
+        # wishes
+        wishes_count = len(safe_data.get("sections", {}).get("wishes", []))
+        logger.info(f"[PDF] Building wishes section ({wishes_count} items)")
+        story += section(
+            "Желания",
+            safe_data.get("sections", {}).get("wishes", []),
+            st,
+            BG_WISH,
+        )
 
-    doc.build(
-        story,
-        onFirstPage=bg,
-        onLaterPages=bg,
-    )
+        # ending
+        logger.info(f"[PDF] Building final page")
+        story += final_page(safe_data, st)
 
-    return os.path.abspath(output_path)
+        logger.info(f"[PDF] Story assembled: {len(story)} flowables")
+        logger.info(f"[PDF] Building PDF document...")
+
+        doc.build(
+            story,
+            onFirstPage=bg,
+            onLaterPages=bg,
+        )
+
+        abs_path = os.path.abspath(output_path)
+        logger.info(f"[PDF] SUCCESS: PDF built at {abs_path}")
+        return abs_path
+
+    except Exception as e:
+        logger.exception(f"[PDF] FAILED: {type(e).__name__}: {e}")
+        raise
 
 
 # ════════════════════════════════════════════════════════════════════════════

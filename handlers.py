@@ -2199,83 +2199,122 @@ def _fmt_ru_date(date_str: str) -> str:
         return raw
 
 
+def _sanitize_for_pdf(text: str) -> str:
+    """Очищает текст от потенциально опасного HTML/XML контента для PDF."""
+    import re
+    if not text:
+        return text
+    # Удаляем подозрительные HTML теги с атрибутами
+    text = re.sub(r'<\s*img\s+[^>]*(?:onerror|onload|onclick)[^>]*>', '', text, flags=re.IGNORECASE)
+    # Удаляем другие потенциально опасные теги
+    text = re.sub(r'<\s*(script|iframe|object|embed|form)[^>]*>.*?</\s*\1\s*>', '', text, flags=re.DOTALL | re.IGNORECASE)
+    return text
+
+
 def _build_couple_pdf_payload(user_id: int) -> dict:
-    couple = db.get_couple_by_user(user_id) or {}
-    if not couple:
-        return {}
-    u1 = couple["user1_id"]
-    u2 = couple.get("user2_id")
-    user_ids = [u1] + ([u2] if u2 else [])
-    couple_id = couple["id"]
-    name1 = db.get_display_name(u1, "Участник")
-    name2 = db.get_display_name(u2, "Партнёр") if u2 else "Партнёр"
+    try:
+        couple = db.get_couple_by_user(user_id) or {}
+        if not couple:
+            logger.warning(f"[PDF Payload] No couple found for user_id={user_id}")
+            return {}
 
-    memories = []
-    for cat in ("important_moments", "memories", "important_dates"):
-        memories.extend(db.get_memories_by_category(cat, limit=1000, couple_id=couple_id) or [])
-    memories = sorted(memories, key=lambda m: (m.created_at or ""))
-    events = sorted(db.get_scheduled_events_for_users(user_ids) or [], key=lambda e: (e.created_at or ""))
-    wishes = []
-    for uid in user_ids:
-        wishes.extend(db.get_user_wishes(uid) or [])
-    wishes = sorted(wishes, key=lambda w: (w.created_at or ""))
+        u1 = couple["user1_id"]
+        u2 = couple.get("user2_id")
+        user_ids = [u1] + ([u2] if u2 else [])
+        couple_id = couple["id"]
 
-    timeline = []
-    for m in memories[-20:]:
-        timeline.append({
-            "sort": m.created_at or "",
-            "date": _fmt_ru_date(m.created_at),
-            "item": {"type": "moment", "title": m.title or "Момент", "text": (m.content or "")[:260]},
-        })
-    for e in events[-20:]:
-        timeline.append({
-            "sort": e.created_at or "",
-            "date": _fmt_ru_date(e.created_at),
-            "item": {"type": "event", "title": e.title or "Событие", "text": (e.description or "")[:260]},
-        })
-    for w in wishes[-20:]:
-        timeline.append({
-            "sort": w.created_at or "",
-            "date": _fmt_ru_date(w.created_at),
-            "item": {"type": "wish", "title": "Желание", "text": (w.content or "")[:260]},
-        })
-    timeline = sorted(timeline, key=lambda x: x["sort"])
-    grouped = {}
-    for row in timeline:
-        grouped.setdefault(row["date"], []).append(row["item"])
-    timeline_final = [{"date": d, "items": grouped[d]} for d in grouped.keys()]
+        name1 = db.get_display_name(u1, "Участник")
+        name2 = db.get_display_name(u2, "Партнёр") if u2 else "Партнёр"
 
-    return {
-        "couple_names": [name1, name2],
-        "period_start": _fmt_ru_date(couple.get("created_at") or ""),
-        "period_end": _fmt_ru_date(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")),
-        "stats": {
-            "memories": len(memories),
-            "events": len(events),
-            "wishes": len(wishes),
-        },
-        "timeline": timeline_final,
-        "sections": {
-            "memories": [{
-                "title": (m.title or "Момент")[:120],
+        logger.info(f"[PDF Payload] Couple ID={couple_id}, names=({name1}, {name2})")
+
+        memories = []
+        for cat in ("important_moments", "memories", "important_dates"):
+            cat_memories = db.get_memories_by_category(cat, limit=1000, couple_id=couple_id) or []
+            memories.extend(cat_memories)
+            logger.info(f"[PDF Payload] Category '{cat}': {len(cat_memories)} items")
+
+        memories = sorted(memories, key=lambda m: (m.created_at or ""))
+        logger.info(f"[PDF Payload] Total memories: {len(memories)}")
+
+        events = sorted(db.get_scheduled_events_for_users(user_ids) or [], key=lambda e: (e.created_at or ""))
+        logger.info(f"[PDF Payload] Total events: {len(events)}")
+
+        wishes = []
+        for uid in user_ids:
+            user_wishes = db.get_user_wishes(uid) or []
+            wishes.extend(user_wishes)
+            logger.info(f"[PDF Payload] User {uid} wishes: {len(user_wishes)}")
+
+        wishes = sorted(wishes, key=lambda w: (w.created_at or ""))
+        logger.info(f"[PDF Payload] Total wishes: {len(wishes)}")
+
+        timeline = []
+        for m in memories[-20:]:
+            timeline.append({
+                "sort": m.created_at or "",
                 "date": _fmt_ru_date(m.created_at),
-                "text": (m.content or "")[:1200],
-                "author": db.get_display_name(m.user_id, "Участник"),
-            } for m in memories[-80:]],
-            "events": [{
-                "title": (e.title or "Событие")[:120],
-                "date": _fmt_ru_date(e.event_datetime or e.created_at),
-                "text": ((e.description or "")[:1200] or "Без описания"),
-                "author": db.get_display_name(e.user_id, "Участник"),
-            } for e in events[-80:]],
-            "wishes": [{
-                "title": "Желание",
+                "item": {"type": "moment", "title": _sanitize_for_pdf(m.title or "Момент"), "text": _sanitize_for_pdf((m.content or "")[:260])},
+            })
+        for e in events[-20:]:
+            timeline.append({
+                "sort": e.created_at or "",
+                "date": _fmt_ru_date(e.created_at),
+                "item": {"type": "event", "title": _sanitize_for_pdf(e.title or "Событие"), "text": _sanitize_for_pdf((e.description or "")[:260])},
+            })
+        for w in wishes[-20:]:
+            timeline.append({
+                "sort": w.created_at or "",
                 "date": _fmt_ru_date(w.created_at),
-                "text": (w.content or "")[:1200],
-                "author": db.get_display_name(w.user_id, "Участник"),
-            } for w in wishes[-80:]],
-        },
-    }
+                "item": {"type": "wish", "title": "Желание", "text": _sanitize_for_pdf((w.content or "")[:260])},
+            })
+        timeline = sorted(timeline, key=lambda x: x["sort"])
+
+        grouped = {}
+        for row in timeline:
+            grouped.setdefault(row["date"], []).append(row["item"])
+        timeline_final = [{"date": d, "items": grouped[d]} for d in grouped.keys()]
+
+        logger.info(f"[PDF Payload] Timeline built: {len(timeline_final)} days")
+
+        payload = {
+            "couple_names": [name1, name2],
+            "period_start": _fmt_ru_date(couple.get("created_at") or ""),
+            "period_end": _fmt_ru_date(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")),
+            "stats": {
+                "memories": len(memories),
+                "events": len(events),
+                "wishes": len(wishes),
+            },
+            "timeline": timeline_final,
+            "sections": {
+                "memories": [{
+                    "title": _sanitize_for_pdf((m.title or "Момент")[:120]),
+                    "date": _fmt_ru_date(m.created_at),
+                    "text": _sanitize_for_pdf((m.content or "")[:1200]),
+                    "author": db.get_display_name(m.user_id, "Участник"),
+                } for m in memories[-80:]],
+                "events": [{
+                    "title": _sanitize_for_pdf((e.title or "Событие")[:120]),
+                    "date": _fmt_ru_date(e.event_datetime or e.created_at),
+                    "text": _sanitize_for_pdf((e.description or "")[:1200] or "Без описания"),
+                    "author": db.get_display_name(e.user_id, "Участник"),
+                } for e in events[-80:]],
+                "wishes": [{
+                    "title": "Желание",
+                    "date": _fmt_ru_date(w.created_at),
+                    "text": _sanitize_for_pdf((w.content or "")[:1200]),
+                    "author": db.get_display_name(w.user_id, "Участник"),
+                } for w in wishes[-80:]],
+            },
+        }
+
+        logger.info(f"[PDF Payload] Payload built successfully")
+        return payload
+
+    except Exception as e:
+        logger.exception(f"[PDF Payload] ERROR: {type(e).__name__}: {e}")
+        return {}
 
 
 def _build_restart_kb() -> InlineKeyboardMarkup:
@@ -2631,6 +2670,8 @@ async def set_couple_met_date(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "our_couple_export_pdf")
 async def our_couple_export_pdf(callback: CallbackQuery):
     user_id = callback.from_user.id
+    logger.info(f"[PDF Export] START: user_id={user_id}")
+
     try:
         from pdf_story_template import generate_couple_story_pdf
     except Exception as e:
@@ -2639,22 +2680,37 @@ async def our_couple_export_pdf(callback: CallbackQuery):
         return
 
     try:
+        logger.info(f"[PDF Export] Building payload for user_id={user_id}")
         payload = _build_couple_pdf_payload(user_id)
+
         if not payload:
             await callback.answer("Пара не найдена", show_alert=True)
+            logger.warning(f"[PDF Export] Couple not found for user_id={user_id}")
             return
+
+        logger.info(f"[PDF Export] Payload built: memories={payload.get('stats', {}).get('memories', 0)}, "
+                   f"events={payload.get('stats', {}).get('events', 0)}, "
+                   f"wishes={payload.get('stats', {}).get('wishes', 0)}")
+
         PDF_EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         out_path = PDF_EXPORTS_DIR / f"couple_story_{user_id}_{stamp}.pdf"
+
+        logger.info(f"[PDF Export] Generating PDF to: {out_path}")
         pdf_path = generate_couple_story_pdf(payload, str(out_path))
+        logger.info(f"[PDF Export] PDF generated successfully: {pdf_path}")
+
         await callback.message.answer_document(
             document=FSInputFile(pdf_path),
             caption="📄 История пары (PDF)",
         )
         await callback.answer("PDF готов")
+        logger.info(f"[PDF Export] SUCCESS: user_id={user_id}, file={pdf_path}")
+
     except Exception as e:
-        logger.exception("Не удалось экспортировать PDF истории пары: %s", e)
-        await callback.answer("Не удалось сформировать PDF", show_alert=True)
+        logger.exception(f"[PDF Export] FAILED: user_id={user_id}, error: {e}")
+        await callback.answer("Не удалось сформировать PDF. Попробуй позже.", show_alert=True)
+
 
 
 @router.callback_query(F.data == "bot_site")

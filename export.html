@@ -302,15 +302,15 @@ html.theme-dark .cover-count-badge {
 .toc-label {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 .toc-label-text {
-  font-size: 0.62rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--meta);
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .toc-label-line {
   flex: 1;
@@ -323,19 +323,19 @@ html.theme-dark .cover-count-badge {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 28px 0 12px;
+  margin: 32px 0 14px;
 }
 .chapter-num {
   font-family: 'Playfair Display', serif;
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   font-style: italic;
-  color: var(--meta);
+  color: var(--muted);
   white-space: nowrap;
   flex-shrink: 0;
 }
 .chapter-title {
   font-family: 'Playfair Display', serif;
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.01em;
@@ -392,11 +392,10 @@ html.theme-dark .cover-count-badge {
   margin-bottom: 6px;
 }
 .counter-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.75);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255,255,255,0.8);
   word-break: break-word;
   line-height: 1.3;
 }
@@ -455,15 +454,14 @@ html.theme-dark .cover-count-badge {
   font-weight: 500;
 }
 
-/* ── Section title (mirrors stats.html .section-title) ── */
+/* ── Section title ("Популярные категории" и др.) ── */
 .section-title {
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--muted);
-  margin-bottom: 10px;
-  margin-top: 20px;
+  margin-bottom: 12px;
+  margin-top: 24px;
 }
 
 /* ── Cat bar (activity / category breakdown) ── */
@@ -920,8 +918,7 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
 
 /* ── 7. Counter — fluid на узких экранах ── */
 .counter-label {
-  font-size: clamp(0.65rem, 2vw, 0.75rem);
-  letter-spacing: clamp(0.01em, 0.2vw, 0.04em);
+  font-size: clamp(0.72rem, 2.2vw, 0.82rem);
   word-break: break-word;
   line-height: 1.3;
 }

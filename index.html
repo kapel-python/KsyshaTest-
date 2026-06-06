@@ -2554,11 +2554,11 @@
 
             opacity: 0;
 
-            display: none;
+            visibility: hidden;
 
             pointer-events: none;
 
-            transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1);
+            transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1), visibility 0.3s cubic-bezier(0.4,0,0.2,1);
 
         }
 
@@ -2566,9 +2566,9 @@
 
             opacity: 1;
 
-            pointer-events: all;
+            visibility: visible;
 
-            display: block;
+            pointer-events: all;
 
         }
 
@@ -8221,19 +8221,13 @@
 
         if (!overlay || !modal) return;
 
-        overlay.classList.add('active');
+        overlay.classList.add('open');
+
+        modal.style.transition = '';
 
         requestAnimationFrame(() => {
 
-          requestAnimationFrame(() => {
-
-            overlay.classList.add('open');
-
-            modal.style.transition = '';
-
-            modal.style.transform  = 'translateX(-50%) translateY(0)';
-
-          });
+          modal.style.transform  = 'translateX(-50%) translateY(0)';
 
         });
 
@@ -8663,8 +8657,6 @@
         modal.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
 
         modal.style.transform  = 'translateX(-50%) translateY(100%)';
-
-        setTimeout(() => { overlay.style.display = 'none'; }, 400);
 
         closeAISearch();
 

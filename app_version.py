@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.329'
-description = 'Фикс отображения аватарок в профиле'
+version = '1.0.330'
+description = 'Оптимизация загрузки ИИ чата'
 
 
 def get_version_metadata() -> tuple[str, str]:

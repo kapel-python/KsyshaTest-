@@ -5203,12 +5203,15 @@ async def token_check(request: web.Request) -> web.Response:
 
     is_session_valid = bool(current_vid and db.get_device_by_visitor_id(current_vid))
 
+    token_user_name = db.get_display_name(token_user_id) if token_user_id is not None else ""
+    current_user_name = db.get_display_name(current_user_id) if current_user_id is not None else ""
+
     return _add_cors_headers(web.json_response({
         "ok": True,
         "match": current_user_id == token_user_id if current_user_id is not None else False,
         "session_valid": is_session_valid,
-        "token_user": {"id": token_user_id},
-        "current_user": {"id": current_user_id},
+        "token_user": {"id": token_user_id, "name": token_user_name},
+        "current_user": {"id": current_user_id, "name": current_user_name},
     }))
 
 async def auth_debug_log(request: web.Request) -> web.Response:

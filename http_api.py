@@ -8481,7 +8481,7 @@ async def site_create_memory(request: web.Request) -> web.Response:
         if not actor_name:
             actor_name = "Разработчик" if visitor_id == "creator" else "Партнёр"
         actor = actor_name
-        notify_text = f"✨ <b>{actor} добавил(а) {cat_label}</b>\n\n<b>{title}</b>\n{date}"
+        notify_text = f"✨ <b>{actor} добавил(а) {cat_label}</b>"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"memory_{mem_id}")]
         ])
@@ -8642,7 +8642,7 @@ async def site_create_event(request: web.Request) -> web.Response:
         if not actor_name:
             actor_name = "Разработчик" if visitor_id == "creator" else "Партнёр"
         actor = actor_name
-        notify_text = f"🎯 <b>{actor} добавил(а) событие</b>\n\n<b>{title}</b>"
+        notify_text = f"🎯 <b>{actor} добавил(а) событие</b>"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👀 Посмотреть", callback_data=f"scheduled_event_{event_id}")]
         ])
@@ -8860,7 +8860,7 @@ async def site_create_wish(request: web.Request) -> web.Response:
     try:
         actor = "Партнёр"
         other_id = _visitor_partner_id(visitor_id)
-        notify_text = f"💫 <b>{actor} написал(а) желание #{wish_id}</b>\n\n{content_txt[:200]}"
+        notify_text = f"💫 <b>{actor} написал(а) желание #{wish_id}</b>"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👀 Открыть желание", callback_data=f"wish_view_{wish_id}")]
         ])

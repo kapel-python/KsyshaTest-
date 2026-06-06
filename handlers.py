@@ -718,10 +718,7 @@ async def process_voice_description_text(message: Message, state: FSMContext):
         partner_id = db.get_partner_id(user_id)
         if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, memory.category):
             user_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = (
-                f"✨ {user_name} добавил(а) новый момент\n\n"
-                + format_memory_text(memory, partner_id)
-            )
+            notify_text = f"✨ {user_name} добавил(а) новый момент"
             await message.bot.send_message(
                 chat_id=partner_id,
                 text=notify_text,
@@ -803,10 +800,7 @@ async def voice_desc_no(callback: CallbackQuery, state: FSMContext):
         partner_id = db.get_partner_id(user_id)
         if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, memory.category):
             user_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = (
-                f"✨ {user_name} добавил(а) новый момент\n\n"
-                + format_memory_text(memory, partner_id)
-            )
+            notify_text = f"✨ {user_name} добавил(а) новый момент"
             await callback.bot.send_message(
                 chat_id=partner_id,
                 text=notify_text,
@@ -2982,7 +2976,7 @@ async def scheduled_event_recurrence_selected(callback: CallbackQuery, state: FS
         partner_id = db.get_partner_id(user_id)
         if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, "events"):
             user_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = f"✨ {user_name} добавил(а) новое событие\n\n" + format_scheduled_event_text(event, partner_id, expired=expired)
+            notify_text = f"✨ {user_name} добавил(а) новое событие"
             await callback.bot.send_message(
                 chat_id=partner_id,
                 text=notify_text,
@@ -5456,10 +5450,7 @@ async def process_new_title(message: Message, state: FSMContext):
                 partner_id = db.get_partner_id(message.from_user.id)
                 if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, memory.category):
                     user_name = db.get_display_name(message.from_user.id, fallback="Партнёр")
-                    notify_text = (
-                        f"✏️ {user_name} изменил(а) название момента\n\n"
-                        + text
-                    )
+                    notify_text = f"✏️ {user_name} изменил(а) название момента"
                     await message.bot.send_message(
                         chat_id=partner_id,
                         text=notify_text,
@@ -5512,10 +5503,7 @@ async def process_new_date(message: Message, state: FSMContext):
                 partner_id = db.get_partner_id(message.from_user.id)
                 if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, memory.category):
                     user_name = db.get_display_name(message.from_user.id, fallback="Партнёр")
-                    notify_text = (
-                        f"📅 {user_name} изменил(а) дату момента\n\n"
-                        + text
-                    )
+                    notify_text = f"📅 {user_name} изменил(а) дату момента"
                     await message.bot.send_message(
                         chat_id=partner_id,
                         text=notify_text,
@@ -5597,10 +5585,7 @@ async def process_new_content(message: Message, state: FSMContext):
                     partner_id = db.get_partner_id(message.from_user.id)
                     if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, memory.category):
                         user_name = db.get_display_name(message.from_user.id, fallback="Партнёр")
-                        notify_text = (
-                            f"💬 {user_name} изменил(а) описание момента\n\n"
-                            + text
-                        )
+                        notify_text = f"💬 {user_name} изменил(а) описание момента"
                         await message.bot.send_message(
                             chat_id=partner_id,
                             text=notify_text,
@@ -5657,10 +5642,7 @@ async def process_new_content(message: Message, state: FSMContext):
                 partner_id = db.get_partner_id(message.from_user.id)
                 if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, memory.category):
                     user_name = db.get_display_name(message.from_user.id, fallback="Партнёр")
-                    notify_text = (
-                        f"💬 {user_name} изменил(а) описание момента\n\n"
-                        + text
-                    )
+                    notify_text = f"💬 {user_name} изменил(а) описание момента"
                     await message.bot.send_message(
                         chat_id=partner_id,
                         text=notify_text,
@@ -8038,10 +8020,7 @@ async def wish_delete_confirm(callback: CallbackQuery):
         partner_id = db.get_partner_id(user_id)
         if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, "wishes"):
             user_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = (
-                f"❌ {user_name} удалил(а) своё желание #{wish.id}.\n\n"
-                f"💬 Текст был:\n{sanitize_html_for_telegram(wish.content or '')}"
-            )
+            notify_text = f"❌ {user_name} удалил(а) своё желание #{wish.id}."
             await callback.bot.send_message(
                 chat_id=partner_id,
                 text=notify_text,
@@ -8182,10 +8161,7 @@ async def admin_wish_delete_no_reason(callback: CallbackQuery, state: FSMContext
     try:
         if db.are_notifications_enabled(wish.user_id) and db.is_category_notif_enabled(wish.user_id, "wishes"):
             deleter_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = (
-                f"❌ <b>Твоё желание #{wish.id} было удалено ({deleter_name})</b>\n\n"
-                "💬 Причина не указана"
-            )
+            notify_text = f"❌ <b>Твоё желание #{wish.id} было удалено ({deleter_name})</b>"
             await callback.bot.send_message(
                 chat_id=wish.user_id,
                 text=notify_text,
@@ -8705,13 +8681,7 @@ async def process_wish_delete_reason(message: Message, state: FSMContext):
     try:
         if db.are_notifications_enabled(wish.user_id) and db.is_category_notif_enabled(wish.user_id, "wishes"):
             deleter_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = (
-                f"❌ <b>Твоё желание #{wish.id} было удалено ({deleter_name})</b>\n\n"
-            )
-            if reason_raw:
-                notify_text += f"💬 Причина: {reason_html}"
-            else:
-                notify_text += "💬 Причина не указана"
+            notify_text = f"❌ <b>Твоё желание #{wish.id} было удалено ({deleter_name})</b>"
             
             await message.bot.send_message(
                 chat_id=wish.user_id,
@@ -8808,7 +8778,7 @@ async def process_wish_content(message: Message, state: FSMContext):
                 header = f"✨ {actor_name} написал(а) новое желание!"
             else:
                 header = f"✏️ {actor_name} изменил(а) желание"
-            notify_text = header + "\n\n" + format_wish_text(wish, notify_partner_id)
+            notify_text = header
             await message.bot.send_message(
                 chat_id=notify_partner_id,
                 text=notify_text,

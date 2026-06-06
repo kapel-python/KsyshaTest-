@@ -1898,6 +1898,7 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
         "creator_id": data.get("creator_id"),
         "ksusha_id": data.get("ksusha_id"),
         "partner_id": data.get("partner_id"),
+        "couple_id": data.get("couple_id"),
         "users": data.get("users") or {},
         "stats": data.get("stats") or {},
         "stats_url": data.get("stats_url") or "/stats",
@@ -2403,6 +2404,8 @@ def _collect_site_data(
 
         "ksusha_id": partner_id,  # legacy key
         "partner_id": partner_id,
+
+        "couple_id": _couple_id if (_couple_id is not None and _couple_id != -1) else None,
 
         "users": users_info,
 

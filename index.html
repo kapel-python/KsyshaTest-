@@ -5508,21 +5508,19 @@
 
       async function refreshAISession() {
         const vid = ensureVisitorIdForRole();
-        const sig = _getAIVisitorSig();
-        if (!vid || !sig) return false;
+        if (!vid) return false;
+        // visitor_sig is HttpOnly — browser sends it as a cookie automatically.
+        // Do not gate on sig: JS cannot read HttpOnly cookies via document.cookie.
         try {
           const resp = await fetch('/api/refresh_ai_session', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...withOptionalApiKey({ 'X-Visitor-Signature': sig }),
-            },
+            headers: withOptionalApiKey({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ visitor_id: vid }),
           });
           if (resp.ok) {
             const data = await resp.json();
             if (data && data.ok && data.ai_session) {
-              _setAIAuth(data.ai_session, sig);
+              _setAIAuth(data.ai_session, '');
               console.log('[auth] AI session refreshed successfully');
               return true;
             }

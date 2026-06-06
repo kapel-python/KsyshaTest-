@@ -129,7 +129,7 @@ html.theme-dark .sticky-header {
   transition: transform 0.15s, background 0.15s;
   text-decoration: none;
 }
-.back-btn:hover { transform: scale(1.08); background: var(--pink-border); }
+/* back-btn hover moved to @media (hover: hover) */
 
 /* ── Cover — title-page aesthetic, distinct from /main ── */
 .cover {
@@ -533,10 +533,7 @@ html.theme-dark .cover-count-badge {
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
 }
-.memory-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(212,63,141,0.1);
-}
+/* hover moved to @media (hover: hover) below */
 .memory-card-stripe {
   position: absolute;
   left: 0; top: 0; bottom: 0;
@@ -743,10 +740,7 @@ html.theme-dark .cover-count-badge {
   box-shadow: 0 5px 18px rgba(212,63,141,0.3);
   text-decoration: none;
 }
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(212,63,141,0.4);
-}
+/* btn-primary hover moved to @media (hover: hover) */
 .btn-secondary {
   display: inline-flex;
   align-items: center;
@@ -762,10 +756,7 @@ html.theme-dark .cover-count-badge {
   transition: transform 0.2s, background 0.2s;
   text-decoration: none;
 }
-.btn-secondary:hover {
-  background: var(--pink-soft);
-  transform: translateY(-1px);
-}
+/* btn-secondary hover moved to @media (hover: hover) */
 .btn-loading { opacity: 0.7; pointer-events: none; }
 
 /* ── Scroll reveal (mirrors main.html .observe-fade) ── */
@@ -844,6 +835,243 @@ html.theme-dark .memory-card { border-color: rgba(212,63,141,0.18); }
 html.theme-dark .mini-card   { border-color: rgba(212,63,141,0.18); }
 html.theme-dark .cat-bar-card { border-color: rgba(212,63,141,0.18); }
 html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE AUDIT FIXES — audit against /main, /profile, /stats
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── 1. iOS tap highlight — убираем серую вспышку при тапе ── */
+.back-btn, .btn-primary, .btn-secondary,
+.toggle-text, .memory-card {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── 2. Touch targets — минимум 44×44 (iOS HIG / WCAG 2.5.5) ── */
+.back-btn {
+  width: 44px;
+  height: 44px;
+}
+
+/* PDF-кнопка в хедере: увеличиваем зону тапа */
+#btnDownloadPdf {
+  min-height: 44px;
+  padding: 0 16px !important;
+}
+
+/* Кнопка "Читать полностью": была padding: 0 — не тапабельна */
+.toggle-text {
+  padding: 6px 0;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── 3. Cover — горизонтальный padding (был 0, текст упирался в скруглённые углы) ── */
+.cover {
+  padding: 44px 20px 40px;
+}
+
+/* Ватермарк — масштабируем вместе с экраном */
+.cover-watermark {
+  font-size: clamp(8rem, 40vw, 16rem);
+}
+
+/* ── 4. Safe-area — iPhone с подбородком (home indicator) ── */
+.page {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── 5. Hover только там где есть мышь — убираем залипание на тач ── */
+@media (hover: hover) {
+  .memory-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(212,63,141,0.1);
+  }
+  .back-btn:hover    { transform: scale(1.08); background: var(--pink-border); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(212,63,141,0.4); }
+  .btn-secondary:hover { background: var(--pink-soft); transform: translateY(-1px); }
+}
+
+/* Active-состояние вместо hover на тач-устройствах */
+@media (hover: none) {
+  .memory-card:active { opacity: 0.92; transform: scale(0.995); }
+  .back-btn:active    { background: var(--pink-border); }
+  .btn-primary:active  { opacity: 0.88; }
+  .btn-secondary:active { background: var(--pink-soft); }
+}
+
+/* Убираем hover-transition у карточек на тач (был transition: transform 0.2s) */
+@media (hover: none) {
+  .memory-card { transition: opacity 0.15s, transform 0.15s; }
+}
+
+/* ── 6. Memory card top — flex-wrap чтобы дата не вылезала ── */
+.memory-card-top {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+/* Дата: разрешаем перенос, была white-space: nowrap */
+.memory-date {
+  white-space: normal;
+  word-break: keep-all;
+}
+
+/* ── 7. Counter labels — "воспоминаний" в 3 колонки на 320px переполняет ── */
+.counter-label {
+  font-size: clamp(0.52rem, 1.7vw, 0.68rem);
+  letter-spacing: clamp(0.02em, 0.3vw, 0.1em);
+  word-break: break-word;
+  line-height: 1.3;
+}
+.counter-num {
+  font-size: clamp(1.8rem, 6vw, 2.4rem);
+}
+.counter-wrap {
+  padding: clamp(18px, 4vw, 28px) clamp(14px, 4vw, 24px);
+}
+
+/* ── 8. Mini-cards — минимальная высота чтобы не ломалась пустая карточка ── */
+.mini-card {
+  min-height: 88px;
+}
+
+/* ── 9. Cat bar — pill + bar + count на узких экранах ── */
+.cat-pill {
+  min-width: 80px; /* было 96px */
+}
+
+/* ── 10. Медиа — video wrap без ширины мог не занять 100% ── */
+.media-video-wrap {
+  width: 100%;
+  min-height: 100px; /* если thumbnail не загрузился */
+}
+/* Aspect-ratio для видео — вместо fixed max-height */
+@supports (aspect-ratio: 16/9) {
+  .media-video-wrap {
+    aspect-ratio: 16 / 9;
+    max-height: none;
+  }
+  .media-video-thumb {
+    max-height: none;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+/* ── 11. Производительность — тяжёлые эффекты ── */
+
+/* Backdrop-filter только если GPU справляется */
+@media (prefers-reduced-motion: reduce) {
+  .sticky-header {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--bg);
+    opacity: 0.98;
+  }
+  .cover, .toc-label, .counter-wrap, .mini-grid {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .cat-bar-fill { transition: none; }
+}
+
+/* Observe-fade: упрощённая анимация для reduce-motion */
+@media (prefers-reduced-motion: reduce) {
+  .observe-fade {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Глоу-пятна body: отключаем на очень слабых/маленьких устройствах */
+@media (max-width: 360px) {
+  body::before, body::after { display: none; }
+}
+
+/* ── 12. Маленькие экраны ≤ 360px (iPhone SE 1gen, бюджетные Android) ── */
+@media (max-width: 360px) {
+  .page { padding-left: 12px; padding-right: 12px; }
+
+  .cover {
+    padding: 32px 14px 28px;
+    border-radius: 18px;
+  }
+  .cover-name { font-size: clamp(1.8rem, 8vw, 2.4rem); }
+  .cover-since  { font-size: 0.82rem; }
+  .cover-days   { font-size: 0.95rem; }
+
+  /* Счётчик: сжимаем ещё сильнее */
+  .counter-wrap { padding: 16px 10px; border-radius: 20px; }
+  .counter-num  { font-size: 1.7rem; }
+
+  /* Мини-карточки: чуть компактнее */
+  .mini-grid { gap: 8px; }
+  .mini-card { padding: 12px 10px; border-radius: 16px; }
+  .mini-card-value { font-size: 1.1rem; }
+  .mini-card-icon  { font-size: 1.1rem; margin-bottom: 4px; }
+
+  /* Карточки воспоминаний */
+  .memory-card { padding: 12px 12px 10px 16px; border-radius: 16px; }
+  .memory-title { font-size: 0.92rem; }
+  .memory-text  { font-size: 0.84rem; }
+
+  /* Категорийные строки — стекаем на очень узких */
+  .cat-row { flex-wrap: wrap; gap: 4px; }
+  .cat-pill { min-width: 0; }
+  .cat-bar-bg { order: 3; flex-basis: 100%; }
+  .cat-cnt { order: 2; }
+
+  /* Заголовки глав */
+  .chapter-title { font-size: 1rem; }
+  .year-heading  { font-size: 1.2rem; }
+}
+
+/* ── 13. Стандартный мобильный ≤ 480px (mirrors /main media queries) ── */
+@media (max-width: 480px) {
+  /* Имена на обложке чуть меньше */
+  .cover-name { font-size: clamp(2rem, 9.5vw, 3rem); }
+
+  /* Chapter opener: меньше отступы */
+  .chapter-opener { margin: 20px 0 8px; gap: 8px; }
+  .chapter-title  { font-size: 1.05rem; }
+
+  /* Year heading */
+  .year-heading { font-size: 1.35rem; margin-top: 18px; }
+
+  /* Карточки воспоминаний: чуть компактнее на стандартном телефоне */
+  .memory-card { margin-bottom: 8px; }
+
+  /* Фото: чуть ниже на телефоне чтобы не занимало весь экран */
+  .media-photo { max-height: 260px; }
+
+  /* Кнопки: полная ширина на мобильном */
+  .action-row { flex-direction: column; }
+  .action-row .btn-primary,
+  .action-row .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Футер */
+  .export-footer { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
+
+/* ── 14. Длинные истории — оптимизация рендеринга ── */
+/* contain: layout на секциях — браузер не перерисовывает весь поток */
+#memoriesSection, #eventsSection, #wishesSection {
+  contain: layout;
+}
+
+/* Lazy-рендеринг: изображения уже имеют loading="lazy" в JS.
+   Дополнительно ускоряем Paint на long-scroll через content-visibility */
+@supports (content-visibility: auto) {
+  .memory-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px; /* примерная высота */
+  }
+}
 </style>
 </head>
 

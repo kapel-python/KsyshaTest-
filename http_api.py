@@ -1027,15 +1027,21 @@ def _visitor_to_user_id(visitor_id: str) -> Optional[int]:
     """Конвертирует visitor_id в реальный user_id.
 
     Поддерживает:
-      - 'ksyusha' / 'ksusha' → db.get_ksusha_id()
-      - 'creator'             → config.CREATOR_ID
-      - числовую строку       → int (новые пары)
+      - числовую строку / 'NUMBER_hex'  → int (основной путь для всех пар)
+      - 'creator'    → config.CREATOR_ID  (legacy алиас для первой пары)
+      - 'partner' / 'ksyusha' / 'ksusha' → KSUSHA_ID (legacy алиас для первой пары)
     """
     if not visitor_id:
         return None
     norm = str(visitor_id).strip().lower()
     if "_" in norm:
         norm = norm.split("_")[0]
+    # Numeric ID — primary path used by all pairs
+    try:
+        return int(norm)
+    except (ValueError, TypeError):
+        pass
+    # Legacy aliases for the original single pair — kept for backward compatibility only
     if norm == "creator":
         cid = int(getattr(config, "CREATOR_ID", 0) or 0)
         return cid if cid > 0 else None
@@ -1045,10 +1051,7 @@ def _visitor_to_user_id(visitor_id: str) -> Optional[int]:
         except Exception:
             kid = int(getattr(config, "KSUSHA_ID", 0) or 0)
         return kid if kid > 0 else None
-    try:
-        return int(norm)
-    except (ValueError, TypeError):
-        return None
+    return None
 
 
 def _normalize_site_role(role_raw: str) -> Optional[str]:
@@ -1209,9 +1212,29 @@ async def ws_site(request: web.Request) -> web.WebSocketResponse:
     _ws_add(couple_id, sender_role, ws)
     total = sum(len(v.get("creator", set())) + len(v.get("partner", set())) for v in _site_ws_clients.values())
     logger.info("WS_SITE connect: visitor_id=%r couple_id=%s role=%r total=%d", visitor_id, couple_id, sender_role, total)
+
+    # Per-connection rate limit: max 20 messages per 10-second sliding window
+    _WS_MSG_LIMIT  = 20
+    _WS_MSG_WINDOW = 10.0
+    _ws_msg_times: list = []
+
     try:
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
+
+                # Rate limit check — applied to every non-ping message
+                if msg.data != 'ping':
+                    _now = time.monotonic()
+                    _ws_msg_times[:] = [t for t in _ws_msg_times if _now - t < _WS_MSG_WINDOW]
+                    if len(_ws_msg_times) >= _WS_MSG_LIMIT:
+                        logger.warning(
+                            "WS_SITE flood: closing visitor_id=%r couple_id=%s msgs=%d/%ds",
+                            visitor_id, couple_id, len(_ws_msg_times), int(_WS_MSG_WINDOW)
+                        )
+                        await ws.close(code=4029, message=b"rate limited")
+                        break
+                    _ws_msg_times.append(_now)
+
                 if msg.data == 'ping':
                     try:
                         await ws.send_str('pong')
@@ -1223,7 +1246,8 @@ async def ws_site(request: web.Request) -> web.WebSocketResponse:
                         import json as _json
                         data = _json.loads(msg.data)
                         if data.get("type") == "star_sent":
-                            count  = _safe_int(data.get("count"), 1)
+                            # Clamp count: must be in [1, 100]
+                            count = max(1, min(100, _safe_int(data.get("count"), 1)))
                             if sender_role == "creator":
                                 recipients = ["partner"]
                             elif sender_role == "partner":
@@ -1362,12 +1386,15 @@ async def _check_and_fire_celebrations() -> None:
             if not last:
                 cel_id = db.add_celebration(ctype, ev.title or "Событие", ev.id)
                 if cel_id:
-                    await _push_celebration_to_all({
-                        "id": cel_id,
-                        "celebration_type": "event",
-                        "event_title": ev.title or "Событие",
-                        "event_id": ev.id,
-                    })
+                    ev_couple = db.get_couple_by_user(ev.user_id) if ev.user_id else None
+                    ev_couple_id = _safe_int((ev_couple or {}).get("id"), 0) or 0
+                    if ev_couple_id > 0:
+                        await _push_celebration_to_couple(ev_couple_id, {
+                            "id": cel_id,
+                            "celebration_type": "event",
+                            "event_title": ev.title or "Событие",
+                            "event_id": ev.id,
+                        })
         except Exception as e:
             logger.debug("scheduler celebration sync failed for event_id=%s: %s", getattr(ev, "id", None), e)
 
@@ -3929,17 +3956,25 @@ async def ai_companion_history(request: web.Request) -> web.Response:
 # ═══════════════════════════════════════════════════════════════
 
 async def admin_check(request: web.Request) -> web.Response:
-    ok = _check_api_secret(request)
-    if not ok:
+    if not _check_api_secret(request):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-    
-    # If the user has a valid admin_session or API_SECRET_KEY, they are the creator.
+
+    # Determine actual role from signed session — never trust client-supplied role
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    user_id = _visitor_to_user_id(visitor_id or "")
+    is_creator = bool(user_id and db.is_creator(user_id))
+    if not is_creator:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
     return _add_cors_headers(web.json_response({"ok": True, "is_creator": True}))
 
 
 async def admin_stats(request: web.Request) -> web.Response:
     """Сводная статистика для админ-панели."""
     if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    user_id = _visitor_to_user_id(visitor_id or "")
+    if not user_id or not db.is_creator(user_id):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
 
@@ -3963,11 +3998,13 @@ async def admin_stats(request: web.Request) -> web.Response:
 
 
 async def admin_health_metrics(request: web.Request) -> web.Response:
-    """Runtime-метрики для прод-диагностики (только авторизованный участник пары)."""
+    """Runtime-метрики для прод-диагностики (только creator)."""
     if not _check_api_secret(request):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-
-
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    user_id = _visitor_to_user_id(visitor_id or "")
+    if not user_id or not db.is_creator(user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
     uptime_sec = max(0, int(time.time() - float(_metrics.get("started_at", time.time()))))
     lat_cnt = int(_metrics.get("latency_count", 0) or 0)
     lat_avg = round((_metrics.get("latency_ms_sum", 0.0) / lat_cnt), 2) if lat_cnt else 0.0
@@ -4005,6 +4042,10 @@ async def api_version(request: web.Request) -> web.Response:
 async def admin_version_history(request: web.Request) -> web.Response:
     """Возвращает полную историю версий (только creator)."""
     if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    user_id = _visitor_to_user_id(visitor_id or "")
+    if not user_id or not db.is_creator(user_id):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
     history = db.get_version_history()
@@ -4159,7 +4200,7 @@ def _compute_admin_trust_score(request: web.Request, visitor_id: Optional[str], 
         flags.append("unknown_device")
 
     # +10 IP matches history
-    ip_raw = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+    ip_raw = _extract_client_ip(request)
     ip_hash = hashlib.sha256(ip_raw.encode()).hexdigest()[:16]
     last_ip = signals.get("admin_last_ip") or ""
     if ip_hash and last_ip and ip_hash == last_ip:
@@ -4191,7 +4232,7 @@ def _compute_admin_trust_score(request: web.Request, visitor_id: Optional[str], 
     # +5 correct Origin
     req_origin = (request.headers.get("Origin") or "").strip().rstrip("/")
     site_url = (getattr(config, "BOT_SITE_URL", "") or "").strip().rstrip("/")
-    if req_origin and site_url and req_origin in site_url:
+    if req_origin and site_url and req_origin == site_url:
         score += 5
         flags.append("correct_origin")
 
@@ -4538,6 +4579,10 @@ async def ws_admin_monitor(request: web.Request) -> web.WebSocketResponse:
 async def admin_logs(request: web.Request) -> web.Response:
     """GET /api/admin/logs — последние системные логи и события безопасности."""
     if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    user_id = _visitor_to_user_id(visitor_id or "")
+    if not user_id or not db.is_creator(user_id):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
     try:
         app_logs = db.get_app_logs(limit=50)
@@ -4901,8 +4946,10 @@ async def upload_notification_media(request: web.Request) -> web.Response:
     visitor_id передаётся как query-параметр (?v=creator), файл — в теле multipart."""
     if not _check_api_secret(request):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
-
-
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    user_id = _visitor_to_user_id(visitor_id or "")
+    if not user_id or not db.is_creator(user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
     try:
         reader = await request.multipart()
@@ -5164,7 +5211,7 @@ async def token_check(request: web.Request) -> web.Response:
         "match": current_user_id == token_user_id if current_user_id is not None else False,
         "session_valid": is_session_valid,
         "token_user": {"id": token_user_id},
-        "current_user": {"id": current_vid},
+        "current_user": {"id": current_user_id},
     }))
 
 async def auth_debug_log(request: web.Request) -> web.Response:
@@ -5201,7 +5248,8 @@ async def token_auth(request: web.Request) -> web.Response:
         payload = {}
 
     token = _pstr(payload.get("token")).strip()
-    debug_id = _pstr(payload.get("debug_id")).strip() or "none"
+    _raw_debug_id = _pstr(payload.get("debug_id")).strip()
+    debug_id = re.sub(r"[^a-zA-Z0-9_\-]", "", _raw_debug_id)[:32] or "none"
     if not token:
         return _add_cors_headers(web.json_response({"ok": False, "error": "empty"}))
 
@@ -5380,18 +5428,34 @@ async def api_unlink_init(request: web.Request) -> web.Response:
     return _add_cors_headers(web.json_response({"ok": True, "token": token}))
 
 
+_UNLINK_TOKEN_TTL_SEC = 15 * 60  # 15 минут — максимальное время ожидания ответа в боте
+
 async def ws_unlink(request: web.Request) -> web.Response:
     token = request.query.get("token")
-    vid = request.query.get("v")
-    if not token or not vid:
+    if not token:
         return web.HTTPBadRequest()
 
     req = db.get_unlink_request(token)
     if not req or req["status"] != "pending":
         return web.HTTPForbidden()
 
-    user_id = _visitor_to_user_id(vid)
-    if not user_id or req["user_id"] != user_id:
+    # Отклоняем подключение к устаревшим токенам отвязки
+    try:
+        created_str = (req.get("created_at") or "")[:19]
+        if created_str:
+            created_dt = datetime.strptime(created_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            if (datetime.now(timezone.utc) - created_dt).total_seconds() > _UNLINK_TOKEN_TTL_SEC:
+                logger.info("ws_unlink: token %r expired (created=%s)", token[:8] + "...", created_str)
+                return web.HTTPForbidden()
+    except Exception:
+        pass
+
+    # Verify caller identity via signed session — never trust raw vid from URL
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    caller_uid = _visitor_to_user_id(visitor_id or "")
+    if not caller_uid or req["user_id"] != caller_uid:
+        logger.warning("ws_unlink: identity mismatch token=%r caller_uid=%r req_uid=%r",
+                       token[:8] + "...", caller_uid, req.get("user_id"))
         return web.HTTPForbidden()
 
     ws = web.WebSocketResponse(heartbeat=30.0)
@@ -6156,7 +6220,9 @@ async def index(request: web.Request) -> web.StreamResponse:
 
     project_root = Path(__file__).resolve().parent
 
-    has_token = bool(request.rel_url.query.get("token"))
+    _raw_token = (request.rel_url.query.get("token") or "").strip()
+    # Принимаем токен только если он похож на настоящий: base64url, 20–100 символов
+    has_token = bool(_raw_token and re.fullmatch(r"[A-Za-z0-9_\-]{20,100}", _raw_token))
     if not has_token:
         visitor_id = _get_trusted_visitor_id(request)
         if not visitor_id:
@@ -6524,8 +6590,10 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     if not session_vid:
         raise web.HTTPFound("/main")
     _stats_uid = _visitor_to_user_id(session_vid)
-    if not _stats_uid or not db.get_couple_by_user(_stats_uid):
+    _stats_couple = db.get_couple_by_user(_stats_uid) if _stats_uid else None
+    if not _stats_couple:
         raise web.HTTPFound("/main")
+    _stats_couple_id = _safe_int((_stats_couple or {}).get("id"), 0) or 0
 
     if db.get_setting("test_version") == "1":
         html = _render_maintenance_page()
@@ -6766,7 +6834,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     # Статистика по visitor_id (у каждого пользователя своя)
 
-    total_stats = db.get_total_stats()
+    total_stats = db.get_total_stats(couple_id=_stats_couple_id)
 
     visits_summary = db.get_site_visits_summary(visitor_id)
 
@@ -7293,7 +7361,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
     heatmap_month_year = heatmap_month_label.capitalize() + " " + str(heatmap_year)
     html = html.replace("{{HEATMAP_MONTH}}", heatmap_month_label)
     html = html.replace("{{HEATMAP_MONTH_YEAR}}", heatmap_month_year)
-    _vid_js = (visitor_id or "").replace('"', "")
+    _vid_js = (visitor_id or "").replace('"', "").replace("</", "<\\/")
     html = html.replace("</body>",
         '<script>window.__STATS_VID__="' + _vid_js + '";</script></body>',
         1)
@@ -8977,16 +9045,16 @@ async def client_log(request: web.Request) -> web.Response:
     # Иконки по уровню
     ICONS = {"error": "🔴", "warn": "🟡", "info": "⚪"}
 
-    lines = [f"📋 <b>Лог с сайта</b> | <code>{visitor_id}</code> | <code>{page}</code>"]
+    lines = [f"📋 <b>Лог с сайта</b> | <code>{_html_module.escape(visitor_id)}</code> | <code>{_html_module.escape(page)}</code>"]
     if ua:
-        lines.append(f"<i>{ua}</i>")
+        lines.append(f"<i>{_html_module.escape(ua)}</i>")
     lines.append("")
 
     for e in entries[:30]:  # не более 30 записей за раз
         level = (e.get("level") or "info").strip()
-        tag   = (e.get("tag")   or "?").strip()
-        msg   = (e.get("msg")   or "").strip()[:300]
-        time  = (e.get("time")  or "").strip()
+        tag   = _html_module.escape((e.get("tag")   or "?").strip())
+        msg   = _html_module.escape((e.get("msg")   or "").strip()[:300])
+        time  = _html_module.escape((e.get("time")  or "").strip())
         icon  = ICONS.get(level, "⚪")
         lines.append(f"{icon} <code>[{time}][{tag}]</code> {msg}")
 
@@ -9429,6 +9497,8 @@ def create_app() -> web.Application:
     # Client logger
     app.router.add_route("OPTIONS", "/api/log", handle_options)
     async def nav_debug(request):
+        if not _check_api_secret(request):
+            return web.Response(text="ok")  # silent — don't reveal endpoint existence
         try:
             data = await request.json()
             with open("/app/frontend_debug.log", "a", encoding="utf-8") as f:

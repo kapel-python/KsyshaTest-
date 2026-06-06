@@ -1320,7 +1320,10 @@ function _esc(str) {
     .replace(/'/g, '&#39;');
 }
 
+const _deviceSessionStore = [];
+
 function renderActiveSessions(sessions) {
+  _deviceSessionStore.length = 0;
   const container = document.getElementById('sessionsDynamicContainer');
   if (!sessions.length) {
     container.innerHTML = `<div class="card-item static" style="justify-content:center;color:var(--text-3);padding:20px;">${_t('profUnknownDevice')}</div>`;
@@ -1357,7 +1360,7 @@ function renderActiveSessions(sessions) {
     html += `
       <div class="section-label" data-i18n="profActiveDevices">Активные сессии</div>
       <div class="card">
-        ${others.map(s => {
+        ${others.map((s, _idx) => {
           const isMobile = s.device_type && s.device_type.toLowerCase().includes('mobile');
           const iconSvg = isMobile
             ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`
@@ -1368,10 +1371,10 @@ function renderActiveSessions(sessions) {
           const ip = _esc(s.ip_server || s.ip_webrtc || s.ip || '—');
           const timeStr = _esc(s.last_seen_utc ? _formatActivityTime(s.last_seen_utc) : '');
 
-          const sJson = JSON.stringify(s).replace(/"/g, '&quot;');
+          const sessionIdx = _deviceSessionStore.push(s) - 1;
 
           return `
-            <button class="card-item" onclick="openDeviceModal(${sJson})">
+            <button class="card-item" data-session-idx="${sessionIdx}">
               <div class="item-icon icon-slate">
                 ${iconSvg}
               </div>
@@ -1391,6 +1394,14 @@ function renderActiveSessions(sessions) {
   }
 
   container.innerHTML = html;
+
+  container.querySelectorAll('[data-session-idx]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.getAttribute('data-session-idx'), 10);
+      const s = _deviceSessionStore[idx];
+      if (s) openDeviceModal(s);
+    });
+  });
 
   // Re-apply I18N to ensure the labels translate
   _applyI18n();
@@ -1479,7 +1490,7 @@ async function startUnlink() {
     
     const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const vid = _getCookie('visitor_id') || '';
-    unlinkWs = new WebSocket(`${wsProto}//${location.host}/ws/unlink?token=${data.token}&v=${vid}`);
+    unlinkWs = new WebSocket(`${wsProto}//${location.host}/ws/unlink?token=${data.token}`);
     
     unlinkWs.onmessage = (e) => {
       try {

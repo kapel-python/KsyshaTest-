@@ -2725,7 +2725,7 @@ async def scheduled_events_menu(callback: CallbackQuery, state: FSMContext):
         return
     await state.clear()
     per_page = 10
-    events, total = db.get_scheduled_events_paged(page=1, per_page=per_page)
+    events, total = db.get_scheduled_events_paged(page=1, per_page=per_page, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id])
     total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
     await safe_delete_callback_message(callback)
     text = (
@@ -2754,7 +2754,7 @@ async def scheduled_events_page(callback: CallbackQuery, state: FSMContext):
         return
     page = int(callback.data.replace("scheduled_events_p", ""))
     per_page = 10
-    events, total = db.get_scheduled_events_paged(page=page, per_page=per_page)
+    events, total = db.get_scheduled_events_paged(page=page, per_page=per_page, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id])
     total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
     if page < 1:
         page = 1
@@ -2804,7 +2804,7 @@ async def scheduled_events_search_query(message: Message, state: FSMContext):
     await state.update_data(scheduled_events_search_query=query)
     await state.set_state(ScheduledEventSearchStates.viewing_results)
     per_page = 10
-    events, total = db.search_scheduled_events(query, page=1, per_page=per_page)
+    events, total = db.search_scheduled_events(query, page=1, per_page=per_page, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id])
     total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
     text = (
         "🎯 <b>Результаты поиска</b>\n\n"
@@ -2833,7 +2833,7 @@ async def scheduled_events_search_page(callback: CallbackQuery, state: FSMContex
     data = await state.get_data()
     query = (data.get("scheduled_events_search_query") or "").strip()
     per_page = 10
-    events, total = db.search_scheduled_events(query, page=page, per_page=per_page)
+    events, total = db.search_scheduled_events(query, page=page, per_page=per_page, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id])
     total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
     if page < 1:
         page = 1
@@ -3414,7 +3414,7 @@ async def scheduled_event_delete_yes(callback: CallbackQuery, state: FSMContext)
         await callback.answer("Событие удалено")
         await safe_delete_callback_message(callback)
         per_page = 10
-        events, total = db.get_scheduled_events_paged(page=1, per_page=per_page)
+        events, total = db.get_scheduled_events_paged(page=1, per_page=per_page, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id])
         total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
         text = (
             "🎯 <b>События на дату</b>\n\n"
@@ -3464,6 +3464,7 @@ async def scheduled_event_delete_no(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.regexp(r"^scheduled_event_existing_edit_title_\d+$"))
 async def scheduled_event_existing_edit_title(callback: CallbackQuery, state: FSMContext):
     """Начать редактирование названия существующего события"""
+    user_id = callback.from_user.id
     try:
         event_id = int(callback.data.split("_")[-1])
     except (ValueError, IndexError):
@@ -3472,6 +3473,11 @@ async def scheduled_event_existing_edit_title(callback: CallbackQuery, state: FS
     event = db.get_scheduled_event(event_id)
     if not event:
         await callback.answer(MSG_EVENT_NOT_FOUND)
+        return
+    _ev_couple = db.get_couple_by_user(user_id)
+    _ev_members = set(db.get_couple_members((_ev_couple or {}).get("id") or 0)) if _ev_couple else set()
+    if event.user_id not in _ev_members:
+        await callback.answer(MSG_ACCESS_DENIED)
         return
     await state.update_data(editing_event_id=event_id)
     await state.set_state(EditScheduledEventStates.waiting_for_title)
@@ -3484,6 +3490,7 @@ async def scheduled_event_existing_edit_title(callback: CallbackQuery, state: FS
 @router.callback_query(F.data.regexp(r"^scheduled_event_existing_edit_desc_\d+$"))
 async def scheduled_event_existing_edit_desc(callback: CallbackQuery, state: FSMContext):
     """Начать редактирование описания существующего события"""
+    user_id = callback.from_user.id
     try:
         event_id = int(callback.data.split("_")[-1])
     except (ValueError, IndexError):
@@ -3492,6 +3499,11 @@ async def scheduled_event_existing_edit_desc(callback: CallbackQuery, state: FSM
     event = db.get_scheduled_event(event_id)
     if not event:
         await callback.answer(MSG_EVENT_NOT_FOUND)
+        return
+    _ev_couple = db.get_couple_by_user(user_id)
+    _ev_members = set(db.get_couple_members((_ev_couple or {}).get("id") or 0)) if _ev_couple else set()
+    if event.user_id not in _ev_members:
+        await callback.answer(MSG_ACCESS_DENIED)
         return
     await state.update_data(editing_event_id=event_id)
     await state.set_state(EditScheduledEventStates.waiting_for_description)
@@ -3506,6 +3518,7 @@ async def scheduled_event_existing_edit_desc(callback: CallbackQuery, state: FSM
 @router.callback_query(F.data.regexp(r"^scheduled_event_existing_edit_date_\d+$"))
 async def scheduled_event_existing_edit_date(callback: CallbackQuery, state: FSMContext):
     """Начать редактирование даты существующего события"""
+    user_id = callback.from_user.id
     try:
         event_id = int(callback.data.split("_")[-1])
     except (ValueError, IndexError):
@@ -3514,6 +3527,11 @@ async def scheduled_event_existing_edit_date(callback: CallbackQuery, state: FSM
     event = db.get_scheduled_event(event_id)
     if not event:
         await callback.answer(MSG_EVENT_NOT_FOUND)
+        return
+    _ev_couple = db.get_couple_by_user(user_id)
+    _ev_members = set(db.get_couple_members((_ev_couple or {}).get("id") or 0)) if _ev_couple else set()
+    if event.user_id not in _ev_members:
+        await callback.answer(MSG_ACCESS_DENIED)
         return
     await state.update_data(editing_event_id=event_id)
     await state.set_state(EditScheduledEventStates.waiting_for_date_raw)
@@ -3805,7 +3823,7 @@ async def search_results_page(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Ошибка")
         return
     await callback.bot.send_chat_action(chat_id=callback.message.chat.id, action=ChatAction.TYPING)
-    memories = db.search_memories_fuzzy(query, limit=100)
+    memories = db.search_memories_fuzzy(query, limit=100, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id])
     if not memories:
         await callback.answer("Результаты поиска пусты")
         return
@@ -3990,7 +4008,7 @@ async def back_to_search_results(callback: CallbackQuery, state: FSMContext):
         )
         return
     await callback.bot.send_chat_action(chat_id=callback.message.chat.id, action=ChatAction.TYPING)
-    memories = db.search_memories_fuzzy(query, limit=100)
+    memories = db.search_memories_fuzzy(query, limit=100, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id])
     if not memories:
         await callback_edit_or_answer(callback, 
             f"🔍 <b>Поиск: «{query}»</b>\n\n📭 Ничего не найдено.",
@@ -4734,7 +4752,7 @@ async def process_search_query(message: Message, state: FSMContext):
         )
         return
     await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
-    memories = db.search_memories_fuzzy(raw, limit=100)
+    memories = db.search_memories_fuzzy(raw, limit=100, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id])
     await state.update_data(search_query=raw, search_page=1)
     if not memories:
         await message.answer(
@@ -5039,11 +5057,16 @@ async def edit_memory_options(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("edit_title_"))
 async def edit_memory_title(callback: CallbackQuery, state: FSMContext):
     """Редактирование названия"""
+    user_id = callback.from_user.id
     memory_id = int(callback.data.split("_")[2])
     memory = db.get_memory(memory_id)
-    
     if not memory:
         await callback.answer(MSG_MEMORY_NOT_FOUND)
+        return
+    _couple = db.get_couple_by_user(user_id)
+    _members = set(db.get_couple_members((_couple or {}).get("id") or 0)) if _couple else set()
+    if memory.user_id not in _members:
+        await callback.answer(MSG_ACCESS_DENIED)
         return
     
     await state.update_data(memory_id=memory_id, category=memory.category)
@@ -5059,13 +5082,17 @@ async def edit_memory_title(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("edit_date_"))
 async def edit_memory_date(callback: CallbackQuery, state: FSMContext):
     """Редактирование даты"""
+    user_id = callback.from_user.id
     memory_id = int(callback.data.split("_")[2])
     memory = db.get_memory(memory_id)
-    
     if not memory:
         await callback.answer(MSG_MEMORY_NOT_FOUND)
         return
-    
+    _couple = db.get_couple_by_user(user_id)
+    _members = set(db.get_couple_members((_couple or {}).get("id") or 0)) if _couple else set()
+    if memory.user_id not in _members:
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
     await state.update_data(memory_id=memory_id, category=memory.category)
     await state.set_state(EditMemoryStates.waiting_for_new_date)
     
@@ -5079,13 +5106,17 @@ async def edit_memory_date(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("edit_content_"))
 async def edit_memory_content(callback: CallbackQuery, state: FSMContext):
     """Редактирование описания"""
+    user_id = callback.from_user.id
     memory_id = int(callback.data.split("_")[2])
     memory = db.get_memory(memory_id)
-    
     if not memory:
         await callback.answer(MSG_MEMORY_NOT_FOUND)
         return
-    
+    _couple = db.get_couple_by_user(user_id)
+    _members = set(db.get_couple_members((_couple or {}).get("id") or 0)) if _couple else set()
+    if memory.user_id not in _members:
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
     await state.update_data(memory_id=memory_id, category=memory.category)
     await state.set_state(EditMemoryStates.waiting_for_new_content)
     
@@ -5794,7 +5825,7 @@ async def delete_memory(callback: CallbackQuery, state: FSMContext):
                 data = await state.get_data()
                 query = data.get("search_query", "")
                 page = data.get("search_page", 1)
-                memories = db.search_memories_fuzzy(query, limit=100) if query else []
+                memories = db.search_memories_fuzzy(query, limit=100, user_ids=db.get_couple_members((db.get_couple_by_user(user_id) or {}).get("id") or 0) or [user_id]) if query else []
                 await safe_delete_callback_message(callback)
                 if memories:
                     await callback_edit_or_answer(callback, 
@@ -7814,7 +7845,12 @@ async def wish_view(callback: CallbackQuery):
     if not db.is_in_couple(user_id) and not db.is_creator(user_id):
         await callback.answer("Доступ запрещён")
         return
-    
+    _w_couple = db.get_couple_by_user(user_id)
+    _w_members = set(db.get_couple_members((_w_couple or {}).get("id") or 0)) if _w_couple else set()
+    if wish.user_id not in _w_members:
+        await callback.answer("Доступ запрещён")
+        return
+
     text = format_wish_text(wish, user_id)
     
     back_target = "wishes_menu"
@@ -7845,6 +7881,11 @@ async def wish_status_menu(callback: CallbackQuery):
     wish = db.get_wish(wish_id)
     if not wish:
         await callback.answer("Желание не найдено")
+        return
+    _w_couple = db.get_couple_by_user(user_id)
+    _w_members = set(db.get_couple_members((_w_couple or {}).get("id") or 0)) if _w_couple else set()
+    if wish.user_id not in _w_members:
+        await callback.answer("Доступ запрещён")
         return
 
     current = getattr(wish, "status", "created") or "created"
@@ -7893,6 +7934,15 @@ async def wish_status_set(callback: CallbackQuery):
     if new_status not in ("created", "in_progress", "done"):
         await callback.answer("Неверный статус")
         return
+
+    # Ownership check: wish must belong to caller's couple
+    _wish = db.get_wish(wish_id) if hasattr(db, 'get_wish') else None
+    if _wish:
+        _w_couple = db.get_couple_by_user(user_id)
+        _w_members = set(db.get_couple_members((_w_couple or {}).get("id") or 0)) if _w_couple else set()
+        if getattr(_wish, 'user_id', None) not in _w_members:
+            await callback.answer(MSG_ACCESS_DENIED)
+            return
 
     ok = db.update_wish_status(wish_id, new_status)
     if not ok:
@@ -8469,7 +8519,8 @@ async def process_broadcast_content(message: Message, state: FSMContext):
     target = data.get("broadcast_target", "all")
     
     if target in ("ksusha", "partner"):
-        recipients = [db.get_ksusha_id()]
+        partner_id = db.get_partner_id(user_id)
+        recipients = [partner_id] if partner_id else []
         target_text = "партнёру"
     else:
         all_ids = db.get_all_user_ids()
@@ -8987,6 +9038,10 @@ async def site_visit_refresh(callback: CallbackQuery):
     Кнопка «Обновить» в уведомлении о входе на сайт: подтягивает актуальные данные
     из БД (последний визит + устройство) и обновляет текст сообщения.
     """
+    user_id = callback.from_user.id
+    if not db.is_creator(user_id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
     try:
         visit = db.get_last_site_visit_any()
         if not visit:

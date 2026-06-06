@@ -1466,6 +1466,7 @@ class Database:
         - TTL по умолчанию 12 часов
         - Каждый выданный токен живёт до истечения TTL (или первого использования)
         - В БД хранится только SHA-256 hash токена
+        - При выдаче нового токена все предыдущие неиспользованные токены пользователя ревоцируются
         """
         ttl = max(300, int(ttl_seconds or 43200))
         now_utc = datetime.now(timezone.utc)
@@ -1490,6 +1491,17 @@ class Database:
                       AND is_revoked = 0
                       AND expires_at_utc < datetime('now')
                     """
+                )
+                # Ревоцируем все неиспользованные токены этого пользователя — только один токен может быть активным
+                conn.execute(
+                    """
+                    UPDATE user_login_tokens
+                    SET is_revoked = 1
+                    WHERE user_id = ?
+                      AND used_at_utc IS NULL
+                      AND is_revoked = 0
+                    """,
+                    (user_id,),
                 )
                 conn.execute(
                     """
@@ -3807,47 +3819,65 @@ class Database:
 
     # === Статистические методы ===
     
-    def get_category_stats(self) -> Dict[str, int]:
-        """Получает статистику по категориям"""
+    def get_category_stats(self, couple_id: Optional[int] = None) -> Dict[str, int]:
+        """Получает статистику по категориям, изолированную по паре."""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute('''
-                    SELECT category, COUNT(*) as count 
-                    FROM memories 
-                    GROUP BY category
-                    ORDER BY count DESC
-                ''')
-                
+                if couple_id is not None:
+                    cursor = conn.execute(
+                        'SELECT category, COUNT(*) as count FROM memories WHERE couple_id = ? GROUP BY category ORDER BY count DESC',
+                        (couple_id,)
+                    )
+                else:
+                    cursor = conn.execute(
+                        'SELECT category, COUNT(*) as count FROM memories GROUP BY category ORDER BY count DESC'
+                    )
                 stats = {}
                 for row in cursor.fetchall():
                     stats[row['category']] = row['count']
-                
                 return stats
         except Exception as e:
             logger.exception(f"Ошибка при получении статистики по категориям: {e}")
             return {}
-    
-    def get_media_stats(self) -> Dict[str, int]:
-        """Статистика по типам медиа: memories + scheduled_events + wishes (фото, видео, кружки и т.д.)."""
+
+    def get_media_stats(self, couple_id: Optional[int] = None) -> Dict[str, int]:
+        """Статистика по типам медиа, изолированная по паре."""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute('''
-                    SELECT 
-                        SUM(CASE WHEN media_type = 'photo' THEN 1 ELSE 0 END) as photo_count,
-                        SUM(CASE WHEN media_type = 'video' THEN 1 ELSE 0 END) as video_count,
-                        SUM(CASE WHEN media_type = 'video_note' THEN 1 ELSE 0 END) as video_note_count,
-                        SUM(CASE WHEN media_type = 'audio' THEN 1 ELSE 0 END) as audio_count,
-                        SUM(CASE WHEN media_type = 'voice' THEN 1 ELSE 0 END) as voice_count,
-                        SUM(CASE WHEN media_type = 'document' THEN 1 ELSE 0 END) as document_count,
-                        SUM(CASE WHEN media_type IS NULL THEN 1 ELSE 0 END) as text_only_count
-                    FROM (
-                        SELECT media_type FROM memories
-                        UNION ALL
-                        SELECT media_type FROM scheduled_events
-                        UNION ALL
-                        SELECT media_type FROM wishes
-                    )
-                ''')
+                if couple_id is not None:
+                    cursor = conn.execute('''
+                        SELECT
+                            SUM(CASE WHEN media_type = 'photo' THEN 1 ELSE 0 END) as photo_count,
+                            SUM(CASE WHEN media_type = 'video' THEN 1 ELSE 0 END) as video_count,
+                            SUM(CASE WHEN media_type = 'video_note' THEN 1 ELSE 0 END) as video_note_count,
+                            SUM(CASE WHEN media_type = 'audio' THEN 1 ELSE 0 END) as audio_count,
+                            SUM(CASE WHEN media_type = 'voice' THEN 1 ELSE 0 END) as voice_count,
+                            SUM(CASE WHEN media_type = 'document' THEN 1 ELSE 0 END) as document_count,
+                            SUM(CASE WHEN media_type IS NULL THEN 1 ELSE 0 END) as text_only_count
+                        FROM (
+                            SELECT media_type FROM memories WHERE couple_id = ?
+                            UNION ALL
+                            SELECT media_type FROM scheduled_events WHERE user_id IN (SELECT user1_id FROM couples WHERE id = ? UNION SELECT user2_id FROM couples WHERE id = ?)
+                            UNION ALL
+                            SELECT media_type FROM wishes WHERE user_id IN (SELECT user1_id FROM couples WHERE id = ? UNION SELECT user2_id FROM couples WHERE id = ?)
+                        )
+                    ''', (couple_id, couple_id, couple_id, couple_id, couple_id))
+                else:
+                    cursor = conn.execute('''
+                        SELECT
+                            SUM(CASE WHEN media_type = 'photo' THEN 1 ELSE 0 END) as photo_count,
+                            SUM(CASE WHEN media_type = 'video' THEN 1 ELSE 0 END) as video_count,
+                            SUM(CASE WHEN media_type = 'video_note' THEN 1 ELSE 0 END) as video_note_count,
+                            SUM(CASE WHEN media_type = 'audio' THEN 1 ELSE 0 END) as audio_count,
+                            SUM(CASE WHEN media_type = 'voice' THEN 1 ELSE 0 END) as voice_count,
+                            SUM(CASE WHEN media_type = 'document' THEN 1 ELSE 0 END) as document_count,
+                            SUM(CASE WHEN media_type IS NULL THEN 1 ELSE 0 END) as text_only_count
+                        FROM (
+                            SELECT media_type FROM memories
+                            UNION ALL SELECT media_type FROM scheduled_events
+                            UNION ALL SELECT media_type FROM wishes
+                        )
+                    ''')
                 row = cursor.fetchone()
                 return dict(row) if row else {
                     'photo_count': 0, 'video_count': 0, 'video_note_count': 0, 'audio_count': 0,
@@ -3859,123 +3889,106 @@ class Database:
                 'photo_count': 0, 'video_count': 0, 'video_note_count': 0, 'audio_count': 0,
                 'voice_count': 0, 'document_count': 0, 'text_only_count': 0
             }
-    
-    def get_days_active(self) -> int:
-        """Получает количество дней активности бота"""
+
+    def get_days_active(self, couple_id: Optional[int] = None) -> int:
+        """Количество дней активности, изолированное по паре."""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute('''
-                    SELECT 
-                        CASE 
-                            WHEN COUNT(*) = 0 THEN 0
-                            ELSE CAST(JULIANDAY('now') - JULIANDAY(MIN(created_at)) + 1 AS INTEGER)
-                        END as days_active
-                    FROM memories
-                ''')
+                if couple_id is not None:
+                    cursor = conn.execute(
+                        "SELECT CASE WHEN COUNT(*) = 0 THEN 0 ELSE CAST(JULIANDAY('now') - JULIANDAY(MIN(created_at)) + 1 AS INTEGER) END as days_active FROM memories WHERE couple_id = ?",
+                        (couple_id,)
+                    )
+                else:
+                    cursor = conn.execute(
+                        "SELECT CASE WHEN COUNT(*) = 0 THEN 0 ELSE CAST(JULIANDAY('now') - JULIANDAY(MIN(created_at)) + 1 AS INTEGER) END as days_active FROM memories"
+                    )
                 row = cursor.fetchone()
                 return int(row['days_active']) if row else 0
         except Exception as e:
             logger.exception(f"Ошибка при получении дней активности: {e}")
             return 0
-    
-    def get_recent_activity(self, days: int = 7) -> Dict[str, int]:
-        """Получает активность за последние N дней"""
+
+    def get_recent_activity(self, days: int = 7, couple_id: Optional[int] = None) -> Dict[str, int]:
+        """Активность за последние N дней, изолированная по паре."""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute('''
-                    SELECT 
-                        DATE(created_at) as date,
-                        COUNT(*) as count
-                    FROM memories 
-                    WHERE created_at >= DATE('now', ?)
-                    GROUP BY DATE(created_at)
-                    ORDER BY date DESC
-                ''', (f'-{days} days',))
-                
+                if couple_id is not None:
+                    cursor = conn.execute(
+                        "SELECT DATE(created_at) as date, COUNT(*) as count FROM memories WHERE created_at >= DATE('now', ?) AND couple_id = ? GROUP BY DATE(created_at) ORDER BY date DESC",
+                        (f'-{days} days', couple_id)
+                    )
+                else:
+                    cursor = conn.execute(
+                        "SELECT DATE(created_at) as date, COUNT(*) as count FROM memories WHERE created_at >= DATE('now', ?) GROUP BY DATE(created_at) ORDER BY date DESC",
+                        (f'-{days} days',)
+                    )
                 activity = {}
                 for row in cursor.fetchall():
                     activity[row['date']] = row['count']
-                
                 return activity
         except Exception as e:
             logger.exception(f"Ошибка при получении активности: {e}")
             return {}
-    
-    def get_total_stats(self) -> Dict[str, Any]:
-        """Получает общую статистику с дополнительными данными"""
+
+    def get_total_stats(self, couple_id: Optional[int] = None) -> Dict[str, Any]:
+        """Получает статистику, изолированную по паре."""
         try:
             with self._get_connection() as conn:
-                # Основная статистика
-                cursor = conn.execute('''
-                    SELECT 
-                        COUNT(*) as total_memories,
-                        COUNT(DISTINCT user_id) as unique_users,
-                        COUNT(DISTINCT category) as categories_used
-                    FROM memories
-                ''')
-                
+                if couple_id is not None:
+                    cursor = conn.execute(
+                        'SELECT COUNT(*) as total_memories, COUNT(DISTINCT user_id) as unique_users, COUNT(DISTINCT category) as categories_used FROM memories WHERE couple_id = ?',
+                        (couple_id,)
+                    )
+                else:
+                    cursor = conn.execute(
+                        'SELECT COUNT(*) as total_memories, COUNT(DISTINCT user_id) as unique_users, COUNT(DISTINCT category) as categories_used FROM memories'
+                    )
                 row = cursor.fetchone()
                 base_stats = dict(row) if row else {
-                    'total_memories': 0,
-                    'unique_users': 0,
-                    'categories_used': 0
+                    'total_memories': 0, 'unique_users': 0, 'categories_used': 0
                 }
-                
-                # Добавляем статистику медиа
-                media_stats = self.get_media_stats()
-                base_stats.update(media_stats)
-                
-                # Добавляем дни активности
-                base_stats['days_active'] = self.get_days_active()
-                
-                # Добавляем среднее в день
+
+                base_stats.update(self.get_media_stats(couple_id=couple_id))
+                base_stats['days_active'] = self.get_days_active(couple_id=couple_id)
                 days_active = base_stats['days_active']
-                if days_active > 0:
-                    base_stats['avg_per_day'] = base_stats['total_memories'] / days_active
-                else:
-                    base_stats['avg_per_day'] = 0
-                
-                # Добавляем статистику по категориям
-                category_stats = self.get_category_stats()
-                base_stats['category_stats'] = category_stats
-                
-                # Добавляем активность за неделю
-                recent_activity = self.get_recent_activity(7)
+                base_stats['avg_per_day'] = (base_stats['total_memories'] / days_active) if days_active > 0 else 0
+                base_stats['category_stats'] = self.get_category_stats(couple_id=couple_id)
+                recent_activity = self.get_recent_activity(7, couple_id=couple_id)
                 base_stats['recent_activity'] = recent_activity
                 base_stats['last_week_count'] = sum(recent_activity.values())
-                
-                # События на дату и желания
+
                 try:
-                    c = conn.execute('SELECT COUNT(*) FROM scheduled_events')
-                    base_stats['scheduled_events_count'] = c.fetchone()[0] or 0
+                    if couple_id is not None:
+                        members = self.get_couple_members(couple_id) or []
+                        if members:
+                            ph = ','.join('?' * len(members))
+                            base_stats['scheduled_events_count'] = conn.execute(
+                                f'SELECT COUNT(*) FROM scheduled_events WHERE user_id IN ({ph})', members
+                            ).fetchone()[0] or 0
+                            base_stats['wishes_count'] = conn.execute(
+                                f'SELECT COUNT(*) FROM wishes WHERE user_id IN ({ph})', members
+                            ).fetchone()[0] or 0
+                        else:
+                            base_stats['scheduled_events_count'] = 0
+                            base_stats['wishes_count'] = 0
+                    else:
+                        base_stats['scheduled_events_count'] = conn.execute('SELECT COUNT(*) FROM scheduled_events').fetchone()[0] or 0
+                        base_stats['wishes_count'] = conn.execute('SELECT COUNT(*) FROM wishes').fetchone()[0] or 0
                 except Exception as e:
-                    logger.debug("Не удалось посчитать scheduled_events_count: %s", e)
-                    base_stats['scheduled_events_count'] = 0
-                try:
-                    c = conn.execute('SELECT COUNT(*) FROM wishes')
-                    base_stats['wishes_count'] = c.fetchone()[0] or 0
-                except Exception as e:
-                    logger.debug("Не удалось посчитать wishes_count: %s", e)
-                    base_stats['wishes_count'] = 0
-                
+                    logger.debug("Ошибка подсчёта событий/желаний: %s", e)
+                    base_stats.setdefault('scheduled_events_count', 0)
+                    base_stats.setdefault('wishes_count', 0)
+
                 return base_stats
         except Exception as e:
             logger.exception(f"Ошибка при получении общей статистики: {e}")
             return {
-                'total_memories': 0,
-                'unique_users': 0,
-                'categories_used': 0,
-                'photo_count': 0,
-                'video_count': 0,
-                'audio_count': 0,
-                'voice_count': 0,
-                'document_count': 0,
-                'text_only_count': 0,
-                'video_note_count': 0,
-                'days_active': 0,
-                'avg_per_day': 0,
-                'category_stats': {},
-                'recent_activity': {},
+                'total_memories': 0, 'unique_users': 0, 'categories_used': 0,
+                'photo_count': 0, 'video_count': 0, 'audio_count': 0,
+                'voice_count': 0, 'document_count': 0, 'text_only_count': 0,
+                'video_note_count': 0, 'days_active': 0, 'avg_per_day': 0,
+                'category_stats': {}, 'recent_activity': {},
                 'scheduled_events_count': 0,
                 'wishes_count': 0,
                 'last_week_count': 0
@@ -5536,46 +5549,46 @@ class Database:
 
     # === Методы для работы с поиском ===
     
-    def search_memories(self, query: str, limit: int = 20) -> List[Memory]:
-        """Ищет воспоминания по тексту"""
+    def search_memories(self, query: str, limit: int = 20, user_ids: Optional[List[int]] = None) -> List[Memory]:
+        """Ищет воспоминания по тексту, изолированно по паре."""
         try:
             search_query = f"%{query}%"
             with self._get_connection() as conn:
-                cursor = conn.execute('''
-                    SELECT m.*, u.username, u.first_name, u.last_name
-                    FROM memories m 
-                    LEFT JOIN users u ON m.user_id = u.user_id 
-                    WHERE m.title LIKE ? OR m.content LIKE ? OR m.date LIKE ?
-                    ORDER BY m.created_at ASC
-                    LIMIT ?
-                ''', (search_query, search_query, search_query, limit))
-                
+                if user_ids:
+                    ph = ','.join('?' * len(user_ids))
+                    cursor = conn.execute(
+                        f'''SELECT m.*, u.username, u.first_name, u.last_name
+                            FROM memories m LEFT JOIN users u ON m.user_id = u.user_id
+                            WHERE (m.title LIKE ? OR m.content LIKE ? OR m.date LIKE ?)
+                              AND m.user_id IN ({ph})
+                            ORDER BY m.created_at ASC LIMIT ?''',
+                        (search_query, search_query, search_query, *user_ids, limit)
+                    )
+                else:
+                    cursor = conn.execute(
+                        '''SELECT m.*, u.username, u.first_name, u.last_name
+                           FROM memories m LEFT JOIN users u ON m.user_id = u.user_id
+                           WHERE m.title LIKE ? OR m.content LIKE ? OR m.date LIKE ?
+                           ORDER BY m.created_at ASC LIMIT ?''',
+                        (search_query, search_query, search_query, limit)
+                    )
                 memories = []
                 for row in cursor.fetchall():
                     memories.append(Memory(
-                        id=row['id'],
-                        user_id=row['user_id'],
-                        username=row['username'],
-                        first_name=row['first_name'],
-                        last_name=row['last_name'],
-                        category=row['category'],
-                        title=row['title'],
-                        date=row['date'],
-                        content=row['content'],
-                        media_type=row['media_type'],
-                        media_file_id=row['media_file_id'],
-                        media_path=row['media_path'],
+                        id=row['id'], user_id=row['user_id'], username=row['username'],
+                        first_name=row['first_name'], last_name=row['last_name'],
+                        category=row['category'], title=row['title'], date=row['date'],
+                        content=row['content'], media_type=row['media_type'],
+                        media_file_id=row['media_file_id'], media_path=row['media_path'],
                         media_items=self._decode_media_items(row['media_items'] if 'media_items' in row.keys() else None),
-                        created_at=row['created_at'],
-                        updated_at=row['updated_at']
+                        created_at=row['created_at'], updated_at=row['updated_at']
                     ))
-                
                 return memories
         except Exception as e:
             logger.exception(f"Ошибка при поиске воспоминаний: {e}")
             return []
     
-    def search_memories_fuzzy(self, query: str, limit: int = 50) -> List[Memory]:
+    def search_memories_fuzzy(self, query: str, limit: int = 50, user_ids: Optional[List[int]] = None) -> List[Memory]:
         """
         Поиск воспоминаний по схожести: название, дата, описание.
         Результаты отсортированы от самых релевантных к менее.
@@ -5588,30 +5601,32 @@ class Database:
             return []
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute('''
-                    SELECT m.*, u.username, u.first_name, u.last_name
-                    FROM memories m 
-                    LEFT JOIN users u ON m.user_id = u.user_id 
-                    ORDER BY m.created_at DESC
-                ''')
+                if user_ids:
+                    ph = ','.join('?' * len(user_ids))
+                    cursor = conn.execute(
+                        f'''SELECT m.*, u.username, u.first_name, u.last_name
+                            FROM memories m LEFT JOIN users u ON m.user_id = u.user_id
+                            WHERE m.user_id IN ({ph})
+                            ORDER BY m.created_at DESC''',
+                        user_ids
+                    )
+                else:
+                    cursor = conn.execute('''
+                        SELECT m.*, u.username, u.first_name, u.last_name
+                        FROM memories m LEFT JOIN users u ON m.user_id = u.user_id
+                        ORDER BY m.created_at DESC
+                    ''')
                 scored: List[Tuple[int, Memory]] = []
                 for row in cursor.fetchall():
                     mem = Memory(
-                        id=row['id'],
-                        user_id=row['user_id'],
-                        username=row['username'],
-                        first_name=row['first_name'],
-                        last_name=row['last_name'],
-                        category=row['category'],
-                        title=row['title'] or '',
-                        date=row['date'] or '',
-                        content=row['content'] or '',
-                        media_type=row['media_type'],
-                        media_file_id=row['media_file_id'],
+                        id=row['id'], user_id=row['user_id'], username=row['username'],
+                        first_name=row['first_name'], last_name=row['last_name'],
+                        category=row['category'], title=row['title'] or '',
+                        date=row['date'] or '', content=row['content'] or '',
+                        media_type=row['media_type'], media_file_id=row['media_file_id'],
                         media_path=row['media_path'],
                         media_items=self._decode_media_items(row['media_items'] if 'media_items' in row.keys() else None),
-                        created_at=row['created_at'],
-                        updated_at=row['updated_at']
+                        created_at=row['created_at'], updated_at=row['updated_at']
                     )
                     score = 0
                     title_l = (mem.title or '').lower()
@@ -5756,11 +5771,15 @@ class Database:
             logger.exception(f"Ошибка при подсчёте событий: {e}")
             return 0
 
-    def get_scheduled_events_paged(self, page: int = 1, per_page: int = 10) -> Tuple[List['ScheduledEvent'], int]:
+    def get_scheduled_events_paged(self, page: int = 1, per_page: int = 10, user_ids: Optional[List[int]] = None) -> Tuple[List['ScheduledEvent'], int]:
         """События по странице, отсортированные по ближайшему наступлению."""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute('SELECT * FROM scheduled_events')
+                if user_ids:
+                    ph = ','.join('?' * len(user_ids))
+                    cursor = conn.execute(f'SELECT * FROM scheduled_events WHERE user_id IN ({ph})', user_ids)
+                else:
+                    cursor = conn.execute('SELECT * FROM scheduled_events')
                 all_events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
             all_events.sort(key=_get_event_sort_key)
             total = len(all_events)
@@ -5771,17 +5790,24 @@ class Database:
             logger.exception(f"Ошибка при получении событий по странице: {e}")
             return [], 0
 
-    def search_scheduled_events(self, query: str, page: int = 1, per_page: int = 10) -> Tuple[List['ScheduledEvent'], int]:
+    def search_scheduled_events(self, query: str, page: int = 1, per_page: int = 10, user_ids: Optional[List[int]] = None) -> Tuple[List['ScheduledEvent'], int]:
         """Поиск по названию и описанию, отсортированный по ближайшему наступлению."""
         if not (query or "").strip():
-            return self.get_scheduled_events_paged(page, per_page)
+            return self.get_scheduled_events_paged(page, per_page, user_ids=user_ids)
         try:
             with self._get_connection() as conn:
                 like = f"%{query.strip()}%"
-                cursor = conn.execute(
-                    'SELECT * FROM scheduled_events WHERE title LIKE ? OR description LIKE ?',
-                    (like, like)
-                )
+                if user_ids:
+                    ph = ','.join('?' * len(user_ids))
+                    cursor = conn.execute(
+                        f'SELECT * FROM scheduled_events WHERE (title LIKE ? OR description LIKE ?) AND user_id IN ({ph})',
+                        (like, like, *user_ids)
+                    )
+                else:
+                    cursor = conn.execute(
+                        'SELECT * FROM scheduled_events WHERE title LIKE ? OR description LIKE ?',
+                        (like, like)
+                    )
                 all_events = [_row_to_scheduled_event(row) for row in cursor.fetchall()]
             all_events.sort(key=_get_event_sort_key)
             total = len(all_events)
@@ -6201,6 +6227,11 @@ class Database:
     def create_unlink_request(self, user_id: int, couple_id: int, token: str, ip: str, ua: str, country: str, city: str) -> str:
         try:
             with self._get_connection() as conn:
+                # Отменяем все висящие (pending) запросы этого пользователя — только один может быть активным
+                conn.execute(
+                    "UPDATE unlink_requests SET status = 'cancelled' WHERE user_id = ? AND status = 'pending'",
+                    (user_id,),
+                )
                 conn.execute(
                     "INSERT INTO unlink_requests (token, user_id, couple_id, ip, ua, country, city) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (token, user_id, couple_id, ip, ua, country, city)
@@ -6326,8 +6357,8 @@ class Database:
         try:
             with self._get_connection() as conn:
                 row = conn.execute(
-                    f"SELECT 1 FROM security_events WHERE type = 'unlink_denied' AND user_id = ? AND created_at >= datetime('now', '-{within_seconds} seconds') LIMIT 1",
-                    (user_id,)
+                    "SELECT 1 FROM security_events WHERE type = 'unlink_denied' AND user_id = ? AND created_at >= datetime('now', ? || ' seconds') LIMIT 1",
+                    (user_id, f"-{int(within_seconds)}")
                 ).fetchone()
                 return bool(row)
         except Exception as e:
@@ -6338,8 +6369,8 @@ class Database:
         try:
             with self._get_connection() as conn:
                 row = conn.execute(
-                    f"SELECT 1 FROM unlink_requests WHERE user_id = ? AND created_at >= datetime('now', '-{within_seconds} seconds') LIMIT 1",
-                    (user_id,)
+                    "SELECT 1 FROM unlink_requests WHERE user_id = ? AND created_at >= datetime('now', ? || ' seconds') LIMIT 1",
+                    (user_id, f"-{int(within_seconds)}")
                 ).fetchone()
                 return bool(row)
         except Exception as e:

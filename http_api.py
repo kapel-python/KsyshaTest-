@@ -635,14 +635,21 @@ def _media_belongs_to_user_couple(path_part: str, viewer_user_id: int) -> bool:
         except Exception:
             return False
 
-    like_mask = f"%{filename}%"
+    # Экранируем LIKE-специальные символы в имени файла.
+    # % и _ являются wildcards в SQLite LIKE — без экранирования имя файла вида
+    # "a%b.jpg" превратилось бы в "a%%b.jpg" и давало бы full-table scan.
+    # Используем '!' как escape-символ.
+    safe_filename = filename.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+    like_mask = f"%{safe_filename}%"
+    _esc = "!"  # escape char для LIKE ... ESCAPE '!'
     try:
         with db._get_connection() as conn:
             # memories: учитываем и media_path, и JSON media_items
             mem_rows = conn.execute(
                 """SELECT user_id, couple_id, media_path, media_items
                    FROM memories
-                   WHERE media_path LIKE ? OR media_items LIKE ?""",
+                   WHERE media_path LIKE ? ESCAPE '!'
+                      OR media_items LIKE ? ESCAPE '!'""",
                 (like_mask, like_mask),
             ).fetchall()
             for row in mem_rows:
@@ -668,7 +675,7 @@ def _media_belongs_to_user_couple(path_part: str, viewer_user_id: int) -> bool:
             wish_rows = conn.execute(
                 """SELECT user_id, media_path
                    FROM wishes
-                   WHERE media_path LIKE ?""",
+                   WHERE media_path LIKE ? ESCAPE '!'""",
                 (like_mask,),
             ).fetchall()
             for row in wish_rows:
@@ -681,7 +688,7 @@ def _media_belongs_to_user_couple(path_part: str, viewer_user_id: int) -> bool:
             event_rows = conn.execute(
                 """SELECT user_id, media_path
                    FROM scheduled_events
-                   WHERE media_path LIKE ?""",
+                   WHERE media_path LIKE ? ESCAPE '!'""",
                 (like_mask,),
             ).fetchall()
             for row in event_rows:
@@ -694,7 +701,8 @@ def _media_belongs_to_user_couple(path_part: str, viewer_user_id: int) -> bool:
             notif_rows = conn.execute(
                 """SELECT couple_id, media_path, media_items
                    FROM site_notifications
-                   WHERE media_path LIKE ? OR media_items LIKE ?""",
+                   WHERE media_path LIKE ? ESCAPE '!'
+                      OR media_items LIKE ? ESCAPE '!'""",
                 (like_mask, like_mask),
             ).fetchall()
             if notif_rows:
@@ -6620,9 +6628,15 @@ async def export_page(request: web.Request) -> web.Response:
         content_type="text/html",
         charset="utf-8",
         headers={
-            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-            "Pragma":        "no-cache",
-            "Expires":       "0",
+            "Cache-Control":           "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma":                  "no-cache",
+            "Expires":                 "0",
+            # Prevent embedding in iframes (clickjacking protection)
+            "X-Frame-Options":         "DENY",
+            # Prevent MIME-type sniffing
+            "X-Content-Type-Options":  "nosniff",
+            # Minimal Referrer Policy — не утекает токен в Referer при переходе по ссылкам
+            "Referrer-Policy":         "same-origin",
         },
     )
 
@@ -6637,14 +6651,11 @@ async def api_export_data(request: web.Request) -> web.Response:
     """
     token = (request.match_info.get("token") or "").strip().lower()
     if len(token) != 48 or not all(c in "0123456789abcdef" for c in token):
-        return _add_cors_headers(web.json_response({"ok": False, "error": "bad_token"}, status=400))
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
-    # Resolve token → couple (no auth needed for the lookup itself)
-    token_couple = db.get_couple_by_export_token(token)
-    if not token_couple:
-        return _add_cors_headers(web.json_response({"ok": False, "error": "not_found"}, status=404))
-
-    # Session auth
+    # Session auth — выполняем ДО поиска токена, чтобы неаутентифицированный
+    # запрос не мог отличить «токен не существует» от «нет доступа»
+    # (предотвращаем timing/status oracle на токен).
     session_vid = _get_trusted_visitor_id(request)
     if not session_vid:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
@@ -6653,18 +6664,25 @@ async def api_export_data(request: web.Request) -> web.Response:
     if not uid:
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
-    # IDOR: the authenticated user must be in the couple that owns this token
+    # Resolve token → couple
+    token_couple = db.get_couple_by_export_token(token)
+    if not token_couple:
+        # Возвращаем 403 (не 404) чтобы не раскрывать существование токена
+        logger.info("[Export API] Unknown token from user_id=%s", uid)
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    # IDOR: пользователь должен состоять именно в той паре, которой принадлежит токен
     user_couple = db.get_couple_by_user(uid)
     if not user_couple or user_couple.get("id") != token_couple.get("id"):
         logger.warning(
-            "[Export API] IDOR: user_id=%s token_couple=%s user_couple=%s",
+            "[Export API] IDOR attempt: user_id=%s token_couple=%s user_couple=%s",
             uid, token_couple.get("id"), user_couple.get("id") if user_couple else None,
         )
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
     data = _build_export_payload(uid)
     if not data:
-        return _add_cors_headers(web.json_response({"ok": False, "error": "no_data"}, status=404))
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
 
     return _add_cors_headers(web.json_response({"ok": True, "data": data}))
 

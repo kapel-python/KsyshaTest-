@@ -2223,14 +2223,18 @@ def _collect_site_data(
 
     endpoint = (endpoint or "api/all").strip().lower()
     wants_bootstrap = endpoint in ("api/site_bootstrap", "api/site_bootstrap_light")
-    wants_all = endpoint == "api/all"
-    wants_memories = (wants_all or wants_bootstrap or endpoint in ("api/memories", "api/memories_recent") or endpoint.startswith("api/memory/")) and endpoint != "api/site_bootstrap_light"
-    wants_events = (wants_all or wants_bootstrap or endpoint in ("api/events", "api/events_recent") or endpoint.startswith("api/event/")) and endpoint != "api/site_bootstrap_light"
-    wants_wishes = (wants_all or wants_bootstrap or endpoint in ("api/wishes", "api/wishes_recent")) and endpoint != "api/site_bootstrap_light"
+    wants_all = endpoint in ("api/all", "api/overview")
+    # Compound-endpoint flags
+    _with_memories = endpoint in ("api/memories_and_events", "api/memories_and_stats")
+    _with_events   = endpoint in ("api/memories_and_events", "api/events_and_wishes")
+    _with_wishes   = endpoint in ("api/events_and_wishes",)
+    wants_memories = (wants_all or wants_bootstrap or endpoint in ("api/memories", "api/memories_recent") or endpoint.startswith("api/memory/") or _with_memories) and endpoint != "api/site_bootstrap_light"
+    wants_events = (wants_all or wants_bootstrap or endpoint in ("api/events", "api/events_recent") or endpoint.startswith("api/event/") or _with_events) and endpoint != "api/site_bootstrap_light"
+    wants_wishes = (wants_all or wants_bootstrap or endpoint in ("api/wishes", "api/wishes_recent") or _with_wishes) and endpoint != "api/site_bootstrap_light"
     wants_favorites = wants_all or endpoint == "api/favorites"
     wants_settings = wants_all or wants_bootstrap or endpoint == "api/user_settings"
     wants_stats = wants_all or wants_bootstrap or endpoint == "api/user_stats"
-    wants_profile_stats = endpoint == "api/profile_stats"
+    wants_profile_stats = endpoint in ("api/profile_stats", "api/memories_and_stats")
 
     offset = (page - 1) * limit
     memories = db.get_recent_memories(limit=limit, couple_id=_couple_id, offset=offset) if wants_memories else []
@@ -2712,7 +2716,7 @@ async def ai_companion(request: web.Request) -> web.Response:
             lambda: route_companion_request(message, history_for_ai, extra),
         )
         if routing.get("needs_data"):
-            endpoint = (routing.get("endpoint") or "api/all").strip().lower()
+            endpoint = (routing.get("endpoint") or "api/overview").strip().lower()
             site_data = _collect_site_data(tz, visitor_id, endpoint=endpoint)
             logger.info(
                 "AI-companion site data collected for %s: memories=%d, events=%d, wishes=%d",
@@ -3053,7 +3057,7 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
             None,
             lambda: route_companion_request(message, history_for_ai, extra, router_timeout_seconds=40),
         )
-        endpoint = (routing.get("endpoint") or "api/all").strip().lower()
+        endpoint = (routing.get("endpoint") or "api/overview").strip().lower()
 
         if endpoint == "api/web_search":
             # Notify frontend immediately so it shows the "searching" bubble.
@@ -3077,12 +3081,12 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
                 logger.exception("AI-companion-stream: collect_site_data failed for endpoint=%s, using empty payload", endpoint)
                 site_data = {}
     except Exception:
-        logger.exception("AI-companion-stream: router precheck failed, fallback to api/all")
-        routing = {"needs_data": True, "reply": "", "suggestions": []}
+        logger.exception("AI-companion-stream: router precheck failed, fallback to api/overview")
+        routing = {"needs_data": True, "reply": "", "suggestions": [], "endpoint": "api/overview"}
         try:
-            site_data = _collect_site_data(tz, visitor_id, endpoint="api/all")
+            site_data = _collect_site_data(tz, visitor_id, endpoint="api/overview")
         except Exception:
-            logger.exception("AI-companion-stream: fallback collect_site_data(api/all) failed, using empty payload")
+            logger.exception("AI-companion-stream: fallback collect_site_data(api/overview) failed, using empty payload")
             site_data = {}
 
     full_reply   = ""

@@ -63,9 +63,15 @@ _COMPANION_TOOL_TO_ENDPOINT = {
     "user_stats": "api/user_stats",
     "user_settings": "api/user_settings",
     "profile_stats": "api/profile_stats",
-    "all": "api/all",
+    # compound tools
+    "memories_and_events": "api/memories_and_events",
+    "events_and_wishes": "api/events_and_wishes",
+    "memories_and_stats": "api/memories_and_stats",
+    "overview": "api/overview",
     "web_search": "api/web_search",
-    # legacy aliases
+    # legacy aliases — "all" gracefully maps to overview
+    "all": "api/overview",
+    "api/all": "api/overview",
     "api/memories": "api/memories",
     "api/memories_recent": "api/memories_recent",
     "api/events": "api/events",
@@ -76,7 +82,10 @@ _COMPANION_TOOL_TO_ENDPOINT = {
     "api/user_stats": "api/user_stats",
     "api/user_settings": "api/user_settings",
     "api/profile_stats": "api/profile_stats",
-    "api/all": "api/all",
+    "api/memories_and_events": "api/memories_and_events",
+    "api/events_and_wishes": "api/events_and_wishes",
+    "api/memories_and_stats": "api/memories_and_stats",
+    "api/overview": "api/overview",
     "api/web_search": "api/web_search",
 }
 
@@ -91,13 +100,16 @@ _COMPANION_ALLOWED_ENDPOINTS = {
     "api/user_stats",
     "api/user_settings",
     "api/profile_stats",
-    "api/all",
+    "api/memories_and_events",
+    "api/events_and_wishes",
+    "api/memories_and_stats",
+    "api/overview",
     "api/web_search",
 }
 
 _COMPANION_GUIDE_MAX_CHARS = 12000
 _COMPANION_PROMPT_GUIDE_CHARS_BY_ENDPOINT = {
-    "api/all": 6000,
+    "api/overview": 5000,
     "api/memories": 5000,
     "api/memories_recent": 4500,
     "api/events": 5000,
@@ -108,19 +120,25 @@ _COMPANION_PROMPT_GUIDE_CHARS_BY_ENDPOINT = {
     "api/user_stats": 3000,
     "api/user_settings": 3000,
     "api/profile_stats": 3000,
+    "api/memories_and_events": 5000,
+    "api/events_and_wishes": 5000,
+    "api/memories_and_stats": 4500,
 }
 _COMPANION_PROMPT_LIMITS_BY_ENDPOINT = {
-    "api/all": {"memories": 30, "events": 25, "wishes": 25},
-    "api/memories": {"memories": 50, "events": 0, "wishes": 0},
-    "api/memories_recent": {"memories": 20, "events": 0, "wishes": 0},
-    "api/events": {"memories": 0, "events": 50, "wishes": 0},
-    "api/events_recent": {"memories": 0, "events": 20, "wishes": 0},
-    "api/wishes": {"memories": 0, "events": 0, "wishes": 50},
-    "api/wishes_recent": {"memories": 0, "events": 0, "wishes": 20},
-    "api/favorites": {"memories": 0, "events": 0, "wishes": 0},
-    "api/user_stats": {"memories": 0, "events": 0, "wishes": 0},
-    "api/user_settings": {"memories": 0, "events": 0, "wishes": 0},
-    "api/profile_stats": {"memories": 0, "events": 0, "wishes": 0},
+    "api/overview":          {"memories": 20, "events": 20, "wishes": 20},
+    "api/memories":          {"memories": 50, "events": 0,  "wishes": 0},
+    "api/memories_recent":   {"memories": 20, "events": 0,  "wishes": 0},
+    "api/events":            {"memories": 0,  "events": 50, "wishes": 0},
+    "api/events_recent":     {"memories": 0,  "events": 20, "wishes": 0},
+    "api/wishes":            {"memories": 0,  "events": 0,  "wishes": 50},
+    "api/wishes_recent":     {"memories": 0,  "events": 0,  "wishes": 20},
+    "api/favorites":         {"memories": 0,  "events": 0,  "wishes": 0},
+    "api/user_stats":        {"memories": 0,  "events": 0,  "wishes": 0},
+    "api/user_settings":     {"memories": 0,  "events": 0,  "wishes": 0},
+    "api/profile_stats":     {"memories": 0,  "events": 0,  "wishes": 0},
+    "api/memories_and_events": {"memories": 25, "events": 25, "wishes": 0},
+    "api/events_and_wishes": {"memories": 0,  "events": 25, "wishes": 25},
+    "api/memories_and_stats": {"memories": 25, "events": 0,  "wishes": 0},
 }
 
 
@@ -256,7 +274,7 @@ def _limit_tail(items: list, limit: int) -> list:
 def _endpoint_prompt_limits(endpoint: str) -> Dict[str, int]:
     return _COMPANION_PROMPT_LIMITS_BY_ENDPOINT.get(
         endpoint or "",
-        _COMPANION_PROMPT_LIMITS_BY_ENDPOINT["api/all"],
+        _COMPANION_PROMPT_LIMITS_BY_ENDPOINT["api/overview"],
     )
 
 
@@ -1109,7 +1127,7 @@ def build_companion_system_prompt(
 
     extra = extra or {}
 
-    endpoint = (endpoint or "").strip().lower() or "api/all"
+    endpoint = (endpoint or "").strip().lower() or "api/overview"
 
     # Web-search mode: use a focused prompt based solely on search results.
     if endpoint == "api/web_search" and all_data.get("web_search_results"):
@@ -1251,14 +1269,26 @@ def build_companion_system_prompt(
 
         wishes = []
 
-    else:
-
-        # api/all или неизвестное — подаём все категории как есть.
+    elif endpoint == "api/memories_and_events":
         memories = raw_memories
+        events   = raw_events
+        wishes   = []
 
-        events = raw_events
+    elif endpoint == "api/events_and_wishes":
+        memories = []
+        events   = raw_events
+        wishes   = raw_wishes
 
-        wishes = raw_wishes
+    elif endpoint == "api/memories_and_stats":
+        memories = raw_memories
+        events   = []
+        wishes   = []
+
+    else:
+        # api/overview or unknown — compact cross-category snapshot.
+        memories = raw_memories
+        events   = raw_events
+        wishes   = raw_wishes
 
     prompt_limits = _endpoint_prompt_limits(endpoint)
     memories = _limit_tail(memories, int(prompt_limits.get("memories", 0)))
@@ -1377,77 +1407,84 @@ def build_companion_system_prompt(
 
     from companion_personality import COMPANION_CORE_IDENTITY, COMPANION_SUGGESTION_RULES
 
-    return (
+    def _nonempty(v) -> bool:
+        if not v:
+            return False
+        if isinstance(v, dict):
+            return bool(v)
+        if isinstance(v, (list, tuple)):
+            return bool(v)
+        return True
 
-        f"{COMPANION_CORE_IDENTITY}\n\n"
-        
-        "ИМЕНА ПОЛЬЗОВАТЕЛЕЙ И ПРИОРИТЕТЫ:\n"
-        "Когда обращаешься к пользователю по имени или отвечаешь на вопросы 'как меня зовут', 'а моё настоящее имя?', 'как ко мне обращаться?', ты ДОЛЖНА строго соблюдать приоритет и различать настоящее имя и предпочтение обращения:\n"
-        "1. ЯВНЫЙ ПРИОРИТЕТ: Имя, которое пользователь сам явно назвал тебе в текущей беседе как своё настоящее имя (например, если он написал 'Меня зовут Артём'). Если позже он попросил 'Называй меня Pit', то Артём — его настоящее имя, а Pit — предпочтительное обращение. Никогда не путай их!\n"
-        f"2. Имя/Никнейм из базы данных (профиля на сайте) текущего пользователя: '{current_user_display}'\n"
-        f"3. Имя Telegram (first_name) текущего пользователя: '{current_user_first_name}'\n"
-        f"4. Username Telegram текущего пользователя: '@{current_user_username}'\n"
-        "ЧЁТКО РАЗЛИЧАЙ ИСТОЧНИКИ И ДИАЛОГ: Если пользователь представился как Артём, а затем попросил называть его Pit, на вопрос 'Как меня зовут?' отвечай 'Ты просил называть тебя Pit', а на вопрос 'А моё настоящее имя?' отвечай 'Твоё настоящее имя — Артём'. Не выдавай слепо только никнейм из БД, если в переписке есть явные указания от пользователя!\n\n"
-        
-        "ДЕТАЛИ СОБЕСЕДНИКОВ:\n"
-        f"- Текущий пользователь (ты общаешься с ним): Роль={site_role}, Никнейм в БД='{current_user_display}', Telegram first_name='{current_user_first_name}', Telegram username='@{current_user_username}'\n"
-        f"- Его партнёр: Роль={partner_role}, Никнейм в БД='{partner_user_display}', Telegram first_name='{partner_user_first_name}', Telegram username='@{partner_user_username}'\n\n"
+    parts: List[str] = []
 
-        f"Текущее время пользователя: {now_date} {now_time} ({weekday}), timezone={timezone_id}, iso={now_iso}.\n\n"
+    parts.append(f"{COMPANION_CORE_IDENTITY}\n\n")
 
+    # ── Пользователи (единственное место с именами) ──────────────────────────
+    parts.append(
+        f"ПОЛЬЗОВАТЕЛИ:\n"
+        f"- Ты общаешься с: роль={site_role or 'unknown'}, "
+        f"никнейм='{current_user_display}', "
+        f"Telegram='{current_user_first_name}', "
+        f"username='@{current_user_username}'\n"
+        f"- Партнёр: роль={partner_role}, "
+        f"никнейм='{partner_user_display}', "
+        f"Telegram='{partner_user_first_name}', "
+        f"username='@{partner_user_username}'\n\n"
+    )
+
+    # ── Время ─────────────────────────────────────────────────────────────────
+    parts.append(
+        f"ВРЕМЯ ПОЛЬЗОВАТЕЛЯ: {now_date} {now_time} ({weekday}), "
+        f"timezone={timezone_id}, iso={now_iso}.\n\n"
+    )
+
+    # ── Дата знакомства ───────────────────────────────────────────────────────
+    parts.append(
         f"ВАЖНЫЕ ДАТЫ ПАРЫ:\n"
         f"{_fmt_date_met_lines(all_data.get('date_met'), now)}"
-
-        "ДАННЫЕ ПАРЫ (все поля внутри категорий полные, ничего не выдумывается моделью):\n"
-
-        f"- Всего воспоминаний: {total_memories}\n"
-
-        f"- Всего событий: {total_events}\n"
-
-        f"- Всего желаний партнёра: {total_wishes}\n"
-
-        f"- Статистика создателя (без данных об устройстве): {user_stats_creator}\n"
-
-        f"- Статистика партнёра (без данных об устройстве): {user_stats_ksyusha}\n"
-
-        f"- Избранное создателя: {favorites_creator}\n"
-
-        f"- Избранное партнёра: {favorites_ksyusha}\n"
-
-        f"- Настройки создателя: {user_settings_creator}\n"
-
-        f"- Настройки партнёра: {user_settings_ksyusha}\n"
-
-        f"- Настройки текущего пользователя (по роли): {current_user_settings}\n"
-        f"- Никнейм создателя: {users_creator.get('display') or ''}\n"
-        f"- Имя Telegram создателя: {users_creator.get('first_name') or ''}\n"
-        f"- Username создателя в боте: @{(users_creator.get('username') or '')}\n"
-        f"- Никнейм партнёра: {users_ksyusha.get('display') or ''}\n"
-        f"- Имя Telegram партнёра: {users_ksyusha.get('first_name') or ''}\n"
-        f"- Username партнёра в боте: @{(users_ksyusha.get('username') or '')}\n"
-        f"- Базовая статистика текущего пользователя: {raw_profile_stats}\n"
-        f"- Текущая роль пользователя: {(site_role or 'unknown')}\n\n"
-
-        f"- memories: {_compact_json(_slim_list(memories, _MEMORY_AI_FIELDS))}\n"
-
-        f"- events: {_compact_json(_slim_list(events, _EVENT_AI_FIELDS))}\n"
-
-        f"- wishes: {_compact_json(_slim_list(wishes, _WISH_AI_FIELDS))}\n\n"
-
-        f"Параметры инструмента (если были заданы на шаге router): {tool_params}\n\n"
-
-        "НИКОГДА не придумывай не существующие в данных воспоминания, события, желания, статистику или любые другие факты. "
-
-        "Отвечай только на основе реально переданных выше структур.\n\n"
-
-        "ВАЖНО: в самом конце каждого ответа добавь блок подсказок СТРОГО в следующем XML-формате (напиши теги <suggestions> и </suggestions> на английском без перевода, внутри укажи 3 подсказки, каждая с новой строки):\n"
-
-        "<suggestions>\nПодсказка 1\nПодсказка 2\nПодсказка 3\n</suggestions>\n"
-
-        f"{COMPANION_SUGGESTION_RULES}\n\n"
-        f"ВНУТРЕННЯЯ ИНСТРУКЦИЯ ПРОЕКТА (KB):\n{_kb_for_prompt(endpoint)}\n"
-
     )
+
+    # ── Данные пары ───────────────────────────────────────────────────────────
+    data_lines: List[str] = [
+        f"- Всего воспоминаний: {total_memories}, событий: {total_events}, желаний: {total_wishes}\n"
+    ]
+    if _nonempty(user_stats_creator):
+        data_lines.append(f"- Статистика создателя: {user_stats_creator}\n")
+    if _nonempty(user_stats_ksyusha):
+        data_lines.append(f"- Статистика партнёра: {user_stats_ksyusha}\n")
+    if _nonempty(favorites_creator):
+        data_lines.append(f"- Избранное создателя: {favorites_creator}\n")
+    if _nonempty(favorites_ksyusha):
+        data_lines.append(f"- Избранное партнёра: {favorites_ksyusha}\n")
+    if _nonempty(current_user_settings):
+        data_lines.append(f"- Настройки текущего пользователя: {current_user_settings}\n")
+    if _nonempty(raw_profile_stats):
+        data_lines.append(f"- Статистика профиля: {raw_profile_stats}\n")
+
+    parts.append("ДАННЫЕ ПАРЫ:\n" + "".join(data_lines))
+    parts.append(f"- memories: {_compact_json(_slim_list(memories, _MEMORY_AI_FIELDS))}\n")
+    parts.append(f"- events: {_compact_json(_slim_list(events, _EVENT_AI_FIELDS))}\n")
+    parts.append(f"- wishes: {_compact_json(_slim_list(wishes, _WISH_AI_FIELDS))}\n\n")
+
+    if tool_params:
+        parts.append(f"Параметры запроса: {tool_params}\n\n")
+
+    parts.append(
+        "НИКОГДА не придумывай воспоминания, события, желания или факты, которых нет в данных выше.\n\n"
+    )
+
+    parts.append(
+        "В конце каждого ответа добавь блок подсказок:\n"
+        "<suggestions>\nПодсказка 1\nПодсказка 2\nПодсказка 3\n</suggestions>\n"
+        f"{COMPANION_SUGGESTION_RULES}\n\n"
+    )
+
+    kb = _kb_for_prompt(endpoint)
+    if kb:
+        parts.append(f"ВНУТРЕННЯЯ ИНСТРУКЦИЯ (KB):\n{kb}\n")
+
+    return "".join(parts)
 
 def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
 
@@ -1483,34 +1520,39 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
 
     now_iso = now.isoformat(timespec="seconds")
 
-    from companion_personality import COMPANION_CORE_IDENTITY, COMPANION_SUGGESTION_RULES
+    from companion_personality import COMPANION_ROUTER_IDENTITY, COMPANION_SUGGESTION_RULES
 
     return (
-        f"{COMPANION_CORE_IDENTITY}\n\n"
-        "Ты также выступаешь как маршрутизатор запросов для ИИ-ассистента.\n"
-        "Твоя задача — по сообщению пользователя понять, нужны ли тебе данные с их сайта "
-        "(воспоминания, события, желания, избранное и т.п.) или можно ответить без обращения к данным (tool=null).\n\n"
-        f"Сейчас {now_date} {now_time}, часовой пояс пользователя: {timezone_id}, iso={now_iso}.\n\n"
+        f"{COMPANION_ROUTER_IDENTITY}\n"
+        f"ВРЕМЯ ПОЛЬЗОВАТЕЛЯ: {now_date} {now_time}, timezone={timezone_id}, iso={now_iso}.\n"
+        "Время всегда актуально — учитывай его при любом ответе (даже при tool=null).\n\n"
         "Если вопрос про факты пары (дата знакомства, сколько дней вместе, ближайшее событие, желания, воспоминания, "
         "кто/когда/сколько/какое число) — ВСЕГДА выбирай tool с данными, а не tool=null.\n\n"
-        "У тебя есть следующие внутренние API (это НЕ HTTP-запросы пользователя, а внутренние источники данных сервера):\n"
-        "- memories         — все воспоминания пары\n"
-        "- memories_recent  — только недавно добавленные воспоминания\n"
-        "- memory/{id}      — ОДНО конкретное воспоминание по его id (используй если пользователь спрашивает про конкретный момент и ты знаешь его id из истории диалога)\n"
-        "- events           — все запланированные события и важные даты\n"
-        "- events_recent    — только недавно добавленные события\n"
-        "- event/{id}       — ОДНО конкретное событие по его id\n"
-        "- wishes           — все желания партнёра (полные объекты, с автором, названием, текстом и т.д.)\n"
-        "- wishes_recent    — только недавно добавленные желания партнёра (последние элементы списка)\n"
-        "- favorites        — избранные моменты/события/желания (отдельно для создателя и партнёра)\n"
-        "- user_stats       — статистика текущего пользователя по его роли (без данных об устройстве)\n"
-        "- user_settings    — настройки текущего пользователя (ip, часовые пояса, уведомления, избранное и прочее)\n"
-        "- profile_stats    — базовая статистика профиля как на странице /stats (серия, награды, любимое время и т.п.)\n"
-        "- all              — все данные сразу (воспоминания, события, желания, избранное, настройки, статистика и т.д.)\n"
-        "- web_search       — поиск актуальной информации в интернете: текущая погода, курсы валют, новости, цены, сведения о компаниях и сайтах, события после 2024 года. "
-        "Используй ТОЛЬКО для вопросов о реальном мире. НЕ используй для вопросов о паре, воспоминаниях, событиях или желаниях.\n\n"
-        "НИ ПРИ КАКИХ ОБСТОЯТЕЛЬСТВАХ НЕ ПРИДУМЫВАЙ СВОИ СОБСТВЕННЫЕ НАЗВАНИЯ TOOLS ИЛИ ЭНДПОИНТОВ. "
-        "МОЖНО ИСПОЛЬЗОВАТЬ ТОЛЬКО перечисленные выше варианты.\n\n"
+        "У тебя есть следующие внутренние источники данных (выбирай ОДИН наиболее подходящий):\n"
+        "СПЕЦИФИЧНЫЕ (предпочитай их, когда вопрос касается одной категории):\n"
+        "- memories           — все воспоминания пары\n"
+        "- memories_recent    — только последние добавленные воспоминания\n"
+        "- memory/{id}        — ОДНО воспоминание по id (из истории диалога)\n"
+        "- events             — все запланированные события и важные даты\n"
+        "- events_recent      — только последние добавленные события\n"
+        "- event/{id}         — ОДНО событие по id (из истории диалога)\n"
+        "- wishes             — все желания партнёра\n"
+        "- wishes_recent      — только последние желания партнёра\n"
+        "- favorites          — избранное (отдельно для создателя и партнёра)\n"
+        "- user_stats         — статистика текущего пользователя\n"
+        "- user_settings      — настройки текущего пользователя\n"
+        "- profile_stats      — статистика профиля (серия, награды, дата знакомства, дней вместе)\n"
+        "СОСТАВНЫЕ (только когда вопрос явно затрагивает несколько категорий):\n"
+        "- memories_and_events — воспоминания + события. Для вопросов об истории пары и совместных планах.\n"
+        "- events_and_wishes   — события + желания. Для вопросов о предстоящем и мечтах.\n"
+        "- memories_and_stats  — воспоминания + статистика. Для вопросов об истории и достижениях пары.\n"
+        "- overview            — краткий срез всего: последние воспоминания, события, желания, статистика. "
+        "Используй ТОЛЬКО для самых общих вопросов о паре, когда нельзя выбрать ничего конкретнее.\n"
+        "ПОИСК В ИНТЕРНЕТЕ:\n"
+        "- web_search          — актуальные данные из интернета: погода, курсы валют, новости, цены, компании, сайты, события после 2024 г. "
+        "Только для вопросов о реальном мире. НЕ использовать для вопросов о паре.\n\n"
+        "ПРАВИЛО ВЫБОРА: сначала пробуй СПЕЦИФИЧНЫЙ инструмент → если нужны 2 категории → СОСТАВНОЙ → если совсем общий вопрос → overview. "
+        "НИКОГДА не придумывай своих названий tools. Используй ТОЛЬКО перечисленные выше.\n\n"
         "Ты всегда отвечаешь СТРОГО ОДНОЙ СТРОКОЙ В ВИДЕ ВАЛИДНОГО JSON-БЛОКА, БЕЗ ПРЕДИСЛОВИЙ И КОММЕНТАРИЕВ.\n\n"
         f"{COMPANION_SUGGESTION_RULES}\n\n"
         "Форматы ответа:\n\n"
@@ -1521,15 +1563,12 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
         '  \"suggestions\": [\"подсказка 1\", \"подсказка 2\", \"подсказка 3\"],\n'
         '  \"params\": null\n'
         "}\n\n"
-        "2) Если данные с сайта НУЖНЫ, но ты сам ответ пока не пишешь (только выбираешь источник данных и ПАРАМЕТРЫ для него):\n"
+        "2) Если нужны данные сайта (выбери ОДИН конкретный инструмент):\n"
         "{\n"
-        '  \"tool\": \"memories\" | \"memories_recent\" | \"events\" | \"events_recent\" | \"wishes\" | \"wishes_recent\" | \"favorites\" | \"user_stats\" | \"user_settings\" | \"profile_stats\" | \"all\",\n'
+        '  \"tool\": \"memories\" | \"memories_recent\" | \"memory/{id}\" | \"events\" | \"events_recent\" | \"event/{id}\" | \"wishes\" | \"wishes_recent\" | \"favorites\" | \"user_stats\" | \"user_settings\" | \"profile_stats\" | \"memories_and_events\" | \"events_and_wishes\" | \"memories_and_stats\" | \"overview\",\n'
         '  \"answer\": null,\n'
         '  \"suggestions\": [],\n'
-        '  \"params\": {\n'
-        '    // необязательный объект с параметрами, как в боте;\n'
-        '    // используй ТОЛЬКО простые ключи и значения (id, дата, тип события и т.п.)\n'
-        "  }\n"
+        '  \"params\": {}\n'
         "}\n\n"
         "3) Если нужна АКТУАЛЬНАЯ информация из интернета (погода, курс валют, новости, цены, компании, сайты):\n"
         "{\n"
@@ -1752,11 +1791,17 @@ def route_companion_request(
         r"мой.*статист|моя.*статист|награ|огон[её]к|серия.*дней)",
         low,
     ):
+        if re.search(r"(статист|награ|огон[её]к|серия.*дней)", low):
+            _forced_ep = "api/profile_stats"
+        elif re.search(r"(годовщина|ближайш.*событ)", low):
+            _forced_ep = "api/events"
+        else:
+            _forced_ep = "api/profile_stats"
         return {
             "needs_data": True,
             "reply": "",
             "suggestions": [],
-            "endpoint": "api/profile_stats" if re.search(r"(статист|награ|огон[её]к|серия.*дней)", low) else "api/all",
+            "endpoint": _forced_ep,
             "tool_params": {},
             "raw_router": "forced:fact_query",
         }
@@ -1882,7 +1927,7 @@ def ask_companion_stream(
     user_text = (user_message or "").strip()
 
     # --- Шаг 1: роутер ---
-    endpoint = "api/all"
+    endpoint = "api/overview"
     tool_params_stream: dict = {}
     pre_routing = extra.get("routing") if isinstance(extra, dict) else None
     if isinstance(pre_routing, dict):
@@ -1932,7 +1977,11 @@ def ask_companion_stream(
                     "events": "api/events", "events_recent": "api/events_recent",
                     "wishes": "api/wishes", "wishes_recent": "api/wishes_recent",
                     "favorites": "api/favorites", "user_stats": "api/user_stats",
-                    "user_settings": "api/user_settings", "profile_stats": "api/profile_stats", "all": "api/all",
+                    "user_settings": "api/user_settings", "profile_stats": "api/profile_stats",
+                    "memories_and_events": "api/memories_and_events",
+                    "events_and_wishes": "api/events_and_wishes",
+                    "memories_and_stats": "api/memories_and_stats",
+                    "overview": "api/overview", "all": "api/overview",
                 }
                 ts = str(tool).strip().lower()
                 ep = _tool_map.get(ts)
@@ -1949,7 +1998,7 @@ def ask_companion_stream(
                     endpoint = ep
                     logger.info("AI-companion-stream: router selected endpoint=%s", endpoint)
         except Exception as _re_err:
-            logger.warning("AI-companion-stream: router failed (%s), fallback to api/all", _re_err)
+            logger.warning("AI-companion-stream: router failed (%s), fallback to api/overview", _re_err)
 
     if tool_params_stream:
         extra = dict(extra)

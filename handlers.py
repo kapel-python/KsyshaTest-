@@ -4091,6 +4091,7 @@ async def settings_time_set(callback: CallbackQuery):
         return
     db.set_user_setting(user_id, "timezone", tz_id)
     db.set_user_setting(user_id, "timezone_display", "")
+    db.set_user_setting(user_id, "website_timezone_mode", "profile")
     label = get_timezone_label(tz_id)
     await callback.answer(f"Время в боте: {label}")
     try:
@@ -4151,6 +4152,7 @@ async def settings_time_city_confirm_yes(callback: CallbackQuery, state: FSMCont
         db.set_user_setting(user_id, "timezone_display", display_name.strip())
     else:
         db.set_user_setting(user_id, "timezone_display", "")
+    db.set_user_setting(user_id, "website_timezone_mode", "profile")
     await state.clear()
     label = _format_tz_with_now(tz_id, display_name)
     await callback_edit_or_answer(
@@ -9370,6 +9372,7 @@ async def tz_ok(callback: CallbackQuery, state: FSMContext):
 
     try:
         db.set_user_setting(target_user_id, "timezone", tz)
+        db.set_user_setting(target_user_id, "website_timezone_mode", "profile")
     except Exception as e:
         await callback.answer(f"Ошибка сохранения: {e}")
         return

@@ -4764,8 +4764,8 @@ def _get_saved_browser_tz(user_id: int) -> Optional[str]:
 def _resolve_user_timezone(user_id: int, req_tz: Optional[str] = None) -> str:
     from database import db as _db
     tz_mode = _db.get_user_setting(user_id, "website_timezone_mode") or "auto"
-    if tz_mode == "auto":
-        if req_tz and req_tz != "__bot__":
+    if tz_mode == "auto" and req_tz != "__bot__":
+        if req_tz:
             return req_tz
         saved_tz = _get_saved_browser_tz(user_id)
         if saved_tz:

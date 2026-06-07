@@ -261,6 +261,24 @@ def _load_companion_guide() -> str:
     return ""
 
 
+def _get_compact_kb() -> str:
+    """Компактный KB для прямых ответов (без данных). Только контекст что это за проект."""
+    kb = _load_companion_guide()
+    # Берём только первые 2 раздела (описание + воспоминания), остальное не нужно для прямого ответа
+    lines = kb.split('\n')
+    compact_lines = []
+    section_count = 0
+    for line in lines:
+        compact_lines.append(line)
+        # Считаем разделы по цифрам в начале строки (1) 2) 3) и т.д.)
+        if line.strip() and line.strip()[0].isdigit() and ')' in line[:3]:
+            section_count += 1
+            if section_count > 2:  # Берём до раздела 3)
+                compact_lines.pop()  # Убираем третий раздел
+                break
+    return '\n'.join(compact_lines[:len(compact_lines)-1])  # Убираем последний раздел полностью
+
+
 def _limit_tail(items: list, limit: int) -> list:
     if not isinstance(items, list):
         return []
@@ -1470,9 +1488,11 @@ def build_companion_system_prompt(
     if tool_params:
         parts.append(f"Параметры запроса: {tool_params}\n\n")
 
-    parts.append(
-        "НИКОГДА не придумывай воспоминания, события, желания или факты, которых нет в данных выше.\n\n"
-    )
+    # Если есть данные — не нужно напоминание что они реальные
+    if memories or events or wishes:
+        parts.append(
+            "НИКОГДА не придумывай воспоминания, события, желания или факты, которых нет в данных выше.\n\n"
+        )
 
     parts.append(
         "В конце каждого ответа добавь блок подсказок:\n"
@@ -1480,9 +1500,18 @@ def build_companion_system_prompt(
         f"{COMPANION_SUGGESTION_RULES}\n\n"
     )
 
-    kb = _kb_for_prompt(endpoint)
-    if kb:
-        parts.append(f"ВНУТРЕННЯЯ ИНСТРУКЦИЯ (KB):\n{kb}\n")
+    # Логика вставки KB
+    if memories or events or wishes:
+        # Есть данные → полный KB с инструкциями
+        kb = _kb_for_prompt(endpoint)
+        if kb:
+            parts.append(f"КОНТЕКСТ ПРОЕКТА (KB):\n{kb}\n")
+    else:
+        # Нет данных (прямой ответ) → компактный KB с контекстом проекта
+        compact_kb = _get_compact_kb()
+        if compact_kb:
+            parts.append(f"КОНТЕКСТ: это сайт для пары, где хранят воспоминания, планируют события и загадывают желания. "
+                        f"Сайт доступен через веб и Telegram-бот.\n\n")
 
     return "".join(parts)
 

@@ -1448,7 +1448,7 @@ function _renderSubscriptionScreen(sub, isCreator) {
     if (descEl) {
       descEl.textContent = dateStr
         ? _t('profSubActiveUntil') + ' ' + dateStr
-        : _t('profSubModalPremiumActive');
+        : (isCreator ? _t('profSubActivePermanent') : _t('profSubModalPremiumActive'));
     }
 
     const statusValEl = document.getElementById('modalSubStatus');
@@ -1456,7 +1456,7 @@ function _renderSubscriptionScreen(sub, isCreator) {
       const isExpiringSoon = daysLeft != null && daysLeft <= 7;
       statusValEl.textContent = isExpiringSoon
         ? _t('profSubModalPremiumExpiresSoon')
-        : _t('profSubModalPremiumActive');
+        : (isCreator && !dateStr ? _t('profSubActivePermanent') : _t('profSubModalPremiumActive'));
       statusValEl.style.color = isExpiringSoon ? 'var(--danger)' : '';
     }
 

@@ -7893,8 +7893,15 @@ def _get_user_subscription_info(visitor_id: Optional[str]) -> dict:
     if user_id and db.is_creator(user_id):
         return {"tier": "premium", "is_premium": True, "limit": None}
 
-    user_key = _get_companion_limit_key(visitor_id)
-    tier = db.get_user_tier(user_key) if user_key else "free"
+    # Проверяем подписку: сначала по числовому user_id (выдача через бот/админку),
+    # затем по vid-ключу (legacy для ai_usage_window).
+    tier = "free"
+    if user_id:
+        tier = db.get_user_tier(str(user_id))
+    if tier == "free":
+        user_key = _get_companion_limit_key(visitor_id)
+        if user_key:
+            tier = db.get_user_tier(user_key)
     limit = COMPANION_LIMIT_BY_TIER.get(tier, 50)
     return {"tier": tier, "is_premium": tier == "premium", "limit": limit}
 

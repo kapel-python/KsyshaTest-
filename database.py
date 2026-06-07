@@ -1155,6 +1155,14 @@ class Database:
             except Exception as e:
                 logger.debug("Migration skipped for invite_codes.pre_bound_user_id: %s", e)
 
+            # Таблица флагов бета-бонуса (отдельная, чтобы не зависеть от users)
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS beta_premium_grants (
+                    user_id     INTEGER PRIMARY KEY,
+                    granted_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             # Миграция: создаём первую пару из config CREATOR_ID + KSUSHA_ID (если не созданы)
             self._migrate_to_couples(conn)
 
@@ -4384,6 +4392,96 @@ class Database:
         except Exception as e:
             logger.exception("Ошибка при получении тарифа пользователя: %s", e)
             return "free"
+
+    def grant_user_premium(self, user_id: int, months: int = 1) -> bool:
+        """Выдаёт Premium пользователю по user_id на указанное количество месяцев.
+
+        Использует user_key = str(user_id) (числовой ключ без visitor-prefix).
+        Если уже есть действующий Premium, продлевает до максимума из текущего и нового срока.
+        Возвращает True при успехе.
+        """
+        from datetime import timezone as _tz
+        expires = (datetime.now(_tz.utc) + timedelta(days=30 * months)).strftime("%Y-%m-%dT%H:%M:%S")
+        user_key = str(user_id)
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO user_subscription_tier (user_key, tier, expires_at)
+                    VALUES (?, 'premium', ?)
+                    ON CONFLICT(user_key) DO UPDATE SET
+                        tier = 'premium',
+                        expires_at = CASE
+                            WHEN user_subscription_tier.expires_at IS NULL THEN excluded.expires_at
+                            WHEN excluded.expires_at > user_subscription_tier.expires_at THEN excluded.expires_at
+                            ELSE user_subscription_tier.expires_at
+                        END
+                    """,
+                    (user_key, expires),
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("Ошибка при выдаче Premium пользователю %s: %s", user_id, e)
+            return False
+
+    def has_beta_premium_been_granted(self, user_id: int) -> bool:
+        """Возвращает True, если бета-бонус уже выдавался этому пользователю."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT 1 FROM beta_premium_grants WHERE user_id = ?",
+                    (user_id,),
+                ).fetchone()
+            return row is not None
+        except Exception as e:
+            logger.exception("Ошибка при проверке beta_premium_grants для %s: %s", user_id, e)
+            return False
+
+    def mark_beta_premium_granted(self, user_id: int) -> bool:
+        """Помечает, что бета-бонус выдан пользователю (идемпотентно)."""
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "INSERT OR IGNORE INTO beta_premium_grants (user_id) VALUES (?)",
+                    (user_id,),
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("Ошибка при записи beta_premium_grants для %s: %s", user_id, e)
+            return False
+
+    def grant_beta_premium_if_needed(self, user_id: int) -> bool:
+        """Выдаёт бета-Premium на 1 месяц, если бонус ещё не выдавался.
+
+        Возвращает True, если Premium был выдан прямо сейчас (новый бонус).
+        Возвращает False, если уже выдавался ранее (повторная выдача не происходит).
+        """
+        if self.has_beta_premium_been_granted(user_id):
+            return False
+        granted = self.grant_user_premium(user_id, months=1)
+        if granted:
+            self.mark_beta_premium_granted(user_id)
+        return granted
+
+    def was_beta_premium_recently_granted(self, user_id: int, within_minutes: int = 60) -> bool:
+        """Возвращает True, если бета-бонус был выдан в течение последних within_minutes минут."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT granted_at FROM beta_premium_grants WHERE user_id = ?",
+                    (user_id,),
+                ).fetchone()
+            if not row:
+                return False
+            from datetime import timezone as _tz
+            granted = datetime.fromisoformat(row[0]).replace(tzinfo=_tz.utc)
+            age_seconds = (datetime.now(_tz.utc) - granted).total_seconds()
+            return age_seconds <= within_minutes * 60
+        except Exception as e:
+            logger.exception("Ошибка was_beta_premium_recently_granted для %s: %s", user_id, e)
+            return False
 
     def check_and_record_ai_usage(self, user_key: str, limit: Optional[int]) -> dict:
         """

@@ -82,6 +82,24 @@ RESTART_RUNNER_IMAGE = "workspace-ksysha-bot:latest"
 RESTART_HOST_ROOT_DIR = "/root/KsyshaTest"
 RESTART_STUCK_SECONDS = 420
 
+_BETA_PAIR_CREATED_MSG = (
+    "🎉 <b>Пара успешно создана!</b>\n\n"
+    "SureMemory сейчас находится в стадии бета-тестирования.\n"
+    "Некоторые функции ещё дорабатываются и иногда могут работать неидеально.\n\n"
+    "В качестве благодарности за участие в развитии проекта мы дарим тебе "
+    "<b>подписку Premium на 1 месяц</b> бесплатно.\n\n"
+    "Спасибо, что пользуешься SureMemory ❤️"
+)
+
+_BETA_MIGRATION_MSG = (
+    "🎉 <b>Спасибо, что пользуешься SureMemory!</b>\n\n"
+    "Проект сейчас находится в стадии бета-тестирования.\n"
+    "Некоторые функции ещё продолжают улучшаться и дорабатываться.\n\n"
+    "В знак благодарности за участие в развитии проекта мы дарим тебе "
+    "<b>подписку Premium на 1 месяц</b> бесплатно.\n\n"
+    "Спасибо за поддержку проекта ❤️"
+)
+
 
 def _humanize_iso_utc(value: str) -> str:
     raw = (value or "").strip()
@@ -1402,6 +1420,12 @@ async def cmd_start(message: Message, state: FSMContext):
         return
 
     # ── Пользователь в паре: показываем главное меню ──
+    # Бета-миграция: выдаём Premium существующим пользователям
+    if db.grant_beta_premium_if_needed(user_id):
+        await message.answer(
+            _BETA_MIGRATION_MSG,
+            parse_mode=ParseMode.HTML,
+        )
     welcome_text = format_welcome_message(user_id)
     await message.answer(
         welcome_text,
@@ -1533,6 +1557,12 @@ async def _finish_couple_onboarding(message: Message, state: FSMContext, callbac
                         notify_candidates.append(candidate)
                 if creator_id is None or creator_id == user_id:
                     creator_id = u1 if u1 != user_id else None
+
+            # Выдаём бета-Premium обоим участникам пары (идемпотентно)
+            db.grant_beta_premium_if_needed(user_id)
+            for _uid in notify_candidates:
+                if _uid:
+                    db.grant_beta_premium_if_needed(_uid)
 
             await state.clear()
             # Имя партнёра (creator) как кликабельная ссылка, если есть user_id.
@@ -1882,8 +1912,14 @@ async def back_to_main(callback: CallbackQuery, state: FSMContext):
             await callback_edit_or_answer(callback, "Напиши /start чтобы начать.")
         await callback.answer()
         return
+    # Бета-миграция: выдаём Premium существующим пользователям
+    if db.grant_beta_premium_if_needed(user_id):
+        await callback.message.answer(
+            _BETA_MIGRATION_MSG,
+            parse_mode=ParseMode.HTML,
+        )
     welcome_text = format_welcome_message(user_id)
-    await callback_edit_or_answer(callback, 
+    await callback_edit_or_answer(callback,
         welcome_text,
         reply_markup=create_main_keyboard(user_id),
         parse_mode=ParseMode.HTML
@@ -8884,11 +8920,22 @@ async def joined_no_site(callback: CallbackQuery):
     """«Нет, не хочу» после присоединения к паре — показываем главное меню."""
     user_id = callback.from_user.id
     welcome_text = format_welcome_message(user_id)
-    await callback.message.edit_text(
-        welcome_text,
-        reply_markup=create_main_keyboard(user_id),
-        parse_mode=ParseMode.HTML,
-    )
+    if db.was_beta_premium_recently_granted(user_id):
+        await callback.message.edit_text(
+            _BETA_PAIR_CREATED_MSG,
+            parse_mode=ParseMode.HTML,
+        )
+        await callback.message.answer(
+            welcome_text,
+            reply_markup=create_main_keyboard(user_id),
+            parse_mode=ParseMode.HTML,
+        )
+    else:
+        await callback.message.edit_text(
+            welcome_text,
+            reply_markup=create_main_keyboard(user_id),
+            parse_mode=ParseMode.HTML,
+        )
     await callback.answer()
 
 
@@ -8906,6 +8953,12 @@ async def unknown_message(message: Message, state: FSMContext):
 
     # Пользователь в паре — показываем главное меню
     if db.is_in_couple(user_id):
+        # Бета-миграция: выдаём Premium существующим пользователям
+        if db.grant_beta_premium_if_needed(user_id):
+            await message.answer(
+                _BETA_MIGRATION_MSG,
+                parse_mode=ParseMode.HTML,
+            )
         welcome_text = format_welcome_message(user_id)
         await message.answer(
             welcome_text,

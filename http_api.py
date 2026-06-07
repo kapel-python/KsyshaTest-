@@ -7882,28 +7882,50 @@ def _get_user_subscription_info(visitor_id: Optional[str]) -> dict:
         данной функции и всех потребителей.
 
     Возвращает:
-      {"tier": "free"|"plus"|"premium", "is_premium": bool, "limit": int|None}
+      {"tier": "free"|"plus"|"premium", "is_premium": bool, "limit": int|None,
+       "expires_at": str|None, "days_left": int|None}
     """
     from constants import COMPANION_LIMIT_BY_TIER
 
     if not visitor_id:
-        return {"tier": "free", "is_premium": False, "limit": COMPANION_LIMIT_BY_TIER.get("free", 50)}
+        return {"tier": "free", "is_premium": False, "limit": COMPANION_LIMIT_BY_TIER.get("free", 50),
+                "expires_at": None, "days_left": None}
 
     user_id = _visitor_to_user_id(visitor_id)
     if user_id and db.is_creator(user_id):
-        return {"tier": "premium", "is_premium": True, "limit": None}
+        return {"tier": "premium", "is_premium": True, "limit": None,
+                "expires_at": None, "days_left": None}
 
     # Проверяем подписку: сначала по числовому user_id (выдача через бот/админку),
     # затем по vid-ключу (legacy для ai_usage_window).
-    tier = "free"
+    tier_info = {"tier": "free", "expires_at": None, "is_expired": False}
     if user_id:
-        tier = db.get_user_tier(str(user_id))
-    if tier == "free":
+        tier_info = db.get_user_tier_info(str(user_id))
+    if tier_info["tier"] == "free":
         user_key = _get_companion_limit_key(visitor_id)
         if user_key:
-            tier = db.get_user_tier(user_key)
+            tier_info = db.get_user_tier_info(user_key)
+
+    tier = tier_info["tier"]
+    expires_at = tier_info.get("expires_at")
+    days_left = None
+    if expires_at and tier != "free":
+        try:
+            from datetime import timezone as _tz, datetime as _dt
+            exp = _dt.fromisoformat(expires_at).replace(tzinfo=_tz.utc)
+            delta = (exp - _dt.now(_tz.utc)).days
+            days_left = max(0, delta)
+        except Exception:
+            pass
+
     limit = COMPANION_LIMIT_BY_TIER.get(tier, 50)
-    return {"tier": tier, "is_premium": tier == "premium", "limit": limit}
+    return {
+        "tier": tier,
+        "is_premium": tier == "premium",
+        "limit": limit,
+        "expires_at": expires_at,
+        "days_left": days_left,
+    }
 
 
 def _companion_limit_message() -> str:

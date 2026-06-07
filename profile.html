@@ -571,7 +571,7 @@
 
     <div class="section-label" data-i18n="profSecSpace">Пространство</div>
     <div class="card">
-      <div class="card-item static">
+      <button class="card-item" id="btnSubscription" onclick="navTo('screen-subscription')">
         <div class="item-icon icon-amber">
           <svg viewBox="0 0 16 16" fill="none"><path d="M8 1l1.25 3.82H13l-3.09 2.24 1.18 3.63L8 8.45l-3.09 2.24 1.18-3.63L3 4.82h3.75z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/></svg>
         </div>
@@ -580,7 +580,7 @@
           <div class="item-sub" id="subscriptionSub"><span class="skel" style="width:100px"></span></div>
         </div>
         <div class="item-right"><span class="badge-neutral" id="subscriptionBadge"><span class="skel" style="width:60px;height:18px"></span></span></div>
-      </div>
+      </button>
     </div>
 
     <div class="section-label" data-i18n="profSecSecurity">Безопасность</div>
@@ -665,6 +665,126 @@
     <p class="info-note" data-i18n="profExportNote">
       История доступна только участникам пары. Ссылка привязана к вашей паре.
     </p>
+  </div>
+</div>
+
+<!-- ── SUBSCRIPTION SCREEN ── -->
+<div id="screen-subscription" class="screen">
+  <div class="content animate-stack">
+    <div class="top-nav">
+      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+      <div class="screen-title" data-i18n="profSubscription">Подписка</div>
+      <div class="nav-spacer"></div>
+    </div>
+
+    <!-- Текущий тариф -->
+    <div class="section-label" data-i18n="profSubCurrentPlan">Текущий план</div>
+    <div class="card" id="subStatusCard">
+      <!-- Premium -->
+      <div id="subPremiumBlock" style="display:none;">
+        <div class="card-item static">
+          <div class="item-icon icon-amber">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 1l1.25 3.82H13l-3.09 2.24 1.18 3.63L8 8.45l-3.09 2.24 1.18-3.63L3 4.82h3.75z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/></svg>
+          </div>
+          <div class="item-body">
+            <div class="item-title">Premium</div>
+            <div class="item-sub" id="subPremiumStatusText"><span class="skel" style="width:120px"></span></div>
+          </div>
+          <div class="item-right"><span class="badge-success" id="subActiveBadge" data-i18n="profSubActive">Активна</span></div>
+        </div>
+        <div id="subExpiresBlock" style="display:none; border-top:1px solid var(--border);">
+          <div class="card-item static">
+            <div class="item-icon icon-slate">
+              <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1v2M11 1v2M2 7h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </div>
+            <div class="item-body">
+              <div class="item-title" data-i18n="profSubExpires">Действует до</div>
+              <div class="item-sub" id="subExpiresDate">—</div>
+            </div>
+            <div class="item-right" id="subDaysLeft" style="font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums;white-space:nowrap;"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Free -->
+      <div id="subFreeBlock" style="display:none;">
+        <div class="card-item static">
+          <div class="item-icon icon-slate">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 1l1.25 3.82H13l-3.09 2.24 1.18 3.63L8 8.45l-3.09 2.24 1.18-3.63L3 4.82h3.75z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/></svg>
+          </div>
+          <div class="item-body">
+            <div class="item-title" data-i18n="profSubFreePlan">Бесплатный план</div>
+            <div class="item-sub" data-i18n="profSubFreeDesc">Базовые возможности</div>
+          </div>
+          <div class="item-right"><span class="badge-neutral" data-i18n="profSubFreeLabel">Free</span></div>
+        </div>
+      </div>
+      <!-- Skeleton -->
+      <div id="subSkeletonBlock" class="card-item static">
+        <div class="item-icon icon-amber"><span class="skel" style="width:18px;height:18px;border-radius:4px;display:block"></span></div>
+        <div class="item-body">
+          <div class="item-title"><span class="skel" style="width:80px"></span></div>
+          <div class="item-sub"><span class="skel" style="width:130px"></span></div>
+        </div>
+        <div class="item-right"><span class="skel" style="width:56px;height:20px;border-radius:6px;display:block"></span></div>
+      </div>
+    </div>
+
+    <!-- Возможности Premium (показываем только на Free) -->
+    <div id="subFeaturesSection" style="display:none;">
+      <div class="section-label" data-i18n="profSubPremiumFeatures">Возможности Premium</div>
+      <div class="card">
+        <div class="card-item static">
+          <div class="item-icon icon-violet">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M2 8h12M8 2c-1.5 2-2 3.8-2 6s.5 4 2 6M8 2c1.5 2 2 3.8 2 6s-.5 4-2 6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/></svg>
+          </div>
+          <div class="item-body">
+            <div class="item-title" data-i18n="profSubFeatureAI">ИИ-компаньон без ограничений</div>
+            <div class="item-sub" data-i18n="profSubFeatureAISub">Неограниченные сообщения</div>
+          </div>
+        </div>
+        <div class="card-item static" style="border-top:1px solid var(--border);">
+          <div class="item-icon icon-indigo">
+            <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="item-body">
+            <div class="item-title" data-i18n="profSubFeaturePrio">Приоритетные обновления</div>
+            <div class="item-sub" data-i18n="profSubFeaturePrioSub">Ранний доступ к новым функциям</div>
+          </div>
+        </div>
+        <div class="card-item static" style="border-top:1px solid var(--border);">
+          <div class="item-icon icon-green">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </div>
+          <div class="item-body">
+            <div class="item-title" data-i18n="profSubFeatureSupport">Поддержка проекта</div>
+            <div class="item-sub" data-i18n="profSubFeatureSupportSub">Помогаешь развивать SureMemory</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Текущие ограничения -->
+      <div class="section-label" data-i18n="profSubCurrentLimits">Текущие ограничения</div>
+      <div class="card">
+        <div class="card-item static">
+          <div class="item-icon icon-slate">
+            <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v4M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="item-body">
+            <div class="item-title" data-i18n="profSubLimitAI">ИИ-компаньон</div>
+            <div class="item-sub" id="subLimitAIText"><span class="skel" style="width:110px"></span></div>
+          </div>
+        </div>
+      </div>
+      <p class="info-note" data-i18n="profSubLimitNote">Premium можно получить через бота во время бета-тестирования.</p>
+    </div>
+
+    <!-- Примечание для Premium -->
+    <div id="subPremiumNote" style="display:none;">
+      <p class="info-note" data-i18n="profSubPremiumNote">Спасибо, что поддерживаешь SureMemory! Подписка открывает все возможности платформы.</p>
+    </div>
+
   </div>
 </div>
 
@@ -889,6 +1009,26 @@ const PROF_I18N = {
     profSincePrefix: 'С нами с',
     profSubFree: 'Бесплатный план',
     profSubPremium: 'Premium',
+    profSubCurrentPlan: 'Текущий план',
+    profSubActive: 'Активна',
+    profSubExpires: 'Действует до',
+    profSubFreePlan: 'Бесплатный план',
+    profSubFreeDesc: 'Базовые возможности',
+    profSubFreeLabel: 'Free',
+    profSubPremiumFeatures: 'Возможности Premium',
+    profSubFeatureAI: 'ИИ-компаньон без ограничений',
+    profSubFeatureAISub: 'Неограниченные сообщения',
+    profSubFeaturePrio: 'Приоритетные обновления',
+    profSubFeaturePrioSub: 'Ранний доступ к новым функциям',
+    profSubFeatureSupport: 'Поддержка проекта',
+    profSubFeatureSupportSub: 'Помогаешь развивать SureMemory',
+    profSubCurrentLimits: 'Текущие ограничения',
+    profSubLimitAI: 'ИИ-компаньон',
+    profSubLimitNote: 'Premium можно получить через бота во время бета-тестирования.',
+    profSubPremiumNote: 'Спасибо, что поддерживаешь SureMemory! Подписка открывает все возможности платформы.',
+    profSubDaysLeft: 'осталось {n} дн.',
+    profSubDayLeft: 'остался 1 день',
+    profSubLimitMsg: 'до {n} сообщений за период',
     profLogoutError: 'Ошибка при выходе. Попробуйте ещё раз.',
     profRole_creator: 'Разработчик',
     profRole_partner: 'Партнёр',
@@ -932,6 +1072,26 @@ const PROF_I18N = {
     profSincePrefix: 'With us since',
     profSubFree: 'Free Plan',
     profSubPremium: 'Premium',
+    profSubCurrentPlan: 'Current Plan',
+    profSubActive: 'Active',
+    profSubExpires: 'Valid until',
+    profSubFreePlan: 'Free Plan',
+    profSubFreeDesc: 'Basic features',
+    profSubFreeLabel: 'Free',
+    profSubPremiumFeatures: 'Premium Features',
+    profSubFeatureAI: 'Unlimited AI companion',
+    profSubFeatureAISub: 'No message limits',
+    profSubFeaturePrio: 'Priority updates',
+    profSubFeaturePrioSub: 'Early access to new features',
+    profSubFeatureSupport: 'Support the project',
+    profSubFeatureSupportSub: 'Help develop SureMemory',
+    profSubCurrentLimits: 'Current Limits',
+    profSubLimitAI: 'AI companion',
+    profSubLimitNote: 'Premium is available via the bot during the beta period.',
+    profSubPremiumNote: 'Thank you for supporting SureMemory! Your subscription unlocks all platform features.',
+    profSubDaysLeft: '{n} days left',
+    profSubDayLeft: '1 day left',
+    profSubLimitMsg: 'up to {n} messages per period',
     profLogoutError: 'Logout failed. Please try again.',
     profRole_creator: 'Developer',
     profRole_partner: 'Partner',
@@ -975,6 +1135,26 @@ const PROF_I18N = {
     profSincePrefix: 'Dabei seit',
     profSubFree: 'Kostenloser Plan',
     profSubPremium: 'Premium',
+    profSubCurrentPlan: 'Aktueller Plan',
+    profSubActive: 'Aktiv',
+    profSubExpires: 'Gültig bis',
+    profSubFreePlan: 'Kostenloser Plan',
+    profSubFreeDesc: 'Grundlegende Funktionen',
+    profSubFreeLabel: 'Free',
+    profSubPremiumFeatures: 'Premium-Funktionen',
+    profSubFeatureAI: 'Unbegrenzter KI-Begleiter',
+    profSubFeatureAISub: 'Keine Nachrichtenbeschränkungen',
+    profSubFeaturePrio: 'Prioritäts-Updates',
+    profSubFeaturePrioSub: 'Früher Zugang zu neuen Funktionen',
+    profSubFeatureSupport: 'Projekt unterstützen',
+    profSubFeatureSupportSub: 'Hilf SureMemory zu entwickeln',
+    profSubCurrentLimits: 'Aktuelle Einschränkungen',
+    profSubLimitAI: 'KI-Begleiter',
+    profSubLimitNote: 'Premium ist über den Bot während der Beta-Phase verfügbar.',
+    profSubPremiumNote: 'Danke, dass du SureMemory unterstützt! Das Abonnement schaltet alle Plattformfunktionen frei.',
+    profSubDaysLeft: 'noch {n} Tage',
+    profSubDayLeft: 'noch 1 Tag',
+    profSubLimitMsg: 'bis zu {n} Nachrichten pro Zeitraum',
     profLogoutError: 'Fehler beim Abmelden. Bitte erneut versuchen.',
     profRole_creator: 'Entwickler',
     profRole_partner: 'Partner',
@@ -1040,9 +1220,10 @@ function _authHeaders() {
 function navTo(screenId, updateHash = true) {
   if (updateHash) {
     let hash = '';
-    if (screenId === 'screen-access')   hash = '#access';
-    else if (screenId === 'screen-sessions') hash = '#session';
-    else if (screenId === 'screen-export')   hash = '#export';
+    if (screenId === 'screen-access')        hash = '#access';
+    else if (screenId === 'screen-sessions')     hash = '#session';
+    else if (screenId === 'screen-export')       hash = '#export';
+    else if (screenId === 'screen-subscription') hash = '#subscription';
     location.hash = hash;
     return;
   }
@@ -1061,6 +1242,8 @@ function navTo(screenId, updateHash = true) {
     document.title = '#session';
   } else if (hash === 'export') {
     document.title = _t('profExport');
+  } else if (hash === 'subscription') {
+    document.title = _t('profSubscription');
   } else {
     document.title = _t('navProfile');
   }
@@ -1075,6 +1258,8 @@ function handleHashChange() {
     loadSessions();
   } else if (hash === 'export') {
     navTo('screen-export', false);
+  } else if (hash === 'subscription') {
+    navTo('screen-subscription', false);
   } else {
     navTo('screen-main', false);
   }
@@ -1116,6 +1301,70 @@ function goToStats() {
   const v = _getCookie('visitor_id') || '';
   const lang = _getLang();
   window.location.href = '/stats?v=' + encodeURIComponent(v) + '&lang=' + encodeURIComponent(lang);
+}
+
+// ── Subscription screen ──────────────────────────────────────────────────
+function _renderSubscriptionScreen(sub, isCreator) {
+  const isPremium = (sub && sub.is_premium) || isCreator;
+  const expiresAt = sub && sub.expires_at;
+  const daysLeft  = sub && sub.days_left != null ? sub.days_left : null;
+  const limit     = sub && sub.limit;
+
+  const skelEl     = document.getElementById('subSkeletonBlock');
+  const premBlock  = document.getElementById('subPremiumBlock');
+  const freeBlock  = document.getElementById('subFreeBlock');
+  const featSec    = document.getElementById('subFeaturesSection');
+  const premNote   = document.getElementById('subPremiumNote');
+  const expiresBlk = document.getElementById('subExpiresBlock');
+  const expDate    = document.getElementById('subExpiresDate');
+  const daysEl     = document.getElementById('subDaysLeft');
+  const limitTxt   = document.getElementById('subLimitAIText');
+
+  if (skelEl) skelEl.style.display = 'none';
+
+  if (isPremium) {
+    if (premBlock) premBlock.style.display = '';
+    if (freeBlock) freeBlock.style.display = 'none';
+    if (featSec)   featSec.style.display   = 'none';
+    if (premNote)  premNote.style.display  = '';
+
+    if (expiresAt && !isCreator) {
+      if (expiresBlk) expiresBlk.style.display = '';
+      if (expDate) {
+        try {
+          const d = new Date(expiresAt + (expiresAt.includes('T') ? 'Z' : 'T00:00:00Z'));
+          const lang = _getLang();
+          const months = {
+            ru: ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'],
+            en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+            de: ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+          };
+          const m = (months[lang] || months.ru)[d.getUTCMonth()];
+          expDate.textContent = d.getUTCDate() + ' ' + m + ' ' + d.getUTCFullYear();
+        } catch(e) { expDate.textContent = expiresAt; }
+      }
+      if (daysEl && daysLeft != null) {
+        if (daysLeft <= 1) {
+          daysEl.textContent = _t('profSubDayLeft');
+          daysEl.style.color = 'var(--danger)';
+        } else {
+          daysEl.textContent = _t('profSubDaysLeft').replace('{n}', daysLeft);
+          daysEl.style.color = daysLeft <= 7 ? 'var(--danger)' : 'var(--text-3)';
+        }
+      }
+    } else {
+      if (expiresBlk) expiresBlk.style.display = 'none';
+    }
+  } else {
+    if (premBlock) premBlock.style.display = 'none';
+    if (freeBlock) freeBlock.style.display = '';
+    if (featSec)   featSec.style.display   = '';
+    if (premNote)  premNote.style.display  = 'none';
+    if (limitTxt) {
+      const lim = limit != null ? limit : 50;
+      limitTxt.textContent = _t('profSubLimitMsg').replace('{n}', lim);
+    }
+  }
 }
 
 // ── Month formatting ─────────────────────────────────────────────────────
@@ -1257,11 +1506,15 @@ function _populateProfile(data) {
     subBadge.textContent = _t('profSubPremium');
     subBadge.className = 'premium-badge';
     subBadge.style.fontSize = '10.5px';
-    subSub.textContent = _t('profSubPremium');
+    subSub.textContent = sub.expires_at && !isCreator
+      ? _t('profSubExpires') + '…'
+      : _t('profSubPremium');
   } else {
-    subBadge.textContent = _t('profSubFree');
-    subSub.textContent = _t('profSubFree');
+    subBadge.textContent = _t('profSubFreeLabel');
+    subSub.textContent = _t('profSubFreeDesc');
   }
+  // Populate full subscription screen
+  _renderSubscriptionScreen(sub, isCreator);
 
   // Access screen & Telegram status
   const tgEl = document.getElementById('telegramUsername');

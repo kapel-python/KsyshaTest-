@@ -4393,6 +4393,30 @@ class Database:
             logger.exception("Ошибка при получении тарифа пользователя: %s", e)
             return "free"
 
+    def get_user_tier_info(self, user_key: str) -> dict:
+        """Возвращает полную информацию о тарифе: tier, expires_at, is_expired."""
+        if not user_key:
+            return {"tier": "free", "expires_at": None, "is_expired": False}
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT tier, expires_at FROM user_subscription_tier WHERE user_key = ?",
+                    (user_key,),
+                ).fetchone()
+            if not row:
+                return {"tier": "free", "expires_at": None, "is_expired": False}
+            tier, expires_at = row[0], row[1]
+            is_expired = False
+            if expires_at:
+                exp = datetime.fromisoformat(expires_at).replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) > exp:
+                    is_expired = True
+                    tier = "free"
+            return {"tier": tier or "free", "expires_at": expires_at, "is_expired": is_expired}
+        except Exception as e:
+            logger.exception("Ошибка при получении info тарифа пользователя: %s", e)
+            return {"tier": "free", "expires_at": None, "is_expired": False}
+
     def grant_user_premium(self, user_id: int, months: int = 1) -> bool:
         """Выдаёт Premium пользователю по user_id на указанное количество месяцев.
 

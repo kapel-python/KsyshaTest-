@@ -520,7 +520,7 @@
 
 <!-- ── MAIN SCREEN ── -->
 <div id="screen-main" class="screen active">
-  <div class="content animate-stack">
+  <div class="content" id="mainContent" style="opacity:0;transition:opacity 0.22s ease">
 
     <div class="hero" id="heroCard">
       <div class="avatar-wrap" id="avatarWrap">
@@ -1718,10 +1718,17 @@ function _populateProfile(data) {
     if (accessSubEl) {
       accessSubEl.textContent = myUN ? 'Telegram: ' + myUN : 'Telegram';
     }
+  }
 
-    // Hide avatar skeleton — all data is loaded
-    const avatarSk = document.getElementById('avatarSkeleton');
-    if (avatarSk) avatarSk.style.display = 'none';
+  // Always hide avatar skeleton after data is loaded (regardless of linked/unlinked state)
+  const avatarSk = document.getElementById('avatarSkeleton');
+  if (avatarSk) avatarSk.style.display = 'none';
+
+  // Trigger stagger animation only after data is populated — no skeleton flash
+  const mainContent = document.getElementById('mainContent');
+  if (mainContent && !mainContent.classList.contains('animate-stack')) {
+    mainContent.classList.add('animate-stack');
+    mainContent.style.opacity = '1';
   }
 }
 

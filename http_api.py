@@ -4718,6 +4718,7 @@ async def _shell_tail_log(ws: web.WebSocketResponse) -> None:
 async def _shell_run_cmd(ws: web.WebSocketResponse, cmd_id: str, cmd: str) -> None:
     """Выполняет команду в shell и стримит вывод в WS."""
     cwd = Path(__file__).parent
+    env = {"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"}
     try:
         await ws.send_json({"type": "cmd_start", "id": cmd_id, "cmd": cmd})
         proc = await asyncio.create_subprocess_shell(
@@ -4725,6 +4726,7 @@ async def _shell_run_cmd(ws: web.WebSocketResponse, cmd_id: str, cmd: str) -> No
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             cwd=cwd,
+            env=env,
         )
         async for raw_line in proc.stdout:
             if ws.closed:

@@ -263,21 +263,22 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .tail-clear-btn:hover{border-color:var(--accent);color:var(--accent);}
 
 /* ── Terminal ── */
-.shell-wrap{display:flex;flex-direction:column;gap:8px;flex:1;}
-.shell-output{flex:1;overflow-y:auto;background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:12px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.55;min-height:140px;max-height:340px;scrollbar-width:thin;}
-.shell-line{padding:1px 0;word-break:break-all;white-space:pre-wrap;}
+.shell-wrap{display:flex;flex-direction:column;gap:10px;flex:1;}
+.shell-output{flex:1;overflow-y:auto;background:rgba(0,0,0,0.45);border:1px solid var(--border);border-radius:14px;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:0.8rem;line-height:1.65;min-height:300px;max-height:520px;scrollbar-width:thin;}
+.shell-line{padding:2px 0;word-break:break-all;white-space:pre-wrap;}
 .shell-line.prompt{color:#7c3aed;font-weight:600;}
 .shell-line.stdout{color:#c9d1d9;}
 .shell-line.stderr,.shell-line.error{color:#f87171;}
-.shell-line.exit-ok{color:#10b981;font-size:0.65rem;}
-.shell-line.exit-err{color:#ef4444;font-size:0.65rem;}
-.shell-input-row{display:flex;gap:6px;align-items:center;}
-.shell-prefix{font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#7c3aed;font-weight:700;flex-shrink:0;}
-.shell-input{flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.78rem;padding:8px 12px;border-radius:8px;outline:none;transition:border-color 0.15s;}
-.shell-input:focus{border-color:rgba(124,58,237,0.5);}
-.shell-run-btn{background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:var(--accent);font-size:0.75rem;padding:8px 14px;border-radius:8px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
-.shell-run-btn:hover{background:rgba(124,58,237,0.25);}
-.shell-run-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.shell-line.exit-ok{color:#10b981;font-size:0.68rem;}
+.shell-line.exit-err{color:#ef4444;font-size:0.68rem;}
+.shell-input-row{display:flex;gap:8px;align-items:center;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:12px;padding:4px 4px 4px 14px;transition:border-color 0.15s;}
+.shell-input-row:focus-within{border-color:rgba(124,58,237,0.5);}
+.shell-prefix{font-family:'JetBrains Mono',monospace;font-size:0.9rem;color:#7c3aed;font-weight:700;flex-shrink:0;user-select:none;}
+.shell-input{flex:1;background:transparent;border:none;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.85rem;padding:10px 4px;outline:none;}
+.shell-input::placeholder{color:rgba(255,255,255,0.2);}
+.shell-run-btn{background:rgba(124,58,237,0.2);border:1px solid rgba(124,58,237,0.35);color:var(--accent);font-size:0.78rem;font-weight:600;padding:10px 18px;border-radius:9px;cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0;}
+.shell-run-btn:hover{background:rgba(124,58,237,0.35);border-color:rgba(124,58,237,0.6);}
+.shell-run-btn:disabled{opacity:0.35;cursor:not-allowed;}
 .quick-btns{display:flex;gap:6px;flex-wrap:wrap;}
 .quick-btn{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);font-size:0.7rem;padding:5px 11px;border-radius:8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
 .quick-btn:hover{border-color:rgba(124,58,237,0.4);color:var(--accent);background:rgba(124,58,237,0.06);}
@@ -525,7 +526,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             <button class="quick-btn" onclick="shellQuick('git log --oneline -10')">📜 Git log</button>
             <button class="quick-btn" onclick="shellQuick('git status')">📂 Git status</button>
             <button class="quick-btn" onclick="shellQuick('df -h .')">💾 Диск</button>
-            <button class="quick-btn" onclick="shellQuick('free -h')">🧠 Память</button>
+            <button class="quick-btn" onclick="shellQuick('cat /proc/meminfo | head -5')">🧠 Память</button>
             <button class="quick-btn" onclick="shellQuick('uptime')">⏱ Uptime</button>
             <button class="quick-btn" onclick="shellQuick('tail -50 bot.log')">📋 tail bot.log</button>
             <button class="quick-btn" onclick="shellQuick('ls -lh')">📁 ls</button>
@@ -536,9 +537,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           <div class="shell-output" id="shellOutput">
             <div class="shell-line stdout" style="color:var(--muted)">Введите команду ниже или нажмите быструю кнопку…</div>
           </div>
-          <div class="shell-input-row" style="margin-top:8px;">
+          <div class="shell-input-row">
             <span class="shell-prefix">$</span>
-            <input class="shell-input" id="shellInput" type="text" placeholder="команда…" onkeydown="shellKeydown(event)">
+            <input class="shell-input" id="shellInput" type="text" placeholder="введите команду…" onkeydown="shellKeydown(event)" autocomplete="off" spellcheck="false">
             <button class="shell-run-btn" id="shellRunBtn" onclick="shellRun()">▶ Run</button>
           </div>
         </div>

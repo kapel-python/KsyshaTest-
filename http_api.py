@@ -4608,24 +4608,78 @@ _admin_monitor_clients: set = set()
 _admin_monitor_task: Optional[asyncio.Task] = None
 
 async def _admin_collect_metrics() -> dict:
-    """Собирает системные метрики через psutil (в thread executor)."""
-    if not _HAS_PSUTIL:
-        return {"error": "psutil not available"}
-    loop = asyncio.get_event_loop()
-    cpu = await loop.run_in_executor(None, lambda: _psutil.cpu_percent(interval=0.2))
-    mem = await loop.run_in_executor(None, _psutil.virtual_memory)
-    disk = await loop.run_in_executor(None, lambda: _psutil.disk_usage('/'))
-    boot = await loop.run_in_executor(None, _psutil.boot_time)
-    return {
-        "cpu": cpu,
-        "ram_total": mem.total,
-        "ram_used": mem.used,
-        "ram_percent": mem.percent,
-        "disk_total": disk.total,
-        "disk_used": disk.used,
-        "disk_percent": disk.percent,
-        "uptime_sec": int(time.time() - boot),
-    }
+    """Собирает системные метрики через psutil или /proc как fallback."""
+    if _HAS_PSUTIL:
+        loop = asyncio.get_event_loop()
+        cpu = await loop.run_in_executor(None, lambda: _psutil.cpu_percent(interval=0.2))
+        mem = await loop.run_in_executor(None, _psutil.virtual_memory)
+        disk = await loop.run_in_executor(None, lambda: _psutil.disk_usage('/'))
+        boot = await loop.run_in_executor(None, _psutil.boot_time)
+        return {
+            "cpu": cpu,
+            "ram_total": mem.total,
+            "ram_used": mem.used,
+            "ram_percent": mem.percent,
+            "disk_total": disk.total,
+            "disk_used": disk.used,
+            "disk_percent": disk.percent,
+            "uptime_sec": int(time.time() - boot),
+        }
+    # /proc fallback
+    try:
+        def _read_proc() -> dict:
+            # CPU: два замера с паузой
+            def _cpu_snapshot():
+                with open("/proc/stat") as f:
+                    parts = f.readline().split()
+                vals = [int(x) for x in parts[1:]]
+                idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
+                total = sum(vals)
+                return idle, total
+            idle1, total1 = _cpu_snapshot()
+            import time as _t; _t.sleep(0.3)
+            idle2, total2 = _cpu_snapshot()
+            d_idle = idle2 - idle1
+            d_total = total2 - total1
+            cpu = round((1 - d_idle / max(d_total, 1)) * 100, 1)
+
+            # RAM: /proc/meminfo
+            mem_info: dict = {}
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    k, v = line.split(":", 1)
+                    mem_info[k.strip()] = int(v.split()[0]) * 1024  # kB → bytes
+            ram_total = mem_info.get("MemTotal", 0)
+            ram_avail = mem_info.get("MemAvailable", mem_info.get("MemFree", 0))
+            ram_used = ram_total - ram_avail
+            ram_pct = round(ram_used / max(ram_total, 1) * 100, 1)
+
+            # Disk: /proc/mounts + os.statvfs
+            import os
+            sv = os.statvfs("/")
+            disk_total = sv.f_blocks * sv.f_frsize
+            disk_free  = sv.f_bfree  * sv.f_frsize
+            disk_used  = disk_total - disk_free
+            disk_pct   = round(disk_used / max(disk_total, 1) * 100, 1)
+
+            # Uptime
+            with open("/proc/uptime") as f:
+                uptime_sec = int(float(f.read().split()[0]))
+
+            return {
+                "cpu": cpu,
+                "ram_total": ram_total,
+                "ram_used": ram_used,
+                "ram_percent": ram_pct,
+                "disk_total": disk_total,
+                "disk_used": disk_used,
+                "disk_percent": disk_pct,
+                "uptime_sec": uptime_sec,
+            }
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _read_proc)
+    except Exception as e:
+        return {"error": str(e)}
 
 async def _admin_monitor_broadcast() -> None:
     """Фоновая задача: собирает метрики и шлёт всем подключённым WS-клиентам."""

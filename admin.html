@@ -522,16 +522,16 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         <div class="section" style="display:flex;flex-direction:column;flex:1;min-height:0;">
           <div class="section-title">Быстрые действия</div>
           <div class="quick-btns" style="margin-bottom:12px;">
-            <button class="quick-btn" onclick="shellQuick('ps aux | grep python | grep -v grep')">🐍 Python процессы</button>
+            <button class="quick-btn" onclick="shellQuick('for f in /proc/[0-9]*/cmdline; do cat &quot;$f&quot; 2>/dev/null | tr &quot;\\0&quot; &quot; &quot;; echo; done | grep python | grep -v grep')">🐍 Python процессы</button>
             <button class="quick-btn" onclick="shellQuick('git log --oneline -10')">📜 Git log</button>
             <button class="quick-btn" onclick="shellQuick('git status')">📂 Git status</button>
             <button class="quick-btn" onclick="shellQuick('df -h .')">💾 Диск</button>
             <button class="quick-btn" onclick="shellQuick('cat /proc/meminfo | head -5')">🧠 Память</button>
-            <button class="quick-btn" onclick="shellQuick('uptime')">⏱ Uptime</button>
+            <button class="quick-btn" onclick="shellQuick('awk \"{printf \\\"Uptime: %dd %dh %dm\\n\\\", int(\$1/86400), int((\$1%86400)/3600), int((\$1%3600)/60)}\" /proc/uptime')">⏱ Uptime</button>
             <button class="quick-btn" onclick="shellQuick('tail -50 bot.log')">📋 tail bot.log</button>
             <button class="quick-btn" onclick="shellQuick('ls -lh')">📁 ls</button>
             <button class="quick-btn" onclick="shellQuick('pip list | grep -E \"aiohttp|aiogram|psutil\"')">📦 Пакеты</button>
-            <button class="quick-btn danger" onclick="shellQuick('pkill -f bot.py && sleep 1 && echo KILLED')">⚠️ Kill bot.py</button>
+            <button class="quick-btn danger" onclick="shellQuick('kill $(for f in /proc/[0-9]*/cmdline; do p=&quot;${f%/cmdline}&quot;; pid=&quot;${p#/proc/}&quot;; cat &quot;$f&quot; 2>/dev/null | tr &quot;\\0&quot; &quot; &quot; | grep -q bot.py && echo &quot;$pid&quot;; done) 2>/dev/null && echo KILLED')">⚠️ Kill bot.py</button>
           </div>
           <div class="section-title">Вывод</div>
           <div class="shell-output" id="shellOutput">

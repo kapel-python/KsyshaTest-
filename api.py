@@ -1532,10 +1532,10 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
         "СПЕЦИФИЧНЫЕ (предпочитай их, когда вопрос касается одной категории):\n"
         "- memories           — все воспоминания пары\n"
         "- memories_recent    — только последние добавленные воспоминания\n"
-        "- memory/{id}        — ОДНО воспоминание по id (из истории диалога)\n"
+        "- memory/123        — ОДНО воспоминание по ЧИСЛОВОМУ id (только если реальный id уже есть в истории диалога; никогда не используй как шаблон)\n"
         "- events             — все запланированные события и важные даты\n"
         "- events_recent      — только последние добавленные события\n"
-        "- event/{id}         — ОДНО событие по id (из истории диалога)\n"
+        "- event/123         — ОДНО событие по ЧИСЛОВОМУ id (только если реальный id уже есть в истории диалога; никогда не используй как шаблон)\n"
         "- wishes             — все желания партнёра\n"
         "- wishes_recent      — только последние желания партнёра\n"
         "- favorites          — избранное (отдельно для создателя и партнёра)\n"
@@ -1565,7 +1565,8 @@ def build_companion_router_prompt(extra: Dict[str, Any] | None = None) -> str:
         "}\n\n"
         "2) Если нужны данные сайта (выбери ОДИН конкретный инструмент):\n"
         "{\n"
-        '  \"tool\": \"memories\" | \"memories_recent\" | \"memory/{id}\" | \"events\" | \"events_recent\" | \"event/{id}\" | \"wishes\" | \"wishes_recent\" | \"favorites\" | \"user_stats\" | \"user_settings\" | \"profile_stats\" | \"memories_and_events\" | \"events_and_wishes\" | \"memories_and_stats\" | \"overview\",\n'
+        '  \"tool\": \"memories\" | \"memories_recent\" | \"memory/123\" | \"events\" | \"events_recent\" | \"event/123\" | \"wishes\" | \"wishes_recent\" | \"favorites\" | \"user_stats\" | \"user_settings\" | \"profile_stats\" | \"memories_and_events\" | \"events_and_wishes\" | \"memories_and_stats\" | \"overview\",\n'
+        '  // memory/123 и event/123 — только с реальным числовым id из истории диалога\n'
         '  \"answer\": null,\n'
         '  \"suggestions\": [],\n'
         '  \"params\": {}\n'
@@ -1776,35 +1777,64 @@ def route_companion_request(
     user_message: str,
     history: List[Dict[str, str]],
     extra: Dict[str, Any] | None = None,
-    router_timeout_seconds: int = 40,
+    router_timeout_seconds: int = 20,
 ) -> Dict[str, Any]:
     import re
     extra = extra or {}
     user_text = (user_message or "").strip()
 
-    # Жёсткий фоллбэк для фактических вопросов: сначала данные, потом ответ.
+    # Fast-path: пропускаем роутер для однозначных запросов к данным пары.
+    # Срабатывает только для конкретных категорий — минимум ложных срабатываний.
     low = user_text.lower()
-    if low and re.search(
-        r"(когда.*познаком|когда.*познак|дата знакомств|дата.*знакомств|мы познаком|мы познак|"
-        r"сколько.*дней вместе|годовщина|"
-        r"какое.*сегодня|какой.*сегодня|текущее.*время|сейчас.*время|сколько.*времени|"
-        r"мой.*статист|моя.*статист|награ|огон[её]к|серия.*дней)",
-        low,
-    ):
-        if re.search(r"(статист|награ|огон[её]к|серия.*дней)", low):
-            _forced_ep = "api/profile_stats"
-        elif re.search(r"(годовщина|ближайш.*событ)", low):
-            _forced_ep = "api/events"
-        else:
-            _forced_ep = "api/profile_stats"
-        return {
-            "needs_data": True,
-            "reply": "",
-            "suggestions": [],
-            "endpoint": _forced_ep,
-            "tool_params": {},
-            "raw_router": "forced:fact_query",
-        }
+    if low:
+        _fp_ep: str | None = None
+
+        # Профиль / статистика
+        if re.search(
+            r"когда.*познаком|когда.*познак|дата знакомств|дата.*знакомств|мы познаком|мы познак|"
+            r"сколько.*дней вместе|сколько.*дней.*вместе|"
+            r"мой.*статист|моя.*статист|огон[её]к|серия.*дней",
+            low,
+        ):
+            _fp_ep = "api/profile_stats"
+
+        # Награды / стрик — тоже профиль
+        elif re.search(r"награ|стрик|streak", low):
+            _fp_ep = "api/profile_stats"
+
+        # События
+        elif re.search(
+            r"годовщина|что.*запланировано|запланировано|наши.*(?:событи|планы)|"
+            r"ближайш.*(?:событи|план)|план.*на.*(?:неделю|месяц|год)|"
+            r"когда.*(?:встреч|событи|праздни)",
+            low,
+        ):
+            _fp_ep = "api/events"
+
+        # Воспоминания
+        elif re.search(
+            r"наши.*воспоминани|воспоминани.*наши|покажи.*воспоминани|"
+            r"последн.*воспоминани|свеж.*воспоминани|недавн.*воспоминани",
+            low,
+        ):
+            _fp_ep = "api/memories"
+
+        # Желания
+        elif re.search(
+            r"наши.*желани|желани.*наши|список.*желани|покажи.*желани",
+            low,
+        ):
+            _fp_ep = "api/wishes"
+
+        if _fp_ep:
+            return {
+                "needs_data": True,
+                "reply": "",
+                "suggestions": [],
+                "endpoint": _fp_ep,
+                "tool_params": {},
+                "raw_router": "forced:fast_path",
+            }
 
     router_prompt = build_companion_router_prompt(extra)
     router_messages: List[Dict[str, str]] = [{"role": "system", "content": router_prompt}]
@@ -1856,6 +1886,15 @@ def route_companion_request(
                 "raw_router": raw_router,
             }
         logger.warning("AI-companion router JSON returned unknown tool=%r", tool)
+        # Unknown tool but valid JSON → safe fallback to overview instead of showing JSON to user.
+        return {
+            "needs_data": True,
+            "reply": "",
+            "suggestions": suggestions,
+            "endpoint": "api/overview",
+            "tool_params": tool_params,
+            "raw_router": raw_router,
+        }
 
     raw_router, router_suggestions = _extract_suggestions(raw_router)
     if router_suggestions:
@@ -1877,6 +1916,18 @@ def route_companion_request(
             "reply": "",
             "suggestions": suggestions,
             "endpoint": endpoint,
+            "tool_params": {},
+            "raw_router": raw_router,
+        }
+    # Last-resort fallback: if the text looks like JSON, never show it to the user.
+    stripped = raw_router.strip()
+    if stripped.startswith("{") or stripped.startswith("["):
+        logger.warning("AI-companion router: raw fallback looks like JSON, routing to overview")
+        return {
+            "needs_data": True,
+            "reply": "",
+            "suggestions": suggestions,
+            "endpoint": "api/overview",
             "tool_params": {},
             "raw_router": raw_router,
         }

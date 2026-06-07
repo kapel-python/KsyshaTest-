@@ -1,2 +1,3 @@
 OK: restore-check latest backup: /root/KsyshaTest/backups/memories-20260524-014001.sqlite3.gz
 OK: restore-check latest backup: /root/KsyshaTest/backups/memories-20260531-014001.sqlite3.gz
+OK: restore-check latest backup: /root/KsyshaTest/backups/memories-20260607-014002.sqlite3.gz

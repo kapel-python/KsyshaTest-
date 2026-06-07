@@ -3051,16 +3051,23 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
     extra = {"timezone_id": tz or "", "ip": request.remote or "", "site_role": site_role or ""}
     from api import ask_companion_stream, route_companion_request, do_web_search
     try:
-        import asyncio as _asyncio
-        loop = _asyncio.get_running_loop()
-        routing = await loop.run_in_executor(
+        loop = asyncio.get_running_loop()
+
+        # Запускаем роутер и prefetch данных параллельно.
+        # Пока роутер думает (1-3 с), SQLite уже грузит overview (~50 мс).
+        router_future = loop.run_in_executor(
             None,
-            lambda: route_companion_request(message, history_for_ai, extra, router_timeout_seconds=40),
+            lambda: route_companion_request(message, history_for_ai, extra, router_timeout_seconds=20),
         )
+        prefetch_future = loop.run_in_executor(
+            None,
+            lambda: _collect_site_data(tz, visitor_id, endpoint="api/overview"),
+        )
+
+        routing = await router_future
         endpoint = (routing.get("endpoint") or "api/overview").strip().lower()
 
         if endpoint == "api/web_search":
-            # Notify frontend immediately so it shows the "searching" bubble.
             try:
                 await response.write(b"event: web_search_start\ndata: searching\n\n")
                 await response.drain()
@@ -3074,11 +3081,23 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
                 logger.exception("AI-companion-stream: web search failed")
                 search_results = "Поиск временно недоступен."
             site_data = {"web_search_results": search_results, "search_query": search_query}
-        else:
+        elif not routing.get("needs_data"):
+            site_data = {}
+        elif endpoint == "api/overview":
+            # Prefetch готов — используем его без дополнительного ожидания.
             try:
-                site_data = _collect_site_data(tz, visitor_id, endpoint=endpoint) if routing.get("needs_data") else {}
+                site_data = await prefetch_future
             except Exception:
-                logger.exception("AI-companion-stream: collect_site_data failed for endpoint=%s, using empty payload", endpoint)
+                logger.exception("AI-companion-stream: prefetch failed, using empty payload")
+                site_data = {}
+        else:
+            # Другой endpoint — грузим нужные данные; prefetch завершится сам.
+            try:
+                site_data = await loop.run_in_executor(
+                    None, lambda: _collect_site_data(tz, visitor_id, endpoint=endpoint)
+                )
+            except Exception:
+                logger.exception("AI-companion-stream: collect_site_data failed for endpoint=%s", endpoint)
                 site_data = {}
     except Exception:
         logger.exception("AI-companion-stream: router precheck failed, fallback to api/overview")
@@ -3086,7 +3105,7 @@ async def ai_companion_stream(request: web.Request) -> web.Response:
         try:
             site_data = _collect_site_data(tz, visitor_id, endpoint="api/overview")
         except Exception:
-            logger.exception("AI-companion-stream: fallback collect_site_data(api/overview) failed, using empty payload")
+            logger.exception("AI-companion-stream: fallback collect_site_data(api/overview) failed")
             site_data = {}
 
     full_reply   = ""

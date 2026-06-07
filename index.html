@@ -2249,8 +2249,12 @@
 
         }
 
+        /* ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+           ЗАКОММЕНТИРОВАНО: блок «Наше небо» — CSS стили
+           Раскомментировать: убрать эти строки-ограничители (/* ▼ ... и ▲ ... */)
+        ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ */
         /* ── Sky card ── */
-        .sky-card {
+        /*.sky-card {
           position: relative;
           overflow: hidden;
           width: 100%;
@@ -2294,7 +2298,10 @@
         .preview-time.l { left:11px; }
         .preview-time.r { right:11px; }
         .card-btn { display:inline-flex; align-items:center; gap:8px; padding:11px 22px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:50px; font-size:0.85rem; font-weight:500; cursor:pointer; transition:all 0.2s; letter-spacing:0.03em; font-family:inherit; }
-        .card-btn:hover { background:rgba(255,255,255,0.18); border-color:rgba(255,255,255,0.35); }
+        .card-btn:hover { background:rgba(255,255,255,0.18); border-color:rgba(255,255,255,0.35); }*/
+        /* ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+           КОНЕЦ: блок «Наше небо» — CSS стили
+        ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ */
 
         .site-footer {
             border-top: 1px solid var(--border-color);
@@ -5096,8 +5103,12 @@
 
         <div class="footer" id="footer">
 
+            <!-- ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+                 ЗАКОММЕНТИРОВАНО: блок «Наше небо» — HTML разметка
+                 Раскомментировать: убрать эти строки-ограничители (<!-- ▼ ... и ▲ ... -->)
+            ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ -->
             <!-- ── Наше небо ── -->
-            <div class="sky-card" id="skyCardBlock" onclick="openSkyPage()">
+            <!-- <div class="sky-card" id="skyCardBlock" onclick="openSkyPage()">
               <div class="card-stars" id="cardStars"></div>
               <div class="card-inner">
                 <div class="card-top">
@@ -5120,7 +5131,10 @@
                 </div>
                 <button class="card-btn" type="button"><span>✦</span><span>Открыть наше небо</span></button>
               </div>
-            </div>
+            </div> -->
+            <!-- ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+                 КОНЕЦ: блок «Наше небо» — HTML разметка
+            ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ -->
 
             <div class="bot-footer">
 
@@ -13435,8 +13449,14 @@
 
         await loadAllData();
 
+        // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        // ЗАКОММЕНТИРОВАНО: вызов updateSkyConfigCard при старте приложения (startApp)
+        // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         // Загружаем SKY_CFG: обновляем карточку «Наше небо» динамически
-        await updateSkyConfigCard();
+        // await updateSkyConfigCard();
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+        // КОНЕЦ: вызов updateSkyConfigCard при старте приложения (startApp)
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         initCollapsibles();
 
@@ -17032,12 +17052,18 @@
 
     const settingsBtn = document.getElementById('settingsGearBtn');
     if (settingsBtn && _ui('settingsAria')) settingsBtn.setAttribute('aria-label', _ui('settingsAria'));
-    const skyTitle = document.querySelector('.sky-card .card-title');
-    if (skyTitle && _ui('skyCardTitle')) skyTitle.textContent = _ui('skyCardTitle');
-    const skyDesc = document.getElementById('skyCardDesc');
-    if (skyDesc && _ui('skyCardDesc')) skyDesc.textContent = _ui('skyCardDesc');
-    const skyBtn = document.querySelector('.sky-card .card-btn span:last-child');
-    if (skyBtn && _ui('skyCardBtn')) skyBtn.textContent = _ui('skyCardBtn');
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // ЗАКОММЕНТИРОВАНО: i18n-обновление текстов карточки «Наше небо»
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // const skyTitle = document.querySelector('.sky-card .card-title');
+    // if (skyTitle && _ui('skyCardTitle')) skyTitle.textContent = _ui('skyCardTitle');
+    // const skyDesc = document.getElementById('skyCardDesc');
+    // if (skyDesc && _ui('skyCardDesc')) skyDesc.textContent = _ui('skyCardDesc');
+    // const skyBtn = document.querySelector('.sky-card .card-btn span:last-child');
+    // if (skyBtn && _ui('skyCardBtn')) skyBtn.textContent = _ui('skyCardBtn');
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    // КОНЕЦ: i18n-обновление текстов карточки «Наше небо»
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     const aiHeader = document.querySelector('.ai-header-name');
     if (aiHeader && _ui('aiTitle')) aiHeader.textContent = _ui('aiTitle');
     const aiStatus = document.getElementById('aiDaysCounter');
@@ -17220,9 +17246,15 @@
       aiDays.textContent = _ui('aiStatus');
     }
 
-    if (typeof updateSkyConfigCard === 'function' && typeof ensureVisitorIdForRole === 'function' && ensureVisitorIdForRole()) {
-      updateSkyConfigCard();
-    }
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // ЗАКОММЕНТИРОВАНО: вызов updateSkyConfigCard в applyI18n (смена языка)
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // if (typeof updateSkyConfigCard === 'function' && typeof ensureVisitorIdForRole === 'function' && ensureVisitorIdForRole()) {
+    //   updateSkyConfigCard();
+    // }
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    // КОНЕЦ: вызов updateSkyConfigCard в applyI18n (смена языка)
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
   }
 
   function applyHeartsStg(on) {
@@ -17276,9 +17308,15 @@
       }
       if (tzChanged) {
         loadAllData();
-        if (typeof updateSkyConfigCard === 'function') {
-          updateSkyConfigCard();
-        }
+        // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        // ЗАКОММЕНТИРОВАНО: вызов updateSkyConfigCard при смене таймзоны
+        // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        // if (typeof updateSkyConfigCard === 'function') {
+        //   updateSkyConfigCard();
+        // }
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+        // КОНЕЦ: вызов updateSkyConfigCard при смене таймзоны
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
       }
     } else {
       applyI18n(_stgState.lang);

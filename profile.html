@@ -1077,6 +1077,7 @@ const PROF_I18N = {
     profSubDayLeft: 'остался 1 день',
     profSubLimitMsg: 'до {n} сообщений за период',
     profSubActiveUntil: 'активна до',
+    profSubActivePermanent: 'бессрочная',
     profSubModalStatus: 'Статус',
     profSubModalDaysLeft: 'Осталось',
     profSubModalAI: 'ИИ-компаньон',
@@ -1149,6 +1150,7 @@ const PROF_I18N = {
     profSubDayLeft: '1 day left',
     profSubLimitMsg: 'up to {n} messages per period',
     profSubActiveUntil: 'active until',
+    profSubActivePermanent: 'permanent',
     profSubModalStatus: 'Status',
     profSubModalDaysLeft: 'Remaining',
     profSubModalAI: 'AI companion',
@@ -1221,6 +1223,7 @@ const PROF_I18N = {
     profSubDayLeft: 'noch 1 Tag',
     profSubLimitMsg: 'bis zu {n} Nachrichten pro Zeitraum',
     profSubActiveUntil: 'aktiv bis',
+    profSubActivePermanent: 'unbegrenzt',
     profSubModalStatus: 'Status',
     profSubModalDaysLeft: 'Verbleibend',
     profSubModalAI: 'KI-Begleiter',
@@ -1398,7 +1401,7 @@ function _renderSubscriptionScreen(sub, isCreator) {
   const expiresAt = sub && sub.expires_at;
   const daysLeft  = (sub && sub.days_left != null) ? sub.days_left : null;
   const limit     = sub && sub.limit;
-  const dateStr   = expiresAt && !isCreator ? _formatSubDate(expiresAt) : null;
+  const dateStr   = expiresAt ? _formatSubDate(expiresAt) : null;
 
   // — Скелетон —
   const skelEl = document.getElementById('subSkeletonBlock');
@@ -1420,7 +1423,7 @@ function _renderSubscriptionScreen(sub, isCreator) {
     if (statusEl) {
       statusEl.textContent = dateStr
         ? _t('profSubActiveUntil') + ' ' + dateStr
-        : _t('profSubActive');
+        : (isCreator ? _t('profSubActivePermanent') : _t('profSubActive'));
     }
   } else {
     if (premBlock) premBlock.style.display = 'none';
@@ -1631,7 +1634,7 @@ function _populateProfile(data) {
     subBadge.textContent = _t('profSubPremium');
     subBadge.className = 'premium-badge';
     subBadge.style.fontSize = '10.5px';
-    subSub.textContent = sub.expires_at && !isCreator
+    subSub.textContent = sub.expires_at
       ? _t('profSubExpires') + '…'
       : _t('profSubPremium');
   } else {

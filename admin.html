@@ -239,6 +239,50 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .log-tab-btn{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:8px;font-size:0.72rem;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
 .log-tab-btn:hover{border-color:var(--accent);color:var(--accent);}
 .log-tab-btn.active{background:rgba(124,58,237,0.12);border-color:rgba(124,58,237,0.3);color:var(--accent);}
+
+/* ── Logs sub-tabs ── */
+.logs-subtabs{display:flex;gap:2px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:0;}
+.logs-subtab-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.78rem;font-weight:500;padding:8px 14px;cursor:pointer;transition:all 0.15s;white-space:nowrap;margin-bottom:-1px;}
+.logs-subtab-btn:hover{color:var(--text);}
+.logs-subtab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.logs-subpanel{display:none;flex-direction:column;flex:1;min-height:0;}
+.logs-subpanel.active{display:flex;}
+
+/* ── File tail log ── */
+.tail-wrap{flex:1;overflow-y:auto;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:12px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.55;min-height:200px;max-height:420px;scrollbar-width:thin;}
+.tail-line{color:#c9d1d9;border-bottom:1px solid rgba(255,255,255,0.03);padding:1px 0;word-break:break-all;white-space:pre-wrap;}
+.tail-line.new-line{animation:tailFade 0.4s ease both;}
+@keyframes tailFade{from{background:rgba(124,58,237,0.12)}to{background:transparent}}
+.tail-line.lvl-error,.tail-line.lvl-critical{color:#f87171;}
+.tail-line.lvl-warning{color:#fbbf24;}
+.tail-line.lvl-info{color:#93c5fd;}
+.tail-status{display:flex;align-items:center;gap:8px;font-size:0.7rem;color:var(--muted);padding:6px 0 4px;}
+.tail-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse-green 2s ease-in-out infinite;}
+.tail-dot.disconnected{background:#ef4444;animation:none;}
+.tail-clear-btn{margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);font-size:0.68rem;padding:3px 10px;border-radius:6px;cursor:pointer;transition:all 0.15s;}
+.tail-clear-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── Terminal ── */
+.shell-wrap{display:flex;flex-direction:column;gap:8px;flex:1;}
+.shell-output{flex:1;overflow-y:auto;background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:12px;padding:10px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;line-height:1.55;min-height:140px;max-height:340px;scrollbar-width:thin;}
+.shell-line{padding:1px 0;word-break:break-all;white-space:pre-wrap;}
+.shell-line.prompt{color:#7c3aed;font-weight:600;}
+.shell-line.stdout{color:#c9d1d9;}
+.shell-line.stderr,.shell-line.error{color:#f87171;}
+.shell-line.exit-ok{color:#10b981;font-size:0.65rem;}
+.shell-line.exit-err{color:#ef4444;font-size:0.65rem;}
+.shell-input-row{display:flex;gap:6px;align-items:center;}
+.shell-prefix{font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#7c3aed;font-weight:700;flex-shrink:0;}
+.shell-input{flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.78rem;padding:8px 12px;border-radius:8px;outline:none;transition:border-color 0.15s;}
+.shell-input:focus{border-color:rgba(124,58,237,0.5);}
+.shell-run-btn{background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:var(--accent);font-size:0.75rem;padding:8px 14px;border-radius:8px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.shell-run-btn:hover{background:rgba(124,58,237,0.25);}
+.shell-run-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.quick-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.quick-btn{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);font-size:0.7rem;padding:5px 11px;border-radius:8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+.quick-btn:hover{border-color:rgba(124,58,237,0.4);color:var(--accent);background:rgba(124,58,237,0.06);}
+.quick-btn.danger{border-color:rgba(239,68,68,0.2);color:#f87171;}
+.quick-btn.danger:hover{border-color:rgba(239,68,68,0.5);background:rgba(239,68,68,0.06);}
 </style>
 </head>
 <body>
@@ -418,22 +462,85 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="admin-scroll">
       <div class="admin-scroll-inner">
 
-      <div class="section">
-        <div class="refresh-row">
-          <div class="section-title" style="flex:1;margin-bottom:0">Системные события</div>
-          <button class="refresh-btn" onclick="loadLogs()" id="logsRefreshBtn">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2a4 4 0 0 1 2.83 1.17L10 4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><polyline points="8,2 10,4.34 7.66,4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Обновить
-          </button>
+      <!-- Sub-tabs -->
+      <div class="logs-subtabs">
+        <button class="logs-subtab-btn active" data-ltab="events" onclick="switchLogsSubtab('events')">📋 События</button>
+        <button class="logs-subtab-btn" data-ltab="tail" onclick="switchLogsSubtab('tail')">📡 Файл логов</button>
+        <button class="logs-subtab-btn" data-ltab="terminal" onclick="switchLogsSubtab('terminal')">💻 Терминал</button>
+      </div>
+
+      <!-- SUB: Events (DB logs) -->
+      <div class="logs-subpanel active" id="ltab-events">
+        <div class="section">
+          <div class="refresh-row">
+            <div class="section-title" style="flex:1;margin-bottom:0">Системные события</div>
+            <button class="refresh-btn" onclick="loadLogs()" id="logsRefreshBtn">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2a4 4 0 0 1 2.83 1.17L10 4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><polyline points="8,2 10,4.34 7.66,4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Обновить
+            </button>
+          </div>
+          <div class="log-tabs">
+            <button class="log-tab-btn active" data-logfilter="all" onclick="filterLogs('all')">Все</button>
+            <button class="log-tab-btn" data-logfilter="error" onclick="filterLogs('error')">Ошибки</button>
+            <button class="log-tab-btn" data-logfilter="warning" onclick="filterLogs('warning')">Предупреждения</button>
+            <button class="log-tab-btn" data-logfilter="security" onclick="filterLogs('security')">Безопасность</button>
+          </div>
+          <div class="logs-list" id="logsList">
+            <div class="log-empty">Загрузка…</div>
+          </div>
         </div>
-        <div class="log-tabs">
-          <button class="log-tab-btn active" data-logfilter="all" onclick="filterLogs('all')">Все</button>
-          <button class="log-tab-btn" data-logfilter="error" onclick="filterLogs('error')">Ошибки</button>
-          <button class="log-tab-btn" data-logfilter="warning" onclick="filterLogs('warning')">Предупреждения</button>
-          <button class="log-tab-btn" data-logfilter="security" onclick="filterLogs('security')">Безопасность</button>
+      </div>
+
+      <!-- SUB: File tail -->
+      <div class="logs-subpanel" id="ltab-tail">
+        <div class="section" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+          <div class="refresh-row">
+            <div class="section-title" style="flex:1;margin-bottom:0">bot.log — реальное время</div>
+          </div>
+          <div class="tail-status">
+            <span class="tail-dot disconnected" id="tailDot"></span>
+            <span id="tailStatusText">Не подключено</span>
+            <button class="tail-clear-btn" onclick="clearTailOutput()">Очистить</button>
+          </div>
+          <div class="tail-wrap" id="tailOutput">
+            <div style="color:var(--muted);font-size:0.7rem;text-align:center;padding:20px 0">Перейдите на вкладку чтобы начать трансляцию</div>
+          </div>
+          <div style="margin-top:6px;">
+            <div class="log-tabs" id="tailFilterBtns">
+              <button class="log-tab-btn active" data-tailfilter="all" onclick="setTailFilter('all')">Все</button>
+              <button class="log-tab-btn" data-tailfilter="ERROR" onclick="setTailFilter('ERROR')">ERROR</button>
+              <button class="log-tab-btn" data-tailfilter="WARNING" onclick="setTailFilter('WARNING')">WARNING</button>
+              <button class="log-tab-btn" data-tailfilter="INFO" onclick="setTailFilter('INFO')">INFO</button>
+            </div>
+          </div>
         </div>
-        <div class="logs-list" id="logsList">
-          <div class="log-empty">Загрузка…</div>
+      </div>
+
+      <!-- SUB: Terminal -->
+      <div class="logs-subpanel" id="ltab-terminal">
+        <div class="section" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+          <div class="section-title">Быстрые действия</div>
+          <div class="quick-btns" style="margin-bottom:12px;">
+            <button class="quick-btn" onclick="shellQuick('ps aux | grep python | grep -v grep')">🐍 Python процессы</button>
+            <button class="quick-btn" onclick="shellQuick('git log --oneline -10')">📜 Git log</button>
+            <button class="quick-btn" onclick="shellQuick('git status')">📂 Git status</button>
+            <button class="quick-btn" onclick="shellQuick('df -h .')">💾 Диск</button>
+            <button class="quick-btn" onclick="shellQuick('free -h')">🧠 Память</button>
+            <button class="quick-btn" onclick="shellQuick('uptime')">⏱ Uptime</button>
+            <button class="quick-btn" onclick="shellQuick('tail -50 bot.log')">📋 tail bot.log</button>
+            <button class="quick-btn" onclick="shellQuick('ls -lh')">📁 ls</button>
+            <button class="quick-btn" onclick="shellQuick('pip list | grep -E \"aiohttp|aiogram|psutil\"')">📦 Пакеты</button>
+            <button class="quick-btn danger" onclick="shellQuick('pkill -f bot.py && sleep 1 && echo KILLED')">⚠️ Kill bot.py</button>
+          </div>
+          <div class="section-title">Вывод</div>
+          <div class="shell-output" id="shellOutput">
+            <div class="shell-line stdout" style="color:var(--muted)">Введите команду ниже или нажмите быструю кнопку…</div>
+          </div>
+          <div class="shell-input-row" style="margin-top:8px;">
+            <span class="shell-prefix">$</span>
+            <input class="shell-input" id="shellInput" type="text" placeholder="команда…" onkeydown="shellKeydown(event)">
+            <button class="shell-run-btn" id="shellRunBtn" onclick="shellRun()">▶ Run</button>
+          </div>
         </div>
       </div>
 
@@ -794,7 +901,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-'+name));
   // Trigger tab-specific logic
   if (name === 'monitoring') startMonitoring();
-  else if (name === 'logs') loadLogs();
+  else if (name === 'logs') { loadLogs(); ensureShellWs(); }
   else if (name === 'settings') loadVersionHistory();
 }
 document.getElementById('tabNav').addEventListener('click', e => {
@@ -1358,6 +1465,179 @@ function renderLogs() {
   items.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
   list.innerHTML = items.map(i => i.html).join('');
 }
+
+// ── Logs sub-tabs ─────────────────────────────────
+function switchLogsSubtab(name) {
+  document.querySelectorAll('.logs-subtab-btn').forEach(b => b.classList.toggle('active', b.dataset.ltab === name));
+  document.querySelectorAll('.logs-subpanel').forEach(p => p.classList.toggle('active', p.id === 'ltab-' + name));
+  if (name === 'tail') startTail();
+  if (name === 'terminal') ensureShellWs();
+}
+window.switchLogsSubtab = switchLogsSubtab;
+
+// ── File tail ─────────────────────────────────────
+let _shellWs = null;
+let _tailFilter = 'all';
+let _tailAutoScroll = true;
+
+function setTailFilter(f) {
+  _tailFilter = f;
+  document.querySelectorAll('#tailFilterBtns .log-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tailfilter === f));
+}
+window.setTailFilter = setTailFilter;
+
+function clearTailOutput() {
+  document.getElementById('tailOutput').innerHTML = '';
+}
+window.clearTailOutput = clearTailOutput;
+
+function _tailLevelClass(line) {
+  if (/ERROR|CRITICAL/.test(line)) return 'lvl-error';
+  if (/WARNING/.test(line)) return 'lvl-warning';
+  if (/INFO/.test(line)) return 'lvl-info';
+  return '';
+}
+
+function _appendTailLine(line, historical) {
+  if (_tailFilter !== 'all' && !line.includes(_tailFilter)) return;
+  const out = document.getElementById('tailOutput');
+  if (!out) return;
+  const lvl = _tailLevelClass(line);
+  const el = document.createElement('div');
+  el.className = 'tail-line ' + lvl + (historical ? '' : ' new-line');
+  el.textContent = line;
+  out.appendChild(el);
+  // Ограничиваем число строк
+  while (out.children.length > 1000) out.removeChild(out.firstChild);
+  if (_tailAutoScroll) out.scrollTop = out.scrollHeight;
+}
+
+function _setTailStatus(connected) {
+  const dot = document.getElementById('tailDot');
+  const txt = document.getElementById('tailStatusText');
+  if (!dot || !txt) return;
+  if (connected) {
+    dot.className = 'tail-dot';
+    txt.textContent = 'Подключено — live';
+  } else {
+    dot.className = 'tail-dot disconnected';
+    txt.textContent = 'Не подключено';
+  }
+}
+
+function startTail() {
+  ensureShellWs();
+}
+
+function ensureShellWs() {
+  if (_shellWs && _shellWs.readyState === WebSocket.OPEN) return;
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  _shellWs = new WebSocket(`${protocol}//${window.location.host}/api/admin/shell/ws?v=${encodeURIComponent(VISITOR_ID)}`);
+  _shellWs.onopen = () => _setTailStatus(true);
+  _shellWs.onclose = () => {
+    _setTailStatus(false);
+    _shellWs = null;
+    const logsTab = document.getElementById('tab-logs');
+    if (logsTab && logsTab.classList.contains('active')) {
+      setTimeout(ensureShellWs, 4000);
+    }
+  };
+  _shellWs.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'tail_line') {
+        _appendTailLine(msg.line, msg.historical);
+      } else if (msg.type === 'tail_ready') {
+        const out = document.getElementById('tailOutput');
+        if (out) out.scrollTop = out.scrollHeight;
+      } else if (msg.type === 'tail_error') {
+        _appendTailLine('⚠ ' + msg.error, false);
+      } else if (msg.type === 'cmd_start') {
+        _shellAppend('prompt', '$ ' + msg.cmd);
+      } else if (msg.type === 'cmd_out') {
+        _shellAppend('stdout', msg.text);
+      } else if (msg.type === 'cmd_done') {
+        if (msg.exit === 0) {
+          _shellAppend('exit-ok', '✓ exit 0');
+        } else {
+          _shellAppend('exit-err', '✗ exit ' + (msg.exit ?? '?') + (msg.error ? ' — ' + msg.error : ''));
+        }
+        _shellBusy(false);
+      }
+    } catch(ex) {}
+  };
+}
+
+// ── Terminal / Shell ──────────────────────────────
+let _shellBusyFlag = false;
+let _shellCmdId = 0;
+let _shellHistory = [];
+let _shellHistIdx = -1;
+
+function _shellAppend(cls, text) {
+  const out = document.getElementById('shellOutput');
+  if (!out) return;
+  const el = document.createElement('div');
+  el.className = 'shell-line ' + cls;
+  el.textContent = text;
+  out.appendChild(el);
+  while (out.children.length > 2000) out.removeChild(out.firstChild);
+  out.scrollTop = out.scrollHeight;
+}
+
+function _shellBusy(busy) {
+  _shellBusyFlag = busy;
+  const btn = document.getElementById('shellRunBtn');
+  if (btn) btn.disabled = busy;
+}
+
+function shellRun() {
+  if (_shellBusyFlag) return;
+  const input = document.getElementById('shellInput');
+  const cmd = (input.value || '').trim();
+  if (!cmd) return;
+  ensureShellWs();
+  if (!_shellWs || _shellWs.readyState !== WebSocket.OPEN) {
+    _shellAppend('error', '⚠ Нет соединения с сервером, подождите…');
+    return;
+  }
+  _shellHistory.unshift(cmd);
+  if (_shellHistory.length > 50) _shellHistory.pop();
+  _shellHistIdx = -1;
+  input.value = '';
+  _shellBusy(true);
+  _shellCmdId++;
+  _shellWs.send(JSON.stringify({ type: 'cmd', id: String(_shellCmdId), cmd }));
+}
+window.shellRun = shellRun;
+
+function shellKeydown(e) {
+  const input = document.getElementById('shellInput');
+  if (e.key === 'Enter') { shellRun(); return; }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (_shellHistIdx < _shellHistory.length - 1) {
+      _shellHistIdx++;
+      input.value = _shellHistory[_shellHistIdx] || '';
+    }
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (_shellHistIdx > 0) { _shellHistIdx--; input.value = _shellHistory[_shellHistIdx] || ''; }
+    else { _shellHistIdx = -1; input.value = ''; }
+  }
+}
+window.shellKeydown = shellKeydown;
+
+function shellQuick(cmd) {
+  const input = document.getElementById('shellInput');
+  if (input) input.value = cmd;
+  // Переключаемся на терминал если не там
+  const termPanel = document.getElementById('ltab-terminal');
+  if (termPanel && !termPanel.classList.contains('active')) switchLogsSubtab('terminal');
+  shellRun();
+}
+window.shellQuick = shellQuick;
 
 // ── Modal helpers ────────────────────────────────
 function openModal(id){ document.getElementById(id).classList.add('open'); }

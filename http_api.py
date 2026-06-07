@@ -4684,6 +4684,92 @@ async def admin_logs(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": str(e)}, status=500))
 
 
+# ── Admin Shell WebSocket ──────────────────────────────────────────────────────
+
+_BOT_LOG_PATH = Path(__file__).parent / "bot.log"
+
+async def _shell_tail_log(ws: web.WebSocketResponse) -> None:
+    """Читает новые строки из bot.log и отправляет их в WS."""
+    try:
+        with open(_BOT_LOG_PATH, "r", encoding="utf-8", errors="replace") as f:
+            # Сначала отправляем последние 200 строк
+            lines = f.readlines()
+            tail_lines = lines[-200:] if len(lines) > 200 else lines
+            for line in tail_lines:
+                if ws.closed:
+                    return
+                await ws.send_json({"type": "tail_line", "line": line.rstrip(), "historical": True})
+            await ws.send_json({"type": "tail_ready"})
+            # Затем читаем новые строки по мере появления
+            while not ws.closed:
+                line = f.readline()
+                if line:
+                    await ws.send_json({"type": "tail_line", "line": line.rstrip(), "historical": False})
+                else:
+                    await asyncio.sleep(0.3)
+    except FileNotFoundError:
+        if not ws.closed:
+            await ws.send_json({"type": "tail_error", "error": "bot.log не найден"})
+    except Exception as e:
+        if not ws.closed:
+            await ws.send_json({"type": "tail_error", "error": str(e)})
+
+
+async def _shell_run_cmd(ws: web.WebSocketResponse, cmd_id: str, cmd: str) -> None:
+    """Выполняет команду в shell и стримит вывод в WS."""
+    cwd = Path(__file__).parent
+    try:
+        await ws.send_json({"type": "cmd_start", "id": cmd_id, "cmd": cmd})
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            cwd=cwd,
+        )
+        async for raw_line in proc.stdout:
+            if ws.closed:
+                proc.kill()
+                return
+            text = raw_line.decode("utf-8", errors="replace").rstrip()
+            await ws.send_json({"type": "cmd_out", "id": cmd_id, "text": text})
+        exit_code = await proc.wait()
+        if not ws.closed:
+            await ws.send_json({"type": "cmd_done", "id": cmd_id, "exit": exit_code})
+    except Exception as e:
+        if not ws.closed:
+            await ws.send_json({"type": "cmd_done", "id": cmd_id, "exit": -1, "error": str(e)})
+
+
+async def ws_admin_shell(request: web.Request) -> web.WebSocketResponse:
+    """GET /api/admin/shell/ws — WebSocket для real-time логов и терминала."""
+    if not _check_api_secret(request):
+        ip = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+        logger.warning("ws_admin_shell: unauthorized connection attempt from ip=%s", ip)
+        raise web.HTTPForbidden()
+
+    ws = web.WebSocketResponse(heartbeat=15)
+    await ws.prepare(request)
+
+    tail_task = asyncio.create_task(_shell_tail_log(ws))
+    try:
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                try:
+                    data = json.loads(msg.data)
+                    if data.get("type") == "cmd":
+                        cmd = (data.get("cmd") or "").strip()
+                        cmd_id = str(data.get("id") or "")
+                        if cmd:
+                            asyncio.create_task(_shell_run_cmd(ws, cmd_id, cmd))
+                except Exception:
+                    pass
+            elif msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.ERROR):
+                break
+    finally:
+        tail_task.cancel()
+    return ws
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 #  SKY PAGE — вспомогательные функции
 # ──────────────────────────────────────────────────────────────────────────────
@@ -9931,6 +10017,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/monitor/ws", ws_admin_monitor)
     app.router.add_route("OPTIONS", "/api/admin/logs", handle_options)
     app.router.add_get("/api/admin/logs", admin_logs)
+    app.router.add_get("/api/admin/shell/ws", ws_admin_shell)
 
     app.router.add_post("/api/ai_companion", ai_companion)
 

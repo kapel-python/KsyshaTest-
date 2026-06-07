@@ -637,7 +637,7 @@
 <div id="screen-export" class="screen">
   <div class="content animate-stack">
     <div class="top-nav">
-      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад">
+      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад" data-i18n-aria="ariaBack">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </button>
       <div class="screen-title" data-i18n="profExport">Экспорт истории</div>
@@ -672,7 +672,7 @@
 <div id="screen-subscription" class="screen">
   <div class="content animate-stack">
     <div class="top-nav">
-      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад">
+      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад" data-i18n-aria="ariaBack">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </button>
       <div class="screen-title" data-i18n="profSubscription">Подписка</div>
@@ -780,7 +780,7 @@
 <div id="screen-access" class="screen">
   <div class="content animate-stack">
     <div class="top-nav">
-      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад">
+      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад" data-i18n-aria="ariaBack">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </button>
       <div class="screen-title" data-i18n="profAccessSettings">Настройки доступа</div>
@@ -814,7 +814,7 @@
 <div id="screen-sessions" class="screen">
   <div class="content animate-stack">
     <div class="top-nav">
-      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад">
+      <button class="back-btn" onclick="navTo('screen-main')" aria-label="Назад" data-i18n-aria="ariaBack">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </button>
       <div class="screen-title" data-i18n="profSessions">Сессии и устройства</div>
@@ -1004,21 +1004,21 @@
 <div class="toast" id="toastEl"></div>
 
 <!-- ── BOTTOM NAVIGATION ── -->
-<nav class="bottom-nav" role="navigation" aria-label="Главное меню">
+<nav class="bottom-nav" role="navigation" aria-label="Главное меню" data-i18n-aria="ariaMainMenu">
   <div class="nav-inner">
-    <div class="nav-item" data-tab="home" role="button" tabindex="0" aria-label="Главная" onclick="window.location.href='/'">
+    <div class="nav-item" data-tab="home" role="button" tabindex="0" aria-label="Главная" data-i18n-aria="navHome" onclick="window.location.href='/'">
       <div class="nav-icon">
         <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
       </div>
       <span class="nav-label" data-i18n="navHome">Главная</span>
     </div>
-    <div class="nav-item" data-tab="stats" role="button" tabindex="0" aria-label="Статистика" onclick="goToStats()">
+    <div class="nav-item" data-tab="stats" role="button" tabindex="0" aria-label="Статистика" data-i18n-aria="navStats" onclick="goToStats()">
       <div class="nav-icon">
         <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6"  y1="20" x2="6"  y2="14"/></svg>
       </div>
       <span class="nav-label" data-i18n="navStats">Статистика</span>
     </div>
-    <div class="nav-item active" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" aria-current="page">
+    <div class="nav-item active" data-tab="profile" role="button" tabindex="0" aria-label="Профиль" data-i18n-aria="navProfile" aria-current="page">
       <div class="nav-icon">
         <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </div>
@@ -1104,6 +1104,16 @@ const PROF_I18N = {
     profDeviceActivity: 'Активность',
     profRevokeSession: 'Завершить сессию',
     profLinkCopied: 'Ссылка скопирована',
+    profOnline: 'Онлайн',
+    profSessionOn: 'Сессия на',
+    profActiveNow: 'Активен сейчас',
+    profMinsAgo: '{n} мин. назад',
+    profHoursAgo: '{n} ч. назад',
+    profUnlinked: 'Отвязано',
+    profTooManyAttempts: 'Слишком много попыток. Попробуйте позже.',
+    profErrorGeneric: 'Ошибка: ',
+    ariaBack: 'Назад',
+    ariaMainMenu: 'Главное меню',
   },
   en: {
     navHome: 'Home', navStats: 'Stats', navProfile: 'Profile',
@@ -1177,6 +1187,16 @@ const PROF_I18N = {
     profDeviceActivity: 'Activity',
     profRevokeSession: 'Terminate session',
     profLinkCopied: 'Link copied',
+    profOnline: 'Online',
+    profSessionOn: 'Session on',
+    profActiveNow: 'Active now',
+    profMinsAgo: '{n} min. ago',
+    profHoursAgo: '{n} hr. ago',
+    profUnlinked: 'Unlinked',
+    profTooManyAttempts: 'Too many attempts. Please try again later.',
+    profErrorGeneric: 'Error: ',
+    ariaBack: 'Back',
+    ariaMainMenu: 'Main menu',
   },
   de: {
     navHome: 'Startseite', navStats: 'Statistiken', navProfile: 'Profil',
@@ -1249,6 +1269,17 @@ const PROF_I18N = {
     profDeviceIp: 'IP-Adresse',
     profDeviceActivity: 'Aktivität',
     profRevokeSession: 'Sitzung beenden',
+    profLinkCopied: 'Link kopiert',
+    profOnline: 'Online',
+    profSessionOn: 'Sitzung auf',
+    profActiveNow: 'Gerade aktiv',
+    profMinsAgo: 'vor {n} Min.',
+    profHoursAgo: 'vor {n} Std.',
+    profUnlinked: 'Getrennt',
+    profTooManyAttempts: 'Zu viele Versuche. Bitte später erneut versuchen.',
+    profErrorGeneric: 'Fehler: ',
+    ariaBack: 'Zurück',
+    ariaMainMenu: 'Hauptmenü',
   },
 };
 
@@ -1264,6 +1295,11 @@ function _applyI18n() {
     const key = el.getAttribute('data-i18n');
     const val = _t(key);
     if (val) el.textContent = val;
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    const key = el.getAttribute('data-i18n-aria');
+    const val = _t(key);
+    if (val) el.setAttribute('aria-label', val);
   });
   document.documentElement.lang = _getLang() === 'de' ? 'de' : (_getLang() === 'en' ? 'en' : 'ru');
   
@@ -1653,7 +1689,7 @@ function _populateProfile(data) {
 
   if (isUnlinked) {
     if (tgStatusBadge) {
-      tgStatusBadge.textContent = 'Отвязано';
+      tgStatusBadge.textContent = _t('profUnlinked');
       tgStatusBadge.className = 'badge-neutral';
     }
     if (tgEl) {
@@ -1664,11 +1700,11 @@ function _populateProfile(data) {
     }
     const accessSubEl = document.getElementById('accessSub');
     if (accessSubEl) {
-      accessSubEl.textContent = 'Telegram: Отвязано';
+      accessSubEl.textContent = 'Telegram: ' + _t('profUnlinked');
     }
   } else {
     if (tgStatusBadge) {
-      tgStatusBadge.textContent = 'Подключен';
+      tgStatusBadge.textContent = _t('profConnected');
       tgStatusBadge.className = 'badge-success';
     }
     if (tgEl) {
@@ -1863,7 +1899,7 @@ function renderActiveSessions(sessions) {
             <div class="item-title">${uaPretty}</div>
             <div class="item-sub">${geo} • ${ip}</div>
           </div>
-          <div class="item-right"><span class="badge-success">Онлайн</span></div>
+          <div class="item-right"><span class="badge-success">${_t('profOnline')}</span></div>
         </div>
       </div>
     `;
@@ -1921,7 +1957,7 @@ function renderActiveSessions(sessions) {
 }
 
 function openDeviceModal(s) {
-  document.getElementById('modalDeviceTitle').textContent = `Сессия на ${s.device_brand || s.device_model || s.ua_pretty || 'устройстве'}`;
+  document.getElementById('modalDeviceTitle').textContent = _t('profSessionOn') + ' ' + (s.device_brand || s.device_model || s.ua_pretty || _t('profUnknownDevice'));
   document.getElementById('modalDeviceBrowser').textContent = s.browser || s.ua_pretty || '—';
   
   const geo = [s.city, s.country].filter(Boolean).join(', ') || '—';
@@ -1945,11 +1981,11 @@ function _formatActivityTime(utcStr) {
     if (isNaN(d.getTime())) return utcStr;
     const now = new Date();
     const diffMs = now - d;
-    if (diffMs < 60000) return 'Активен сейчас';
+    if (diffMs < 60000) return _t('profActiveNow');
     const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 60) return `${diffMins} мин. назад`;
+    if (diffMins < 60) return _t('profMinsAgo').replace('{n}', diffMins);
     const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} ч. назад`;
+    if (diffHours < 24) return _t('profHoursAgo').replace('{n}', diffHours);
     
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -1992,8 +2028,8 @@ async function startUnlink() {
     const res = await fetch('/api/unlink/init', { method: 'POST', headers: _authHeaders() });
     const data = await res.json();
     if (!data.ok) {
-      if (data.error === 'blocked') alert("Слишком много попыток. Попробуйте позже.");
-      else alert("Ошибка: " + (data.error || ""));
+      if (data.error === 'blocked') alert(_t('profTooManyAttempts'));
+      else alert(_t('profErrorGeneric') + (data.error || ''));
       return;
     }
     showUnlinkState('waiting');

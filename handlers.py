@@ -1991,12 +1991,37 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
 
     # ── Часовой пояс участника ──
     def _tz_line(uid):
-        tz = db.get_user_setting(uid, "timezone")
+        tz_mode = db.get_user_setting(uid, "website_timezone_mode") or "auto"
+        if tz_mode == "auto":
+            # Берём timezone из браузера (devices.timezone_id) — самый свежий визит этого юзера
+            tz = None
+            try:
+                with db._get_connection() as _conn:
+                    _rows = _conn.execute(
+                        "SELECT visitor_id, timezone_id FROM devices "
+                        "WHERE timezone_id IS NOT NULL AND timezone_id != '' "
+                        "ORDER BY last_seen_utc DESC"
+                    ).fetchall()
+                    for _row in _rows:
+                        _vid = str(_row[0] or "").strip().split("_")[0]
+                        try:
+                            if int(_vid) == uid:
+                                tz = _row[1]
+                                break
+                        except (ValueError, TypeError):
+                            pass
+            except Exception:
+                pass
+            display_name = None
+        else:
+            tz = db.get_user_setting(uid, "timezone")
+            display_name = db.get_user_setting(uid, "timezone_display") or None
+
         if not tz:
             return ""
         if tz.strip().upper() in {"UTC", "ETC/UTC"}:
             return ""
-        label = get_timezone_label(tz)
+        label = get_timezone_label_for_display(tz, display_name)
         pretty = re.sub(r"\s+", " ", (label or "").strip())
         pretty = pretty.replace("UTC +", "UTC+").replace("UTC -", "UTC-")
         m = re.match(r"^([^()]+)\((UTC[+-]?\d+(?::\d{2})?)\)$", pretty)

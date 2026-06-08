@@ -3760,13 +3760,13 @@
 
             animation: fadeUp 0.25s ease both;
 
-            border-left: 4px solid #ffb6c1;
+            border-left: 4px solid var(--category-line-color, #ffb6c1);
 
         }
 
         .event {
 
-            border-left-color: #8aa4ff;
+            --category-line-color: #8aa4ff;
 
         }
 
@@ -3778,8 +3778,20 @@
 
         .wish {
 
-            border-left-color: #ffb347;
+            --category-line-color: #ffb347;
 
+        }
+
+        html.design-standard .memory,
+        html.design-standard .event,
+        html.design-standard .wish {
+            --category-line-color: rgba(0, 0, 0, 0.14);
+        }
+
+        html.theme-dark.design-standard .memory,
+        html.theme-dark.design-standard .event,
+        html.theme-dark.design-standard .wish {
+            --category-line-color: rgba(255, 255, 255, 0.16);
         }
 
         #status {
@@ -7189,6 +7201,9 @@
         }
 
         const cat = categoriesMap[m.category] || {};
+        if (cat && cat.lineColor) {
+          div.style.setProperty('--category-line-color', String(cat.lineColor));
+        }
 
         // Use translated category name if available
         const _catKeys = { important_moments:'catImportantMoments', memories:'catMemories', important_dates:'catDates' };
@@ -7372,6 +7387,7 @@
         const div = document.createElement('div');
 
         div.className = 'event';
+        div.style.setProperty('--category-line-color', '#16a34a');
 
         if (e && e.is_passed) {
 
@@ -7693,6 +7709,7 @@
 
         const div = document.createElement('div');
         div.className = isMyWish ? 'wish my-wish' : 'wish partner-wish';
+        div.style.setProperty('--category-line-color', '#d97706');
         
         let displayName = ownerLabel;
         if (w && w.user_id && window._siteUsers) {
@@ -11303,11 +11320,11 @@
 
           const categoriesMap = {
 
-            "important_moments": { title: _i('catImportantMoments').replace('💫 ',''), emoji: "💫" },
+            "important_moments": { title: _i('catImportantMoments').replace('💫 ',''), emoji: "💫", lineColor: "#d43f8d" },
 
-            "memories": { title: _i('catMemories').replace('📖 ',''), emoji: "📖" },
+            "memories": { title: _i('catMemories').replace('📖 ',''), emoji: "📖", lineColor: "#4158d0" },
 
-            "important_dates": { title: _i('catDates').replace('📅 ',''), emoji: "📅" }
+            "important_dates": { title: _i('catDates').replace('📅 ',''), emoji: "📅", lineColor: "#06b6d4" }
 
           };
           window._categoriesMap = categoriesMap;
@@ -11377,8 +11394,8 @@
           customCategories.forEach(cat => {
             const key = 'custom_' + cat.id;
             const catEmoji = cat.emoji || '📁';
-            categoriesMap[key] = { title: cat.name, emoji: catEmoji, description: cat.description || '' };
             const catColor = (typeof cat.color === 'string' && cat.color.trim()) ? cat.color.trim() : 'slateblue';
+            categoriesMap[key] = { title: cat.name, emoji: catEmoji, description: cat.description || '', lineColor: catColor };
             const catName = (cat && cat.name ? String(cat.name) : 'Категория').trim() || 'Категория';
             if (!anchor) return;
 

@@ -2140,6 +2140,12 @@
             background: linear-gradient(135deg, #d43f8d, #7c3aed);
         }
 
+        html.design-standard .media-action-btn.primary {
+            background: var(--media-panel-soft-bg);
+            border: 1px solid var(--media-panel-border);
+            color: var(--media-panel-text);
+        }
+
         .media-action-btn.secondary {
             background: var(--media-panel-soft-bg);
             border: 1px solid var(--media-panel-border);
@@ -2275,6 +2281,12 @@
             background: linear-gradient(135deg, #d43f8d, #7c3aed);
         }
 
+        html.design-standard .media-viewer-glass-btn.primary {
+            background: var(--media-panel-soft-bg);
+            border: 1px solid var(--media-panel-border);
+            color: var(--media-panel-text);
+        }
+
         .media-viewer-glass-btn.secondary {
             background: var(--media-panel-soft-bg);
             border: 1px solid var(--media-panel-border);
@@ -2346,6 +2358,12 @@
             background: linear-gradient(135deg, #d43f8d, #7c3aed);
             border: none;
             color: #fff;
+        }
+
+        html.design-standard .media-file-header-btn.primary {
+            background: var(--media-panel-soft-bg);
+            border: 1px solid var(--media-panel-border);
+            color: var(--media-panel-text);
         }
 
         .media-file-codewrap {
@@ -6671,8 +6689,8 @@
         downloadBtn.className = 'media-viewer-glass-btn primary';
         downloadBtn.textContent = _ui('mediaDownload');
         downloadBtn.onclick = () => _mediaDownloadFile(media);
-        actions.appendChild(exitBtn);
         actions.appendChild(downloadBtn);
+        actions.appendChild(exitBtn);
         bar.appendChild(actions);
         return bar;
       }

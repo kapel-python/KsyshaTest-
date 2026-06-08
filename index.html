@@ -4446,8 +4446,8 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            background: rgba(200,80,192,0.12);
-            border: 1px solid rgba(200,80,192,0.2);
+            background: rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.10);
             border-radius: 999px;
             padding: 3px 4px 3px 8px;
             font-size: 1rem;
@@ -4459,10 +4459,10 @@
             width: fit-content;
             line-height: 1;
         }
-        .msg-reaction:hover { background: rgba(200,80,192,0.22); transform: scale(1.07); }
-        .msg-reaction.active { background: rgba(200,80,192,0.18); border-color: rgba(200,80,192,0.45); }
+        .msg-reaction:hover { background: rgba(0,0,0,0.10); transform: scale(1.07); }
+        .msg-reaction.active { background: rgba(0,0,0,0.10); border-color: rgba(0,0,0,0.18); }
         @keyframes reactionPop { from { opacity:0; transform: scale(0.4); } to { opacity:1; transform: scale(1); } }
-        .theme-dark .msg-reaction { background: rgba(200,80,192,0.18); border-color: rgba(200,80,192,0.35); }
+        .theme-dark .msg-reaction { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); }
 
         /* Аватарка пользователя внутри реакции */
         .msg-reaction-avatar {
@@ -4472,14 +4472,14 @@
             object-fit: cover;
             display: block;
             flex-shrink: 0;
-            border: 1px solid rgba(200,80,192,0.3);
+            border: 1px solid rgba(0,0,0,0.16);
         }
         .msg-reaction-avatar-emoji {
             width: 18px;
             height: 18px;
             border-radius: 50%;
-            background: rgba(200,80,192,0.18);
-            border: 1px solid rgba(200,80,192,0.3);
+            background: rgba(0,0,0,0.10);
+            border: 1px solid rgba(0,0,0,0.16);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -4488,7 +4488,11 @@
             line-height: 1;
         }
         .theme-dark .msg-reaction-avatar-emoji {
-            background: rgba(200,80,192,0.25);
+            background: rgba(255,255,255,0.12);
+        }
+        .theme-dark .msg-reaction-avatar,
+        .theme-dark .msg-reaction-avatar-emoji {
+            border-color: rgba(255,255,255,0.16);
         }
 
         /* ── Контекстное меню (удержание) ────────────────────────── */

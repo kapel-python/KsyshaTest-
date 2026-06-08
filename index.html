@@ -4269,6 +4269,8 @@
 
         .theme-dark .bot-link {
 
+            background: rgba(255,255,255,0.15);
+
             box-shadow: 0 4px 12px rgba(0,0,0,0.7);
 
         }
@@ -9313,22 +9315,22 @@
           if (!el) return;
           const sub = window.APP_DATA && window.APP_DATA.subscription;
           if (sub && sub.is_premium) {
-             el.textContent = "Безлимитный доступ";
+             el.textContent = _ui('aiUnlimitedAccess');
              return;
           }
           const usage = window.APP_DATA && window.APP_DATA.ai_usage;
           const planLimit = (sub && sub.limit) || 50;
           if (!usage || typeof usage.used === 'undefined') {
-             el.textContent = `Лимит: 0 / ${planLimit}`;
+             el.textContent = _ui('aiLimitZero', planLimit);
              return;
           }
           const used = usage.used || 0;
           if (usage.remaining === null) {
-             el.textContent = "Безлимитный доступ";
+             el.textContent = _ui('aiUnlimitedAccess');
              return;
           }
           if ((usage.remaining || 0) > 0) {
-             el.textContent = `Лимит: ${used} / ${planLimit}`;
+             el.textContent = _ui('aiLimitLabel', used, planLimit);
           } else {
              if (usage.resets_at) {
                 const resetTime = new Date(usage.resets_at + 'Z');
@@ -9338,15 +9340,13 @@
                    const diffMins = Math.ceil(diffMs / 60000);
                    const hours = Math.floor(diffMins / 60);
                    const mins = diffMins % 60;
-                   let timeStr = "";
-                   if (hours > 0) timeStr += hours + " ч. ";
-                   timeStr += mins + " мин.";
-                   el.textContent = `Лимит: ${used} / ${planLimit} · Сбросится через ${timeStr.trim()}`;
+                   const timeStr = _ui('aiLimitResets', hours, mins);
+                   el.textContent = _ui('aiLimitResetsIn', used, planLimit, timeStr);
                 } else {
-                   el.textContent = "Лимит восстанавливается...";
+                   el.textContent = _ui('aiLimitReset');
                 }
              } else {
-                el.textContent = `Лимит: ${used} / ${planLimit}`;
+                el.textContent = _ui('aiLimitLabel', used, planLimit);
              }
           }
       }
@@ -17414,6 +17414,17 @@
       exportStatus: 'Статус',
       exportKeys: 'ключей',
       exportExportedAt: 'Экспортировано:',
+      aiUnlimitedAccess: 'Безлимитный доступ',
+      aiLimitLabel: (used, limit) => `Лимит: ${used} / ${limit}`,
+      aiLimitZero: (limit) => `Лимит: 0 / ${limit}`,
+      aiLimitReset: 'Лимит восстанавливается...',
+      aiLimitResets: (hours, mins) => {
+        let timeStr = "";
+        if (hours > 0) timeStr += hours + " ч. ";
+        timeStr += mins + " мин.";
+        return timeStr.trim();
+      },
+      aiLimitResetsIn: (used, limit, timeStr) => `Лимит: ${used} / ${limit} · Сбросится через ${timeStr}`,
     },
     de: {
       invalidTokenTitle: 'Dieser Token ist nicht mehr gültig',
@@ -17632,6 +17643,17 @@
       exportStatus: 'Status',
       exportKeys: 'Schlüssel',
       exportExportedAt: 'Exportiert:',
+      aiUnlimitedAccess: 'Unbegrenzter Zugriff',
+      aiLimitLabel: (used, limit) => `Limit: ${used} / ${limit}`,
+      aiLimitZero: (limit) => `Limit: 0 / ${limit}`,
+      aiLimitReset: 'Limit wird wiederhergestellt...',
+      aiLimitResets: (hours, mins) => {
+        let timeStr = "";
+        if (hours > 0) timeStr += hours + " Std. ";
+        timeStr += mins + " Min.";
+        return timeStr.trim();
+      },
+      aiLimitResetsIn: (used, limit, timeStr) => `Limit: ${used} / ${limit} · Setzt sich in ${timeStr} zurück`,
     },
     en: {
       invalidTokenTitle: 'This token is no longer valid',
@@ -17850,6 +17872,17 @@
       exportStatus: 'Status',
       exportKeys: 'keys',
       exportExportedAt: 'Exported:',
+      aiUnlimitedAccess: 'Unlimited access',
+      aiLimitLabel: (used, limit) => `Limit: ${used} / ${limit}`,
+      aiLimitZero: (limit) => `Limit: 0 / ${limit}`,
+      aiLimitReset: 'Limit is restoring...',
+      aiLimitResets: (hours, mins) => {
+        let timeStr = "";
+        if (hours > 0) timeStr += hours + " hr ";
+        timeStr += mins + " min";
+        return timeStr.trim();
+      },
+      aiLimitResetsIn: (used, limit, timeStr) => `Limit: ${used} / ${limit} · Resets in ${timeStr}`,
     },
   };
 

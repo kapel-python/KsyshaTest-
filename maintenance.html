@@ -10,6 +10,9 @@
   if (!theme && typeof window.matchMedia === 'function')
     theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+
+  var design = typeof localStorage !== 'undefined' && localStorage.getItem('memories_design') || 'bright';
+  document.documentElement.classList.add(design === 'bright' ? 'design-bright' : 'design-standard');
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,6 +50,43 @@ html.theme-light .timer-bar-bg { background: rgba(0,0,0,0.08); }
 html.theme-light .fact-box { border-color: rgba(212,63,141,0.2); }
 html.theme-light .stg-lang-btn { border-color: rgba(0,0,0,0.08); }
 html.theme-light .stg-lang-btn.active { background: rgba(212,63,141,0.1); }
+
+/* ══ STANDARD DESIGN ══ */
+html.design-standard {
+  --bg: #f2f2f2;
+  --surface: #ffffff;
+  --surface2: #f3f4f6;
+  --accent: #4b5563;
+  --accent2: #4b5563;
+  --accent3: #4b5563;
+  --text: #111827;
+  --muted: #555;
+  --meta: #888;
+  --border: rgba(0,0,0,0.08);
+}
+html.design-standard.theme-dark {
+  --bg: #0d0d0d;
+  --surface: #1a1a1a;
+  --surface2: #1c1c1c;
+  --accent: #a1aab8;
+  --accent2: #a1aab8;
+  --accent3: #a1aab8;
+  --text: #e5e5e5;
+  --muted: #b0b0b0;
+  --meta: #8a8a8a;
+  --border: rgba(255,255,255,0.07);
+}
+html.design-standard .star { background: #4b5563; opacity: 0.15; }
+html.design-standard .bg-orb.o1 { background: radial-gradient(circle, rgba(75,85,99,0.12), transparent); }
+html.design-standard .bg-orb.o2 { background: radial-gradient(circle, rgba(75,85,99,0.08), transparent); }
+html.design-standard .bg-orb.o3 { background: radial-gradient(circle, rgba(75,85,99,0.06), transparent); }
+html.design-standard.theme-dark .bg-orb.o1 { background: radial-gradient(circle, rgba(161,170,184,0.12), transparent); }
+html.design-standard.theme-dark .bg-orb.o2 { background: radial-gradient(circle, rgba(161,170,184,0.08), transparent); }
+html.design-standard.theme-dark .bg-orb.o3 { background: radial-gradient(circle, rgba(161,170,184,0.06), transparent); }
+html.design-standard.theme-light .timer-bar-bg { background: rgba(0,0,0,0.08); }
+html.design-standard .fact-box { border-color: rgba(0,0,0,0.08); }
+html.design-standard .stg-lang-btn { border-color: rgba(0,0,0,0.08); }
+html.design-standard .stg-lang-btn.active { background: rgba(75,85,99,0.1); }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 

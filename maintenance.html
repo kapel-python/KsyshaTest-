@@ -13,6 +13,7 @@
 
   var design = typeof localStorage !== 'undefined' && localStorage.getItem('memories_design') || 'bright';
   document.documentElement.classList.add(design === 'bright' ? 'design-bright' : 'design-standard');
+  document.documentElement.dataset.design = design;
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -60,8 +61,8 @@ html.design-standard {
   --accent2: #4b5563;
   --accent3: #4b5563;
   --text: #111827;
-  --muted: #555;
-  --meta: #888;
+  --muted: #6b7280;
+  --meta: #9ca3af;
   --border: rgba(0,0,0,0.08);
 }
 html.design-standard.theme-dark {
@@ -72,8 +73,8 @@ html.design-standard.theme-dark {
   --accent2: #a1aab8;
   --accent3: #a1aab8;
   --text: #e5e5e5;
-  --muted: #b0b0b0;
-  --meta: #8a8a8a;
+  --muted: #9ca3af;
+  --meta: #4b5563;
   --border: rgba(255,255,255,0.07);
 }
 html.design-standard .star { background: #4b5563; opacity: 0.15; }
@@ -87,6 +88,173 @@ html.design-standard.theme-light .timer-bar-bg { background: rgba(0,0,0,0.08); }
 html.design-standard .fact-box { border-color: rgba(0,0,0,0.08); }
 html.design-standard .stg-lang-btn { border-color: rgba(0,0,0,0.08); }
 html.design-standard .stg-lang-btn.active { background: rgba(75,85,99,0.1); }
+
+/* ── Icon wrap override for standard design ── */
+html.design-standard .icon-wrap {
+  background: #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+html.design-standard .icon-wrap::after {
+  background: none;
+  display: none;
+}
+html.design-standard.theme-dark .icon-wrap {
+  background: #2a2a2a;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* ── Title and subtitle for standard design ── */
+html.design-standard .main-title {
+  color: var(--text);
+}
+html.design-standard .main-title em {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--accent);
+  background-clip: unset;
+}
+html.design-standard .main-sub {
+  color: var(--muted);
+}
+
+/* ── Timer for standard design ── */
+html.design-standard .timer-num {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--accent);
+  background-clip: unset;
+}
+html.design-standard .timer-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+html.design-standard.theme-dark .timer-card {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+html.design-standard .timer-bar-fill {
+  background: linear-gradient(90deg, #88adc8, #5e81ac);
+}
+html.design-standard .timer-sep {
+  color: var(--meta);
+}
+html.design-standard .timer-label { color: var(--muted); }
+html.design-standard .timer-unit-label { color: var(--meta); }
+
+/* ── While card for standard design ── */
+html.design-standard .while-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+html.design-standard.theme-dark .while-card {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+html.design-standard .while-icon {
+  background: #f3f4f6;
+}
+html.design-standard.theme-dark .while-icon {
+  background: rgba(255,255,255,0.08);
+}
+html.design-standard .while-title { color: var(--text); }
+html.design-standard .while-sub { color: var(--muted); }
+html.design-standard .fact-text { color: var(--text); }
+html.design-standard .fact-dot { background: var(--meta); }
+html.design-standard .fact-dot.active { background: var(--accent); }
+html.design-standard .fact-num { color: var(--meta); }
+html.design-standard .fact-btn {
+  background: #f3f4f6;
+  border: 1px solid var(--border);
+  color: var(--accent);
+}
+html.design-standard.theme-dark .fact-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+}
+html.design-standard .fact-btn:hover { background: var(--border); }
+
+/* ── Status card for standard design ── */
+html.design-standard .status-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+html.design-standard.theme-dark .status-card {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+html.design-standard .status-text { color: var(--muted); }
+html.design-standard .status-text strong { color: var(--text); }
+
+/* ── Recall button for standard design ── */
+html.design-standard .recall-btn {
+  background: var(--accent);
+  box-shadow: 0 4px 14px rgba(75,85,99,0.28);
+}
+html.design-standard .recall-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 22px rgba(75,85,99,0.38);
+}
+
+/* ── Language and theme pills for standard design ── */
+html.design-standard .stg-pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+html.design-standard .stg-pill.active {
+  background: rgba(75,85,99,0.1);
+  border-color: var(--accent);
+  color: var(--text);
+}
+html.design-standard .stg-pill:hover:not(.active) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+html.design-standard .stg-lang-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+html.design-standard .stg-lang-btn.active {
+  background: rgba(75,85,99,0.1);
+  border-color: var(--accent);
+  color: var(--text);
+}
+html.design-standard .stg-lang-btn:hover:not(.active) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+html.design-standard .stg-lbl { color: var(--muted); }
+
+/* ── Memory card styling for standard design ── */
+html.design-standard .memory {
+  background: var(--surface);
+  border-left: 5px solid #94a3b8;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+html.design-standard.theme-dark .memory {
+  background: var(--surface);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+html.design-standard .memory .category {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+html.design-standard.theme-dark .memory .category {
+  background: rgba(255,255,255,0.12);
+  color: var(--text);
+}
+html.design-standard .memory .title {
+  color: #475569;
+}
+html.design-standard.theme-dark .memory .title {
+  color: #cbd5e1;
+}
+html.design-standard .memory .date {
+  color: var(--muted);
+}
+html.design-standard .memory .content-toggle {
+  color: var(--accent);
+}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 

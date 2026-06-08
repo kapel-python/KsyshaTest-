@@ -1332,7 +1332,7 @@ async def cmd_start(message: Message, state: FSMContext):
         # Пользователь уже состоит в паре
         if db.is_in_couple(user_id):
             await message.answer(
-                "💑 <b>Ты уже состоишь в паре!</b>\n\n"
+                "👥 <b>Ты уже состоишь в паре!</b>\n\n"
                 "Нельзя вступить в новую пару, не покинув текущую.\n"
                 "Нажми /start чтобы открыть главное меню.",
                 parse_mode=ParseMode.HTML
@@ -1500,7 +1500,7 @@ async def _ask_met_date(message: Message, state: FSMContext, callback: CallbackQ
     await state.set_state(CoupleOnboardingStates.waiting_for_met_date_raw)
     send_fn = callback.message.edit_text if callback else message.answer
     await send_fn(
-        "💑 <b>Когда вы познакомились?</b>\n\n"
+        "👥 <b>Когда вы познакомились?</b>\n\n"
         "Напиши дату в любом формате, например:\n"
         "• <i>15 мая 2024</i>\n"
         "• <i>15.05.2024</i>\n"
@@ -1773,7 +1773,7 @@ async def onboarding_met_date_raw(message: Message, state: FSMContext):
     await state.update_data(met_date_db=db_format, met_date_display=display)
     await state.set_state(CoupleOnboardingStates.waiting_for_met_date_confirm)
     await message.answer(
-        f"💑 Вы познакомились <b>{display}</b>?",
+        f"👥 Вы познакомились <b>{display}</b>?",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="✅ Да", callback_data="onboarding_met_date_yes"),
@@ -1798,7 +1798,7 @@ async def onboarding_met_date_no(callback: CallbackQuery, state: FSMContext):
     await state.update_data(met_date_db=None, met_date_display=None)
     await state.set_state(CoupleOnboardingStates.waiting_for_met_date_raw)
     await callback.message.edit_text(
-        "💑 <b>Напиши дату знакомства ещё раз:</b>\n\n"
+        "👥 <b>Напиши дату знакомства ещё раз:</b>\n\n"
         "• <i>15 мая 2024</i>\n"
         "• <i>15.05.2024</i>",
         parse_mode=ParseMode.HTML
@@ -2157,7 +2157,7 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
         last_line = "📝 Последнее: пока пусто — добавь первый момент ✨"
 
     text = (
-        f"💑 <b>Наша пара</b>\n\n"
+        f"👥 <b>О нас</b>\n\n"
         f"{pair_line}\n\n"
         f"{p1_block}\n\n"
         f"{p2_block}\n\n"
@@ -2183,8 +2183,7 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
         )
 
     if u2:
-        first_row = [InlineKeyboardButton(text="🙈 Скрыть статистику", callback_data="our_couple_hide")] if with_details else [InlineKeyboardButton(text="📊 Статистика пары", callback_data="our_couple_show")]
-        kb_rows = [first_row]
+        kb_rows = []
         if not met_human:
             kb_rows.append([InlineKeyboardButton(text="📅 Установить дату знакомства", callback_data="set_couple_met_date")])
         kb_rows.extend([
@@ -2518,26 +2517,12 @@ async def our_couple(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data == "our_couple_show")
-async def our_couple_show(callback: CallbackQuery):
-    text, kb = _format_couple_message(callback.from_user.id, with_details=True)
-    await callback_edit_or_answer(callback, text, reply_markup=kb, parse_mode=ParseMode.HTML)
-    await callback.answer()
-
-
-@router.callback_query(F.data == "our_couple_hide")
-async def our_couple_hide(callback: CallbackQuery):
-    text, kb = _format_couple_message(callback.from_user.id, with_details=False)
-    await callback_edit_or_answer(callback, text, reply_markup=kb, parse_mode=ParseMode.HTML)
-    await callback.answer()
-
-
 @router.callback_query(F.data == "set_couple_met_date")
 async def set_couple_met_date(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
     await state.set_state(CoupleOnboardingStates.waiting_for_met_date_raw)
     await callback.message.edit_text(
-        "💑 <b>Когда вы познакомились?</b>\n\n"
+        "👥 <b>Когда вы познакомились?</b>\n\n"
         "Напиши дату в любом формате, например:\n"
         "• <i>15 мая 2024</i>\n"
         "• <i>15.05.2024</i>",
@@ -8518,7 +8503,7 @@ async def admin_delete_data_menu(callback: CallbackQuery):
             callback_data="delete_data_confirm_mine"
         )],
         [InlineKeyboardButton(
-            text="💑 Мои данные + данные партнёра",
+            text="👥 Мои данные + данные партнёра",
             callback_data="delete_data_confirm_couple"
         )],
         [InlineKeyboardButton(

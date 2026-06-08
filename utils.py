@@ -1108,7 +1108,7 @@ def create_main_keyboard(user_id: int) -> InlineKeyboardMarkup:
         site_row.append(InlineKeyboardButton(text="⭐ Избранное", callback_data="favorites_menu"))
 
     keyboard: List[List[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text="💑 Наша пара", callback_data="our_couple")],
+        [InlineKeyboardButton(text="👥 О нас", callback_data="our_couple")],
         [InlineKeyboardButton(text="📁 Категории", callback_data="cat_menu")],
         [InlineKeyboardButton(text="🎁 Желания", callback_data="wishes_menu")],
         site_row,

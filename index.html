@@ -749,17 +749,22 @@
         }
         @keyframes addSpin { to{transform:rotate(360deg)} }
 
-        html.design-standard .add-btn-pill[data-cat] {
-            background: var(--text-color);
-            color: var(--bg-color);
-        }
-
         html.design-standard .add-modal-stripe {
             background: rgba(0, 0, 0, 0.12);
         }
 
         html.theme-dark.design-standard .add-modal-stripe {
             background: rgba(255, 255, 255, 0.14);
+        }
+
+        html.design-standard #addModal {
+            --accent-color: var(--text-color);
+            --accent-soft: rgba(0, 0, 0, 0.06);
+        }
+
+        html.theme-dark.design-standard #addModal {
+            --accent-color: var(--text-color);
+            --accent-soft: rgba(255, 255, 255, 0.08);
         }
 
         html.design-standard .add-modal-step-label {

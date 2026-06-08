@@ -6113,6 +6113,14 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
           theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         if (theme === 'dark') document.documentElement.classList.add('theme-dark');
         document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
+
+        var design = localStorage.getItem('memories_design') || 'bright';
+        if (design === 'bright') {{
+          document.documentElement.classList.add('design-bright');
+        }} else {{
+          document.documentElement.classList.add('design-standard');
+        }}
+        document.documentElement.dataset.design = design;
       }} catch(e) {{}}
     }})();
   </script>
@@ -6145,6 +6153,34 @@ def _markdown_to_html(md_text: str, emoji_title: str, is_privacy: bool = False) 
       --card-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
       --divider: rgba(255,155,205,0.10);
       --nav-border: rgba(255,155,205,0.10);
+    }}
+
+    /* ══ STANDARD DESIGN ══ */
+    html.design-standard {{
+      --bg: #f2f2f2;
+      --surface: #ffffff;
+      --accent: #4b5563;
+      --text: #111827;
+      --muted: #555;
+      --meta: #888;
+      --pink-soft: #f3f4f6;
+      --pink-border: #e5e7eb;
+      --card-shadow: 0 3px 10px rgba(0,0,0,0.08);
+      --divider: rgba(0,0,0,0.08);
+      --nav-border: rgba(0,0,0,0.07);
+    }}
+    html.design-standard.theme-dark {{
+      --bg: #0d0d0d;
+      --surface: #1a1a1a;
+      --accent: #a1aab8;
+      --text: #e5e5e5;
+      --muted: #b0b0b0;
+      --meta: #8a8a8a;
+      --pink-soft: #1c1c1c;
+      --pink-border: #2a2a2a;
+      --card-shadow: 0 3px 10px rgba(0,0,0,0.4);
+      --divider: rgba(255,255,255,0.07);
+      --nav-border: rgba(255,255,255,0.07);
     }}
 
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}

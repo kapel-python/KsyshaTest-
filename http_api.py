@@ -2124,9 +2124,9 @@ def _build_profile_stats_for_visitor(visitor_id: str | None, tz_id: str | None) 
         first_utc = visits_summary.get("first_utc")
 
         total_sec = int(db.get_visitor_total_site_seconds(visitor_id) or 0)
-        streak_days = int(db.get_streak_days(visitor_id) or 0)
+        streak_days = int(db.get_streak_days(visitor_id=visitor_id, user_id=_vis_uid) or 0)
         photos_opened = int(db.get_photos_opened_count(visitor_id) or 0)
-        longest_streak = int(db.get_longest_streak(visitor_id) or 0)
+        longest_streak = int(db.get_longest_streak(visitor_id=visitor_id, user_id=_vis_uid) or 0)
         most_visits = db.get_most_visits_in_day(visitor_id) or {}
         longest_day = db.get_longest_viewing_day(visitor_id) or {}
 
@@ -7566,7 +7566,8 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     # Серия подряд и фото открыто (по visitor_id)
 
-    streak_days = db.get_streak_days(visitor_id)
+    _vis_uid_for_streak = _visitor_to_user_id(visitor_id) if visitor_id else None
+    streak_days = db.get_streak_days(visitor_id=visitor_id, user_id=_vis_uid_for_streak)
 
     if streak_days == 0:
 
@@ -7764,7 +7765,7 @@ async def stats_page(request: web.Request) -> web.StreamResponse:
 
     longest_day = db.get_longest_viewing_day(visitor_id)
 
-    longest_streak = db.get_longest_streak(visitor_id)
+    longest_streak = db.get_longest_streak(visitor_id=visitor_id, user_id=_vis_uid_for_streak)
 
     most_visits = db.get_most_visits_in_day(visitor_id)
 

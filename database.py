@@ -5105,13 +5105,19 @@ class Database:
             logger.exception(f"Ошибка при получении статистики просмотров моментов: {e}")
             return result
 
-    def get_streak_days(self, visitor_id: Optional[str] = None) -> int:
-        """Текущая серия дней подряд с хотя бы одним визитом (от «сегодня» назад). Без visitor_id — 0."""
-        if not visitor_id:
+    def get_streak_days(self, visitor_id: Optional[str] = None, user_id: Optional[int] = None) -> int:
+        """Текущая серия дней подряд с хотя бы одним визитом (от «сегодня» назад).
+
+        Если visitor_id указан — ищет только по этому visitor_id.
+        Если только user_id указан — ищет по всем visitor_id этого пользователя (для сохранения streak после сброса сессии).
+        """
+        if not visitor_id and not user_id:
             return 0
+
         try:
             with self._get_connection() as conn:
-                if True:
+                if visitor_id:
+                    # Поиск по конкретному visitor_id
                     cursor = conn.execute(
                         '''
                         SELECT DISTINCT DATE(visited_at_utc) AS d
@@ -5121,15 +5127,33 @@ class Database:
                         ''',
                         (visitor_id,),
                     )
+                else:
+                    # Поиск по user_id: объединяем данные со всех visitor_id пользователя
+                    cursor = conn.execute(
+                        '''
+                        SELECT DISTINCT DATE(sv.visited_at_utc) AS d
+                        FROM site_visits sv
+                        WHERE sv.visitor_id IN (
+                            SELECT visitor_id FROM devices
+                            WHERE visitor_id LIKE ? OR visitor_id = ?
+                        )
+                        ORDER BY d DESC
+                        ''',
+                        (f"{user_id}_%", str(user_id)),
+                    )
+
                 dates = [row["d"] for row in cursor.fetchall()]
+
             if not dates:
                 return 0
+
             today_dt = datetime.now(timezone.utc).date()
             today = today_dt.isoformat()
             yesterday = (today_dt - timedelta(days=1)).isoformat()
             last_visit = dates[0]
             if last_visit not in (today, yesterday):
                 return 0
+
             expect = last_visit
             streak = 0
             for d in dates:
@@ -5143,13 +5167,18 @@ class Database:
             logger.exception(f"Ошибка при подсчёте серии визитов: {e}")
             return 0
 
-    def get_longest_streak(self, visitor_id: Optional[str] = None) -> Optional[Tuple[str, str, int]]:
-        """Самая длинная серия подряд дней с визитами. Возвращает (start_iso, end_iso, days) или None. Без visitor_id — None."""
-        if not visitor_id:
+    def get_longest_streak(self, visitor_id: Optional[str] = None, user_id: Optional[int] = None) -> Optional[Tuple[str, str, int]]:
+        """Самая длинная серия подряд дней с визитами. Возвращает (start_iso, end_iso, days) или None.
+
+        Если visitor_id указан — ищет только по этому visitor_id.
+        Если только user_id указан — ищет по всем visitor_id этого пользователя (для сохранения longest_streak после сброса сессии).
+        """
+        if not visitor_id and not user_id:
             return None
         try:
             with self._get_connection() as conn:
-                if True:
+                if visitor_id:
+                    # Поиск по конкретному visitor_id
                     cursor = conn.execute(
                         '''
                         SELECT DISTINCT DATE(visited_at_utc) AS d
@@ -5159,9 +5188,26 @@ class Database:
                         ''',
                         (visitor_id,),
                     )
+                else:
+                    # Поиск по user_id: объединяем данные со всех visitor_id пользователя
+                    cursor = conn.execute(
+                        '''
+                        SELECT DISTINCT DATE(sv.visited_at_utc) AS d
+                        FROM site_visits sv
+                        WHERE sv.visitor_id IN (
+                            SELECT visitor_id FROM devices
+                            WHERE visitor_id LIKE ? OR visitor_id = ?
+                        )
+                        ORDER BY d
+                        ''',
+                        (f"{user_id}_%", str(user_id)),
+                    )
+
                 dates = [row["d"] for row in cursor.fetchall()]
+
             if not dates:
                 return None
+
             best_start = dates[0]
             best_end = dates[0]
             best_len = 1

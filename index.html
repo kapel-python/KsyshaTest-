@@ -1790,6 +1790,13 @@
 
         }
 
+        html.design-bright .memory .category:not(.wish-status-tag),
+        html.design-bright .event .category:not(.wish-status-tag),
+        html.design-bright .wish .category:not(.wish-status-tag) {
+            background: var(--category-badge-bg-bright, #ffb6c1);
+            color: var(--category-badge-text-bright, #ffffff);
+        }
+
         .title {
 
             font-size: 1.15rem;
@@ -1800,6 +1807,12 @@
 
             word-wrap: break-word;
 
+        }
+
+        html.design-bright .memory .title,
+        html.design-bright .event .title,
+        html.design-bright .wish .title {
+            color: var(--category-title-bright, #c71585);
         }
 
         .date {
@@ -3782,16 +3795,47 @@
 
         }
 
+        html.design-bright .memory {
+            border-left-color: var(--category-line-bright, #ff69b4);
+        }
+
+        html.design-bright .event,
+        html.design-bright .wish {
+            border-left-color: var(--category-line-bright, var(--category-line-color, #ffb6c1));
+        }
+
         html.design-standard .memory,
         html.design-standard .event,
         html.design-standard .wish {
+            border-left-color: rgba(0, 0, 0, 0.14);
             --category-line-color: rgba(0, 0, 0, 0.14);
         }
 
         html.theme-dark.design-standard .memory,
         html.theme-dark.design-standard .event,
         html.theme-dark.design-standard .wish {
+            border-left-color: rgba(255, 255, 255, 0.16);
             --category-line-color: rgba(255, 255, 255, 0.16);
+        }
+
+        html.design-standard .memory .category:not(.wish-status-tag),
+        html.design-standard .event .category:not(.wish-status-tag),
+        html.design-standard .wish .category:not(.wish-status-tag) {
+            background: rgba(0, 0, 0, 0.08);
+            color: var(--text-color);
+        }
+
+        html.theme-dark.design-standard .memory .category:not(.wish-status-tag),
+        html.theme-dark.design-standard .event .category:not(.wish-status-tag),
+        html.theme-dark.design-standard .wish .category:not(.wish-status-tag) {
+            background: rgba(255, 255, 255, 0.10);
+            color: var(--text-color);
+        }
+
+        html.design-standard .memory .title,
+        html.design-standard .event .title,
+        html.design-standard .wish .title {
+            color: var(--text-color);
         }
 
         #status {
@@ -7202,7 +7246,10 @@
 
         const cat = categoriesMap[m.category] || {};
         if (cat && cat.lineColor) {
-          div.style.setProperty('--category-line-color', String(cat.lineColor));
+          const color = String(cat.lineColor);
+          div.style.setProperty('--category-line-bright', color);
+          div.style.setProperty('--category-badge-bg-bright', color);
+          div.style.setProperty('--category-title-bright', color);
         }
 
         // Use translated category name if available
@@ -7387,7 +7434,9 @@
         const div = document.createElement('div');
 
         div.className = 'event';
-        div.style.setProperty('--category-line-color', '#16a34a');
+        div.style.setProperty('--category-line-bright', '#16a34a');
+        div.style.setProperty('--category-badge-bg-bright', '#16a34a');
+        div.style.setProperty('--category-title-bright', '#16a34a');
 
         if (e && e.is_passed) {
 
@@ -7709,7 +7758,9 @@
 
         const div = document.createElement('div');
         div.className = isMyWish ? 'wish my-wish' : 'wish partner-wish';
-        div.style.setProperty('--category-line-color', '#d97706');
+        div.style.setProperty('--category-line-bright', '#d97706');
+        div.style.setProperty('--category-badge-bg-bright', '#d97706');
+        div.style.setProperty('--category-title-bright', '#d97706');
         
         let displayName = ownerLabel;
         if (w && w.user_id && window._siteUsers) {

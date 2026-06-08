@@ -4495,6 +4495,38 @@
             border-color: rgba(255,255,255,0.16);
         }
 
+        html.design-bright .msg-reaction {
+            background: rgba(200,80,192,0.12);
+            border-color: rgba(200,80,192,0.20);
+        }
+
+        html.design-bright .msg-reaction:hover {
+            background: rgba(200,80,192,0.22);
+        }
+
+        html.design-bright .msg-reaction.active {
+            background: rgba(200,80,192,0.18);
+            border-color: rgba(200,80,192,0.45);
+        }
+
+        html.theme-dark.design-bright .msg-reaction {
+            background: rgba(200,80,192,0.18);
+            border-color: rgba(200,80,192,0.35);
+        }
+
+        html.design-bright .msg-reaction-avatar {
+            border-color: rgba(200,80,192,0.30);
+        }
+
+        html.design-bright .msg-reaction-avatar-emoji {
+            background: rgba(200,80,192,0.18);
+            border-color: rgba(200,80,192,0.30);
+        }
+
+        html.theme-dark.design-bright .msg-reaction-avatar-emoji {
+            background: rgba(200,80,192,0.25);
+        }
+
         /* ── Контекстное меню (удержание) ────────────────────────── */
         .ai-ctx-overlay {
             position: fixed; inset: 0; z-index: 800;
@@ -10140,7 +10172,7 @@
       // LONG-PRESS / CONTEXT MENU / REACTIONS / PIN
       // ══════════════════════════════════════════════════════
 
-      const AI_REACTIONS = ['❤️','💋','✨','🙄','🖕','😈','👺','👀','😂','💓','🥹','😘','😭','🤗','🤯','🥰'];
+      const AI_REACTIONS = ['👍','❤️','👌','🙏','🤝','💡','✨','👀','🙂','🤔','🫪','😂','😮','😢','🔥','✅'];
       // msgEl → { reaction: emoji|null, pinned: bool }
       const _msgMeta = new WeakMap();
       let _pinnedMsgEl = null;  // текущее закреплённое .msg

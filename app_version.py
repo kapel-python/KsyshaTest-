@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.371'
-description = 'Блоки карточек с стандартной темой'
+version = '1.0.372'
+description = 'Фикс карточек'
 
 
 def get_version_metadata() -> tuple[str, str]:

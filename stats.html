@@ -718,23 +718,23 @@ html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
 html.design-standard {
   --bg: #fafafa;
   --surface: #ffffff;
-  --accent: #d43f8d;
-  --text: #333;
-  --muted: #999;
-  --meta: #bbb;
-  --pink-soft: #fff0f5;
-  --pink-border: #ffb6c1;
+  --accent: #6b7280;
+  --text: #1f2937;
+  --muted: #9ca3af;
+  --meta: #d1d5db;
+  --pink-soft: #f3f4f6;
+  --pink-border: #e5e7eb;
 }
 
 html.design-standard.theme-dark {
-  --bg: #0d0b14;
-  --surface: #1a1825;
-  --accent: #ff9bcd;
-  --text: #f0f0ff;
-  --muted: #b3b3d4;
-  --meta: #9292ba;
-  --pink-soft: rgba(255,155,205,0.15);
-  --pink-border: rgba(255,155,205,0.25);
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --accent: #94a3b8;
+  --text: #f1f5f9;
+  --muted: #cbd5e1;
+  --meta: #475569;
+  --pink-soft: #1e293b;
+  --pink-border: #334155;
 }
 
 html.design-standard body::before {
@@ -772,6 +772,15 @@ html.design-standard .featured::after {
 
 html.design-standard .hero-title {
   font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+}
+
+html.design-standard .hero-title em {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: unset;
+  background-clip: unset;
+  color: var(--accent);
 }
 
 html.design-standard .mini-card {
@@ -785,6 +794,14 @@ html.design-standard.theme-dark .mini-card {
 
 html.design-standard .mini-card::before {
   display: none;
+}
+
+html.design-standard .mini-card-value {
+  color: var(--text);
+}
+
+html.design-standard .mini-card-label {
+  color: var(--muted);
 }
 
 html.design-standard .stat-card {
@@ -832,6 +849,10 @@ html.design-standard.theme-dark .quote-section {
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
+html.design-standard .quote-section::before {
+  display: none;
+}
+
 html.design-standard .quote-text {
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
@@ -839,6 +860,78 @@ html.design-standard .quote-text {
 
 html.design-standard .quote-author {
   color: var(--muted);
+}
+
+html.design-standard .hero-badge {
+  background: var(--pink-soft);
+  border: 1px solid var(--pink-border);
+  color: var(--accent);
+}
+
+html.design-standard .back-link {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(107,114,128,0.2);
+}
+
+html.design-standard .back-link:hover {
+  box-shadow: 0 8px 20px rgba(107,114,128,0.3);
+}
+
+html.design-standard .hm-nav-btn {
+  background: var(--pink-soft);
+  border: 1px solid var(--pink-border);
+  color: var(--accent);
+}
+
+html.design-standard .hm-nav-btn:hover {
+  background: var(--pink-border);
+}
+
+html.design-standard .stat-card-label {
+  color: var(--accent);
+}
+
+html.design-standard .stat-card-value {
+  color: var(--text);
+}
+
+html.design-standard .stat-card-sub {
+  color: var(--muted);
+}
+
+html.design-standard .stat-card-category {
+  background: var(--pink-soft);
+  border: 1px solid var(--pink-border);
+  color: var(--accent);
+}
+
+html.design-standard .featured-title {
+  color: #fff;
+}
+
+html.design-standard .featured-meta {
+  color: rgba(255,255,255,0.8);
+}
+
+html.design-standard .featured-badge {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+html.design-standard .featured-category {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+html.design-standard .featured-bar-fill {
+  background: rgba(255,255,255,0.9);
+}
+
+html.design-standard .featured-bar-label {
+  color: rgba(255,255,255,0.75);
 }
 
 /* ── Серийчик — огонёк ── */
@@ -952,6 +1045,30 @@ html.design-standard .quote-author {
             .nav-item:not(.active):hover { background: rgba(124,58,237,0.05); }
             .nav-item:not(.active):hover .nav-icon svg { stroke: rgba(124,58,237,0.5); }
             .nav-item:not(.active):hover .nav-label { color: rgba(124,58,237,0.5); }
+        }
+
+        /* ── Standard design nav ── */
+        html.design-standard .nav-item.active {
+            background: rgba(107,114,128,0.08);
+        }
+        html.design-standard .nav-item.active .nav-icon svg {
+            stroke: var(--accent);
+            filter: none;
+        }
+        html.design-standard .nav-item.active .nav-label {
+            background: none;
+            -webkit-background-clip: unset;
+            -webkit-text-fill-color: unset;
+            background-clip: unset;
+            color: var(--accent);
+        }
+        html.design-standard .nav-icon svg {
+            stroke: var(--muted);
+        }
+        @media (hover: hover) {
+            html.design-standard .nav-item:not(.active):hover { background: rgba(107,114,128,0.06); }
+            html.design-standard .nav-item:not(.active):hover .nav-icon svg { stroke: var(--accent); }
+            html.design-standard .nav-item:not(.active):hover .nav-label { color: var(--accent); }
         }
 </style>
 </head>

@@ -13255,7 +13255,7 @@
         let subText = '';
         const ctype = cel.celebration_type || '';
         if (ctype === 'anniversary') {
-          emoji = '💕';
+          emoji = '✦';
           titleText = cel.event_title || _ui('celebrationAnniversaryTitle');
           subText = _ui('celebrationAnniversarySub');
         } else if (ctype === 'event' || ctype.startsWith('event_')) {
@@ -17551,108 +17551,7 @@
   }
   </script>
 
-  <!-- ════════ FLOATING HEARTS ════════ -->
-  <script>
-  (function() {
-    window._heartsEnabled = false;
-    return;
-    const HEARTS = ['💓','💝','💕','💖','💞','💘'];
 
-    function rnd(a, b) { return a + Math.random() * (b - a); }
-
-    function spawnHeart() {
-      const el = document.createElement('div');
-      el.style.cssText =
-        'position:fixed;bottom:-60px;pointer-events:none;user-select:none;' +
-        'z-index:9999;will-change:transform,opacity;' +
-        'animation:heartFloat linear forwards;';
-      el.textContent = HEARTS[Math.floor(Math.random() * HEARTS.length)];
-      el.style.fontSize  = rnd(12, 22) + 'px';
-      el.style.left      = rnd(0, 96) + 'vw';
-      const travel = -(window.innerHeight + 100);
-      el.style.setProperty('--ht', travel + 'px');
-      el.style.setProperty('--sw', rnd(-60, 60) + 'px');
-      el.style.setProperty('--rt', rnd(-25, 25) + 'deg');
-      el.style.setProperty('--se', rnd(0.6, 1.3));
-      el.style.animationDuration = rnd(7000, 16000) + 'ms';
-      document.documentElement.appendChild(el);
-      el.addEventListener('animationend', () => el.remove(), { once: true });
-    }
-
-    function scheduleNext() {
-      setTimeout(() => {
-        if (window._heartsEnabled !== false) spawnHeart();
-        scheduleNext();
-      }, rnd(800, 1800));
-    }
-
-    // Click/tap burst
-    function spawnBurst(x, y) {
-      const count = Math.floor(rnd(3, 7));
-      for (let i = 0; i < count; i++) {
-        setTimeout(() => {
-          const el = document.createElement('div');
-          el.style.cssText =
-            'position:fixed;pointer-events:none;user-select:none;' +
-            'z-index:9999;will-change:transform,opacity;' +
-            'animation:heartFloat linear forwards;';
-          el.textContent = HEARTS[Math.floor(Math.random() * HEARTS.length)];
-          el.style.fontSize = rnd(12, 20) + 'px';
-          el.style.left     = (x + rnd(-30, 30)) + 'px';
-          el.style.bottom   = (window.innerHeight - y) + 'px';
-          el.style.setProperty('--ht', -(rnd(120, 280)) + 'px');
-          el.style.setProperty('--sw', rnd(-50, 50) + 'px');
-          el.style.setProperty('--rt', rnd(-30, 30) + 'deg');
-          el.style.setProperty('--se', rnd(0.5, 1.2));
-          el.style.animationDuration = rnd(1200, 2200) + 'ms';
-          document.documentElement.appendChild(el);
-          el.addEventListener('animationend', () => el.remove(), { once: true });
-        }, i * rnd(0, 80));
-      }
-    }
-
-    // Add CSS keyframe once
-    const style = document.createElement('style');
-    style.textContent =
-      '@keyframes heartFloat{' +
-        '0%{transform:translateY(0) translateX(0) rotate(0deg) scale(1);opacity:0}' +
-        '8%{opacity:1}' +
-        '85%{opacity:1}' +
-        '100%{transform:translateY(var(--ht)) translateX(var(--sw)) rotate(var(--rt)) scale(var(--se));opacity:0}' +
-      '}';
-    document.head.appendChild(style);
-
-    // Start after loading screen fades
-    function tryStart() {
-      const ls = document.getElementById('loadingScreen');
-      if (ls && ls.style.display !== 'none' && ls.style.opacity !== '0') {
-        setTimeout(tryStart, 400);
-        return;
-      }
-      // Initial burst
-      if (window._heartsEnabled !== false) {
-        for (let i = 0; i < 3; i++) setTimeout(spawnHeart, i * 400);
-      }
-      scheduleNext();
-
-      // Click burst — only if hearts enabled
-      document.addEventListener('click', e => {
-        if (window._heartsEnabled !== false) spawnBurst(e.clientX, e.clientY);
-      });
-      document.addEventListener('touchend', e => {
-        if (window._heartsEnabled === false) return;
-        const t = e.changedTouches[0];
-        if (t) spawnBurst(t.clientX, t.clientY);
-      }, { passive: true });
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(tryStart, 600));
-    } else {
-      setTimeout(tryStart, 600);
-    }
-  })();
-  </script>
 
   <!-- ════════ SETTINGS MODAL ════════ -->
   <div class="settings-overlay" id="settingsOverlay">

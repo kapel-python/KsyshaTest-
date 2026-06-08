@@ -9,7 +9,7 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.357'
+version = '1.0.358'
 description = 'Уменьшение романтики'
 
 

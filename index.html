@@ -7211,9 +7211,9 @@
 
       // Конфиг статусов желания
       const WISH_STATUS = {
-        created:     { label: () => _ui('wishStatusCreated'),    bg: 'rgba(148,163,184,0.15)', border: 'rgba(148,163,184,0.4)', color: '#94a3b8' },
-        in_progress: { label: () => _ui('wishStatusProgress'), bg: 'rgba(59,130,246,0.15)',  border: 'rgba(59,130,246,0.4)',  color: '#60a5fa' },
-        done:        { label: () => _ui('wishStatusDone'),  bg: 'rgba(34,197,94,0.15)',   border: 'rgba(34,197,94,0.4)',   color: '#4ade80' },
+        created:     { label: () => _ui('wishStatusCreated'),  icon: '○', bg: 'linear-gradient(135deg, rgba(148,163,184,0.18), rgba(148,163,184,0.08))', border: 'rgba(148,163,184,0.42)', color: '#64748b' },
+        in_progress: { label: () => _ui('wishStatusProgress'), icon: '◔', bg: 'linear-gradient(135deg, rgba(56,189,248,0.22), rgba(59,130,246,0.10))', border: 'rgba(59,130,246,0.50)', color: '#2563eb' },
+        done:        { label: () => _ui('wishStatusDone'),     icon: '●', bg: 'linear-gradient(135deg, rgba(74,222,128,0.24), rgba(34,197,94,0.10))', border: 'rgba(34,197,94,0.52)', color: '#16a34a' },
       };
 
       function createWishStatusTag(wishId, currentStatus) {
@@ -7276,7 +7276,8 @@
           'background:var(--card-bg,#fff);' +
           'border-radius:22px 22px 0 0;' +
           'padding:8px 16px 32px;' +
-          'box-shadow:0 -8px 40px rgba(0,0,0,0.2);' +
+          'border-top:1px solid rgba(255,255,255,0.35);' +
+          'box-shadow:0 -16px 48px rgba(15,23,42,0.24);' +
           'animation:wsPickerSlideUp 0.3s cubic-bezier(0.34,1.2,0.64,1) both;';
 
         // Ручка
@@ -7317,23 +7318,25 @@
           const isCurrent = (tagEl.dataset.status === key);
           const btn = document.createElement('button');
           btn.style.cssText =
-            'width:100%;padding:13px 16px;border-radius:14px;' +
-            `border:1.5px solid ${isCurrent ? s.border : 'transparent'};` +
-            `background:${isCurrent ? s.bg : 'var(--border-color,rgba(0,0,0,0.05))'};` +
+            'width:100%;padding:14px 16px;border-radius:16px;' +
+            `border:1.5px solid ${isCurrent ? s.border : 'rgba(148,163,184,0.16)'};` +
+            `background:${isCurrent ? s.bg : 'rgba(255,255,255,0.86)'};` +
             `color:${isCurrent ? s.color : 'var(--text-color,#1a1530)'};` +
             'font-size:0.88rem;font-weight:600;cursor:pointer;' +
             'display:flex;align-items:center;gap:12px;' +
             'margin-bottom:8px;' +
+            'box-shadow:0 10px 24px rgba(15,23,42,0.06);' +
             `animation:wsPickerSlideUp 0.3s cubic-bezier(0.34,1.2,0.64,1) ${0.05 + i*0.04}s both;` +
             'transition:all 0.15s;';
 
           // Иконка статуса
           const icon = document.createElement('span');
           icon.style.cssText =
-            `width:28px;height:28px;border-radius:50%;` +
+            `width:32px;height:32px;border-radius:50%;` +
             `background:${s.bg};border:1.5px solid ${s.border};` +
-            `display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;`;
-          icon.textContent = '';
+            `display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;flex-shrink:0;` +
+            `color:${s.color};box-shadow:inset 0 1px 0 rgba(255,255,255,0.45);`;
+          icon.textContent = s.icon || '';
           btn.appendChild(icon);
 
           const lblWrap = document.createElement('div');
@@ -7357,8 +7360,20 @@
             btn.appendChild(check);
           }
 
-          btn.onmouseenter = () => { if (!isCurrent) btn.style.background = s.bg; };
-          btn.onmouseleave = () => { if (!isCurrent) btn.style.background = 'var(--border-color,rgba(0,0,0,0.05))'; };
+          btn.onmouseenter = () => {
+            if (!isCurrent) {
+              btn.style.background = s.bg;
+              btn.style.borderColor = s.border;
+              btn.style.transform = 'translateY(-1px)';
+            }
+          };
+          btn.onmouseleave = () => {
+            if (!isCurrent) {
+              btn.style.background = 'rgba(255,255,255,0.86)';
+              btn.style.borderColor = 'rgba(148,163,184,0.16)';
+              btn.style.transform = 'translateY(0)';
+            }
+          };
           btn.onclick = (e) => {
             e.stopPropagation();
             closePicker();
@@ -10507,7 +10522,7 @@
               wishStatusHint: 'Нажми, чтобы изменить статус',
               wishStatusCreated: 'Ещё не начато',
               wishStatusCreatedSub: 'Пока ничего не сделано',
-              wishStatusProgress: 'Работаем над этим',
+              wishStatusProgress: 'В процессе',
               wishStatusProgressSub: 'Уже в процессе',
               wishStatusDone: 'Готово',
               wishStatusDoneSub: 'Мечта сбылась! 🎉',
@@ -16273,7 +16288,7 @@
       wishStatusHint: 'Нажми, чтобы изменить статус',
       wishStatusCreated: 'Ещё не начато',
       wishStatusCreatedSub: 'Пока ничего не сделано',
-      wishStatusProgress: 'Работаем над этим',
+      wishStatusProgress: 'В процессе',
       wishStatusProgressSub: 'Уже в процессе',
       wishStatusDone: 'Готово',
       wishStatusDoneSub: 'Мечта сбылась! 🎉',

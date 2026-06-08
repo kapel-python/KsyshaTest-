@@ -714,6 +714,133 @@ html.theme-dark .sc2 .stat-card-icon-wrap { background: rgba(255,179,71,0.2); }
 html.theme-dark .sc3 .stat-card-icon-wrap { background: rgba(124,58,237,0.2); }
 html.theme-dark .sc4 .stat-card-icon-wrap { background: rgba(22,163,74,0.2); }
 
+/* ══ STANDARD DESIGN ══ */
+html.design-standard {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --accent: #d43f8d;
+  --text: #333;
+  --muted: #999;
+  --meta: #bbb;
+  --pink-soft: #fff0f5;
+  --pink-border: #ffb6c1;
+}
+
+html.design-standard.theme-dark {
+  --bg: #0d0b14;
+  --surface: #1a1825;
+  --accent: #ff9bcd;
+  --text: #f0f0ff;
+  --muted: #b3b3d4;
+  --meta: #9292ba;
+  --pink-soft: rgba(255,155,205,0.15);
+  --pink-border: rgba(255,155,205,0.25);
+}
+
+html.design-standard body::before {
+  display: none;
+}
+html.design-standard body::after {
+  display: none;
+}
+
+html.design-standard .counter-wrap {
+  background: var(--accent);
+  box-shadow: 0 4px 16px rgba(212,63,141,0.2);
+}
+
+html.design-standard .counter-wrap::before,
+html.design-standard .counter-wrap::after {
+  display: none;
+}
+
+html.design-standard .counter-num {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-size: 4rem;
+}
+
+html.design-standard .featured {
+  background: var(--accent);
+  box-shadow: 0 4px 16px rgba(212,63,141,0.2);
+}
+
+html.design-standard .featured::before,
+html.design-standard .featured::after {
+  display: none;
+}
+
+html.design-standard .hero-title {
+  font-family: 'DM Sans', sans-serif;
+}
+
+html.design-standard .mini-card {
+  border: 1px solid var(--pink-border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+html.design-standard.theme-dark .mini-card {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+html.design-standard .mini-card::before {
+  display: none;
+}
+
+html.design-standard .stat-card {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border: 1px solid var(--pink-border);
+}
+
+html.design-standard.theme-dark .stat-card {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+html.design-standard .stat-card-stripe {
+  display: none;
+}
+
+html.design-standard .stat-card-icon-wrap {
+  background: var(--pink-soft) !important;
+}
+
+html.design-standard .heatmap-section {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border: 1px solid var(--pink-border);
+}
+
+html.design-standard.theme-dark .heatmap-section {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+html.design-standard .records {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border: 1px solid var(--pink-border);
+}
+
+html.design-standard.theme-dark .records {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+html.design-standard .quote-section {
+  background: var(--surface);
+  border: 1px solid var(--pink-border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+html.design-standard.theme-dark .quote-section {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+html.design-standard .quote-text {
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+}
+
+html.design-standard .quote-author {
+  color: var(--muted);
+}
+
 /* ── Серийчик — огонёк ── */
 .streak-fire {
   display: inline-block;

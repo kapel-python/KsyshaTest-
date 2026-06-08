@@ -4088,6 +4088,58 @@
 
         }
 
+        html.design-standard .search-icon {
+            color: var(--meta-text);
+        }
+
+        html.design-standard .search-input {
+            border-color: rgba(0, 0, 0, 0.12);
+        }
+
+        html.design-standard .search-input::placeholder {
+            color: var(--meta-text);
+        }
+
+        html.design-standard .search-input:focus {
+            border-color: rgba(0, 0, 0, 0.28);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+        }
+
+        html.theme-dark.design-standard .search-input {
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+
+        html.theme-dark.design-standard .search-input:focus {
+            border-color: rgba(255, 255, 255, 0.24);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+        }
+
+        html.design-standard .filter-pill {
+            border-color: rgba(0, 0, 0, 0.12);
+            color: var(--muted-text);
+        }
+
+        html.theme-dark.design-standard .filter-pill {
+            border-color: rgba(255, 255, 255, 0.14);
+            color: var(--muted-text);
+        }
+
+        html.design-standard .filter-pill:hover {
+            border-color: rgba(0, 0, 0, 0.28);
+            color: var(--text-color);
+        }
+
+        html.theme-dark.design-standard .filter-pill:hover {
+            border-color: rgba(255, 255, 255, 0.24);
+            color: var(--text-color);
+        }
+
+        html.design-standard .filter-pill.active {
+            background: var(--text-color);
+            border-color: var(--text-color);
+            color: var(--bg-color);
+        }
+
         /* Тёмная тема: AI-компаньон */
 
         .theme-dark .ai-modal {

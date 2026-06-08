@@ -72,6 +72,7 @@ from utils import (
     is_scheduled_event_moment_passed,
 
     format_visit_telegram_message,
+    get_wish_display_number,
 
 )
 
@@ -1765,6 +1766,7 @@ def _wish_to_public_dict(w: Wish, timezone_id: str | None = None) -> dict:
         "user_id": w.user_id,
 
         "wish_number": w.wish_number,
+        "wish_display_number": get_wish_display_number(w),
 
         "content_html": _safe_html(w.content or ""),
 
@@ -9113,7 +9115,9 @@ async def site_create_wish(request: web.Request) -> web.Response:
     try:
         actor = "Партнёр"
         other_id = _visitor_partner_id(visitor_id)
-        notify_text = f"💫 <b>{actor} написал(а) желание #{wish_id}</b>"
+        wish = db.get_wish(wish_id)
+        wish_display = get_wish_display_number(wish) if wish else f"#{wish_id}"
+        notify_text = f"💫 <b>{actor} написал(а) желание {wish_display}</b>"
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👀 Открыть желание", callback_data=f"wish_view_{wish_id}")]
         ])

@@ -2002,20 +2002,46 @@ def format_admin_details(admin: Dict, user_stats: Optional[Dict[str, int]] = Non
     return text
 
 WISH_STATUS_LABELS = {
-    "created":     "⬜ Создано",
-    "in_progress": "🔵 В процессе",
-    "done":        "✅ Выполнено",
+    "created":     "Создано",
+    "in_progress": "В процессе",
+    "done":        "Выполнено",
 }
+
+def get_wish_display_number(wish: Wish) -> str:
+    """Возвращает номер желания в формате #<pair>-<ordinal>."""
+    try:
+        from database import db
+
+        couple = db.get_couple_by_user(wish.user_id) if wish.user_id else None
+        couple_id = int((couple or {}).get("id") or 0)
+        wish_index = int(getattr(wish, "wish_number", 0) or 0)
+
+        if wish_index <= 0:
+            wishes = db.get_couple_wishes(couple_id) if couple_id else db.get_user_wishes(wish.user_id)
+            wishes = wishes or []
+            for idx, item in enumerate(wishes, start=1):
+                if int(getattr(item, "id", 0) or 0) == int(getattr(wish, "id", 0) or 0):
+                    wish_index = idx
+                    break
+
+        if wish_index <= 0:
+            wish_index = int(getattr(wish, "id", 0) or 0)
+
+        prefix = couple_id if couple_id > 0 else int(getattr(wish, "user_id", 0) or 0)
+        return f"#{prefix}-{wish_index}" if prefix and wish_index else f"#{wish_index}"
+    except Exception:
+        wish_index = int(getattr(wish, "wish_number", 0) or getattr(wish, "id", 0) or 0)
+        return f"#{wish_index}" if wish_index else "#?"
 
 def format_wish_text(wish: Wish, user_id: Optional[int] = None) -> str:
     """Форматирует текст желания для отображения. user_id — для учёта часового пояса в дате добавления."""
     from database import db
     author_name = db.get_display_name(wish.user_id) if wish.user_id else "Партнёр"
-    text = f"💫 <b>Желание {author_name} #{wish.id}</b>\n\n"
+    text = f"💫 <b>Желание {author_name} {get_wish_display_number(wish)}</b>\n\n"
     text += "💬 " + sanitize_html_for_telegram((wish.content or "").strip()) + "\n\n"
 
     status = getattr(wish, "status", "created") or "created"
-    status_label = WISH_STATUS_LABELS.get(status, "⬜ Создано")
+    status_label = WISH_STATUS_LABELS.get(status, "Создано")
     text += f"🏷 Статус: <b>{status_label}</b>\n\n"
 
     tz_id = db.get_user_setting(user_id, "timezone") if user_id else None

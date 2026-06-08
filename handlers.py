@@ -46,7 +46,7 @@ from utils import (
     create_wishes_menu_keyboard_creator, create_wishes_menu_keyboard_partner,
     create_wish_user_keyboard, create_wish_admin_keyboard,
     create_wish_keyboard,
-    WISH_STATUS_LABELS,
+    WISH_STATUS_LABELS, get_wish_display_number,
     send_wish_with_media,
     create_settings_menu_keyboard, create_settings_time_keyboard,
     create_settings_notifications_keyboard, create_settings_favorites_keyboard,
@@ -7615,7 +7615,7 @@ async def wishes_menu(callback: CallbackQuery):
     all_wishes.sort(key=lambda w: w.id)
 
     intro_text = (
-        "💫 <b>Желания пары</b>\n\n"
+        "💫 <b>Ваши желания</b>\n\n"
         "Здесь можно просмотреть и добавить желания"
     )
     await callback_edit_or_answer(callback,
@@ -7829,16 +7829,16 @@ async def wish_status_menu(callback: CallbackQuery):
     def make_kb(cur_status):
         rows = []
         for key, label in WISH_STATUS_LABELS.items():
-            check = "✅ " if key == cur_status else ""
             rows.append([InlineKeyboardButton(
-                text=f"{check}{label}",
+                text=label,
                 callback_data=f"wish_status_set_{wish_id}_{key}"
             )])
         rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"wish_view_{wish_id}")])
         return InlineKeyboardMarkup(inline_keyboard=rows)
 
     status_label = WISH_STATUS_LABELS.get(current, current)
-    text = f"\U0001f3f7 <b>Статус желания #{wish_id}</b>\n\nТекущий: {status_label}\n\nВыбери новый:"
+    wish_title = get_wish_display_number(wish) if wish else f"#{wish_id}"
+    text = f"\U0001f3f7 <b>Статус желания {wish_title}</b>\n\nТекущий: {status_label}\n\nВыбери новый:"
     try:
         await callback.message.edit_text(text, reply_markup=make_kb(current), parse_mode=ParseMode.HTML)
     except Exception:
@@ -7895,9 +7895,8 @@ async def wish_status_set(callback: CallbackQuery):
     def make_kb(cur_status):
         rows = []
         for key, label in WISH_STATUS_LABELS.items():
-            check = "✅ " if key == cur_status else ""
             rows.append([InlineKeyboardButton(
-                text=f"{check}{label}",
+                text=label,
                 callback_data=f"wish_status_set_{wish_id}_{key}"
             )])
         rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data=f"wish_view_{wish_id}")])
@@ -7932,7 +7931,7 @@ async def wish_edit(callback: CallbackQuery, state: FSMContext):
     await state.update_data(wish_id=wish.id)
     await state.set_state(WishesStates.waiting_for_wish_content)
     await callback_edit_or_answer(callback,
-        f"✏️ <b>Изменение желания #{wish.id}</b>\n\n"
+        f"✏️ <b>Изменение желания {get_wish_display_number(wish)}</b>\n\n"
         f"Текущее желание:\n{sanitize_html_for_telegram(wish.content or '')}\n\n"
         "Отправь новый вариант",
         parse_mode=ParseMode.HTML
@@ -7989,7 +7988,7 @@ async def wish_delete(callback: CallbackQuery):
         )]
     ])
     await callback_edit_or_answer(callback,
-        f"❓ <b>Удалить желание #{wish.id}?</b>\n\n"
+        f"❓ <b>Удалить желание {get_wish_display_number(wish)}?</b>\n\n"
         f"Текущее желание:\n{sanitize_html_for_telegram(wish.content or '')}",
         reply_markup=keyboard,
         parse_mode=ParseMode.HTML
@@ -8041,7 +8040,7 @@ async def wish_delete_confirm(callback: CallbackQuery):
         partner_id = db.get_partner_id(user_id)
         if partner_id and db.are_notifications_enabled(partner_id) and db.is_category_notif_enabled(partner_id, "wishes"):
             user_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = f"❌ {user_name} удалил(а) своё желание #{wish.id}."
+            notify_text = f"❌ {user_name} удалил(а) своё желание {get_wish_display_number(wish)}."
             await callback.bot.send_message(
                 chat_id=partner_id,
                 text=notify_text,
@@ -8182,7 +8181,7 @@ async def admin_wish_delete_no_reason(callback: CallbackQuery, state: FSMContext
     try:
         if db.are_notifications_enabled(wish.user_id) and db.is_category_notif_enabled(wish.user_id, "wishes"):
             deleter_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = f"❌ <b>Твоё желание #{wish.id} было удалено ({deleter_name})</b>"
+            notify_text = f"❌ <b>Твоё желание {get_wish_display_number(wish)} было удалено ({deleter_name})</b>"
             await callback.bot.send_message(
                 chat_id=wish.user_id,
                 text=notify_text,
@@ -8702,7 +8701,7 @@ async def process_wish_delete_reason(message: Message, state: FSMContext):
     try:
         if db.are_notifications_enabled(wish.user_id) and db.is_category_notif_enabled(wish.user_id, "wishes"):
             deleter_name = db.get_display_name(user_id, fallback="Партнёр")
-            notify_text = f"❌ <b>Твоё желание #{wish.id} было удалено ({deleter_name})</b>"
+            notify_text = f"❌ <b>Твоё желание {get_wish_display_number(wish)} было удалено ({deleter_name})</b>"
             
             await message.bot.send_message(
                 chat_id=wish.user_id,

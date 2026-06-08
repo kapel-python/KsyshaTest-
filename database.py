@@ -2063,10 +2063,31 @@ class Database:
         """Создаёт новое желание."""
         try:
             with self._get_connection() as conn:
+                wish_number = 1
+                couple_row = conn.execute(
+                    "SELECT id, user1_id, user2_id FROM couples WHERE user1_id = ? OR user2_id = ? ORDER BY id DESC LIMIT 1",
+                    (user_id, user_id),
+                ).fetchone()
+                if couple_row:
+                    couple_members = [uid for uid in (couple_row["user1_id"], couple_row["user2_id"]) if uid]
+                    if couple_members:
+                        placeholders = ", ".join("?" for _ in couple_members)
+                        row = conn.execute(
+                            f"SELECT COUNT(*) AS cnt FROM wishes WHERE user_id IN ({placeholders})",
+                            tuple(couple_members),
+                        ).fetchone()
+                        wish_number = int((row["cnt"] if row else 0) or 0) + 1
+                else:
+                    row = conn.execute(
+                        "SELECT COUNT(*) AS cnt FROM wishes WHERE user_id = ?",
+                        (user_id,),
+                    ).fetchone()
+                    wish_number = int((row["cnt"] if row else 0) or 0) + 1
+
                 cursor = conn.execute('''
-                    INSERT INTO wishes (user_id, content, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (user_id, content, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height))
+                    INSERT INTO wishes (user_id, wish_number, content, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (user_id, wish_number, content, media_type, media_file_id, media_path, original_filename, mime_type, file_size, duration_sec, width, height))
                 conn.commit()
                 wish_id = cursor.lastrowid
                 logger.info(f"Добавлено желание #{wish_id} пользователя {user_id}")
@@ -2221,6 +2242,21 @@ class Database:
                 ]
         except Exception as e:
             logger.exception(f"Ошибка при получении желаний пользователя: {e}")
+            return []
+
+    def get_couple_wishes(self, couple_id: int) -> List[Wish]:
+        """Получает все желания участников пары, отсортированные по дате создания."""
+        try:
+            members = self.get_couple_members(couple_id) or []
+            if not members:
+                return []
+            wishes: List[Wish] = []
+            for uid in members:
+                wishes.extend(self.get_user_wishes(uid) or [])
+            wishes.sort(key=lambda w: ((w.created_at or ""), w.id))
+            return wishes
+        except Exception as e:
+            logger.exception(f"Ошибка при получении желаний пары {couple_id}: {e}")
             return []
 
 

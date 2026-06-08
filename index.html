@@ -7333,7 +7333,7 @@
             `width:28px;height:28px;border-radius:50%;` +
             `background:${s.bg};border:1.5px solid ${s.border};` +
             `display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;`;
-          icon.textContent = isCurrent ? '✅' : { created:'⬜', in_progress:'🔵', done:'✅' }[key];
+          icon.textContent = s.label || '';
           btn.appendChild(icon);
 
           const lblWrap = document.createElement('div');

@@ -6442,6 +6442,7 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
         if is_rollback_release:
             await callback.message.answer("🏷 Защищаю коммиты всех версий из истории git-тегами...")
             tag_errors = []
+            tags_to_push = []
             for hist_entry in history:
                 h_ver = hist_entry.get("version", "")
                 h_commit = hist_entry.get("git_commit", "")
@@ -6465,12 +6466,20 @@ async def admin_confirm_release(callback: CallbackQuery, state: FSMContext):
                 if existing.returncode == 0 and existing.stdout.strip() == full_h_commit:
                     continue  # already tagged correctly
                 subprocess.run(["git", "tag", "-f", h_tag, full_h_commit], cwd=repo_root, capture_output=True)
-                push_tag = subprocess.run(
-                    ["git", "push", "-f", "origin", h_tag],
-                    cwd=repo_root, capture_output=True, text=True
-                )
-                if push_tag.returncode != 0:
-                    tag_errors.append(f"{h_ver} (push тега не удался)")
+                tags_to_push.append(h_tag)
+
+            if tags_to_push:
+                chunk_size = 50
+                for i in range(0, len(tags_to_push), chunk_size):
+                    chunk = tags_to_push[i:i+chunk_size]
+                    push_tag = subprocess.run(
+                        ["git", "push", "-f", "origin"] + chunk,
+                        cwd=repo_root, capture_output=True, text=True
+                    )
+                    if push_tag.returncode != 0:
+                        for t in chunk:
+                            tag_errors.append(f"{t[1:]} (push тега не удался)")
+
             if tag_errors:
                 await callback.message.answer(
                     f"⚠️ Не удалось запушить теги для: {', '.join(tag_errors)}\n"

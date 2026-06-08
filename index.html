@@ -32,7 +32,7 @@
                 document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
                 window.__initialTheme = theme === 'dark' ? 'dark' : 'light';
 
-                var design = localStorage.getItem('memories_design') || 'standard';
+                var design = localStorage.getItem('memories_design') || 'bright';
                 if (design === 'bright') {
                     document.documentElement.classList.add('design-bright');
                 } else {
@@ -4716,6 +4716,31 @@
             line-height: 1.7;
             white-space: pre-line;
 
+        }
+
+        html.design-standard .welcome-card {
+            border-color: rgba(0, 0, 0, 0.12);
+        }
+
+        html.theme-dark.design-standard .welcome-card {
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+
+        html.design-standard .welcome-card-title {
+            background: none;
+            -webkit-text-fill-color: currentColor;
+            color: var(--text-color);
+            animation: none;
+        }
+
+        html.design-standard .theme-toggle {
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--text-color);
+        }
+
+        html.theme-dark.design-standard .theme-toggle {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-color);
         }
 
         @media (max-width: 600px) {
@@ -13515,7 +13540,7 @@
 
         initThemeToggle(storedTheme);
         if (typeof applyDesign === 'function') {
-          applyDesign(window.__initialDesign || localStorage.getItem('memories_design') || 'standard');
+          applyDesign(window.__initialDesign || localStorage.getItem('memories_design') || 'bright');
         }
 
         const isNew = !localStorage.getItem(VISIT_STORAGE_KEY);
@@ -16779,7 +16804,7 @@
   localStorage.setItem('memories_hearts', 'off');
   const _stgState = {
     theme:  _stgGet(THEME_STORAGE_KEY_STG, window.__initialTheme || 'light'),
-    design: _stgGet(DESIGN_STORAGE_KEY_STG, window.__initialDesign || 'standard'),
+    design: _stgGet(DESIGN_STORAGE_KEY_STG, window.__initialDesign || 'bright'),
     lang:   _stgGet(STG_LS.lang,   'ru'),
     tz:     _stgGet(STG_LS.tz,     '__auto__'),
     hearts: false,

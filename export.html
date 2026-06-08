@@ -15,6 +15,10 @@
   if (!theme && typeof window.matchMedia === 'function')
     theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   document.documentElement.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+
+  var design = typeof localStorage !== 'undefined' && localStorage.getItem('memories_design') || 'standard';
+  document.documentElement.classList.add(design === 'bright' ? 'design-bright' : 'design-standard');
+  document.documentElement.dataset.design = design;
 })();
 </script>
 <!-- Server injects the export token here — JS never needs to parse the URL -->

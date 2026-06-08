@@ -31,6 +31,15 @@
                 }
                 document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
                 window.__initialTheme = theme === 'dark' ? 'dark' : 'light';
+
+                var design = localStorage.getItem('memories_design') || 'standard';
+                if (design === 'bright') {
+                    document.documentElement.classList.add('design-bright');
+                } else {
+                    document.documentElement.classList.add('design-standard');
+                }
+                document.documentElement.dataset.design = design;
+                window.__initialDesign = design;
             } catch (e) {}
         })();
     </script>
@@ -7542,6 +7551,15 @@
         }
       }
 
+      function applyDesign(design) {
+        const root = document.documentElement;
+        const nextDesign = design === 'bright' ? 'bright' : 'standard';
+        root.classList.toggle('design-bright', nextDesign === 'bright');
+        root.classList.toggle('design-standard', nextDesign !== 'bright');
+        root.dataset.design = nextDesign;
+      }
+      window.applyDesign = applyDesign;
+
       function initThemeToggle(initialTheme) {
 
         applyTheme(initialTheme, { animate: false });
@@ -13481,6 +13499,9 @@
         const storedTheme = window.__initialTheme || localStorage.getItem(THEME_STORAGE_KEY) || 'light';
 
         initThemeToggle(storedTheme);
+        if (typeof applyDesign === 'function') {
+          applyDesign(window.__initialDesign || localStorage.getItem('memories_design') || 'standard');
+        }
 
         const isNew = !localStorage.getItem(VISIT_STORAGE_KEY);
 
@@ -15676,6 +15697,9 @@
       sTz:      'Часовой пояс',
       sHearts:  'Анимация сердечек',
       heartsDesc:'💓 Сердечки летают по экрану',
+      sDesign:  'Дизайн',
+      dStandard: 'Стандартный',
+      dBright:  'Яркий',
       /* Page texts */
       loadingText: 'Загружаю Sure Memory',
       loadingSub:  'Это займёт секунду',
@@ -15805,6 +15829,9 @@
       sTz:      'Zeitzone',
       sHearts:  'Herzchen-Animation',
       heartsDesc:'💓 Herzchen fliegen auf dem Bildschirm',
+      sDesign:  'Design-Stil',
+      dStandard: 'Standard',
+      dBright:  'Bunt',
       loadingText: 'Lade Sure Memory',
       loadingSub:  'Das dauert nur einen Moment',
       welcomeTitle:'Hallo!',
@@ -15933,6 +15960,9 @@
       sTz:      'Time zone',
       sHearts:  'Heart animation',
       heartsDesc:'💓 Hearts fly across the screen',
+      sDesign:  'Design Style',
+      dStandard: 'Standard',
+      dBright:  'Bright',
       loadingText: 'Loading Sure Memory',
       loadingSub:  'This will take a second',
       welcomeTitle:'Hi!',
@@ -16726,6 +16756,7 @@
   /* ── Storage ── */
   const STG_LS = { lang:'memories_lang', tz:'memories_tz_override', hearts:'memories_hearts', botTz:'memories_bot_tz', botTzDisplay:'memories_bot_tz_display' };
   const THEME_STORAGE_KEY_STG = 'memories_theme'; // same as main code
+  const DESIGN_STORAGE_KEY_STG = 'memories_design';
 
   function _stgGet(k, d) { return localStorage.getItem(k) ?? d; }
   function _stgSet(k, v) { localStorage.setItem(k, v); }
@@ -16733,6 +16764,7 @@
   localStorage.setItem('memories_hearts', 'off');
   const _stgState = {
     theme:  _stgGet(THEME_STORAGE_KEY_STG, window.__initialTheme || 'light'),
+    design: _stgGet(DESIGN_STORAGE_KEY_STG, window.__initialDesign || 'standard'),
     lang:   _stgGet(STG_LS.lang,   'ru'),
     tz:     _stgGet(STG_LS.tz,     '__auto__'),
     hearts: false,
@@ -17280,14 +17312,17 @@
   function closeSettingsModal(save) {
     _clearSettingsLanguagePreview();
     const nextTheme = save ? _stgDraft.theme : null;
+    const nextDesign = save ? _stgDraft.design : null;
     if (save) {
       const tzChanged = (_stgState.tz !== _stgDraft.tz);
       Object.assign(_stgState, _stgDraft);
       _stgSet(THEME_STORAGE_KEY_STG, _stgState.theme);
+      _stgSet(DESIGN_STORAGE_KEY_STG, _stgState.design);
       _stgSet(STG_LS.lang,   _stgState.lang);
       _stgSet(STG_LS.tz,     _stgState.tz);
       applyHeartsStg(_stgState.hearts);
       applyI18n(_stgState.lang);
+      if (typeof applyDesign === 'function') applyDesign(_stgState.design);
       // TZ override for getUserTimezone
       window._stgTzOverride = (_stgState.tz !== '__auto__') ? _stgState.tz : null;
       // Persist lang/tz to DB via API
@@ -17315,6 +17350,7 @@
       applyI18n(_stgState.lang);
       applyHeartsStg(_stgState.hearts);
       if (typeof applyTheme === 'function') applyTheme(_stgState.theme);
+      if (typeof applyDesign === 'function') applyDesign(_stgState.design);
     }
     const ov   = document.getElementById('settingsOverlay');
     const card = document.getElementById('settingsCard');
@@ -17324,6 +17360,9 @@
     _stgCloseTimer = setTimeout(() => {
       if (nextTheme && typeof applyTheme === 'function') {
         applyTheme(nextTheme, { animate: false });
+      }
+      if (nextDesign && typeof applyDesign === 'function') {
+        applyDesign(nextDesign);
       }
       ov.classList.remove('open', 'anim-out');
       card.classList.remove('anim-out');
@@ -17546,6 +17585,23 @@
       tg.appendChild(c);
     });
     sz.appendChild(tg); frag.appendChild(sz); frag.appendChild(div());
+
+    /* Design */
+    const sd = sec(tr.sDesign);
+    const dp = mk('div','stg-pills');
+    [['standard',tr.dStandard],['bright',tr.dBright]].forEach(([v,lb]) => {
+      const p = mk('button','stg-pill'+(_stgDraft.design===v?' active':''),lb);
+      p.onclick = () => {
+        _stgDraft.design = v;
+        if (typeof applyDesign === 'function') applyDesign(v);
+        dp.querySelectorAll('.stg-pill').forEach(b=>b.classList.remove('active'));
+        p.classList.add('active');
+      };
+      dp.appendChild(p);
+    });
+    sd.appendChild(dp);
+    frag.appendChild(sd);
+    frag.appendChild(div());
 
     body.replaceChildren(frag);
   }

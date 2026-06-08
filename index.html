@@ -5861,6 +5861,59 @@
             .nav-item:not(.active):hover .nav-icon svg { stroke: rgba(124,58,237,0.5); }
             .nav-item:not(.active):hover .nav-label { color: rgba(124,58,237,0.5); }
         }
+
+        /* ══ STANDARD DESIGN: Loading ══ */
+        html.design-standard .loading-text {
+            color: var(--text-color);
+            font-weight: 500;
+        }
+        html.design-standard .loading-dots span {
+            background: rgba(0,0,0,0.18);
+        }
+        html.theme-dark.design-standard .loading-dots span {
+            background: rgba(255,255,255,0.25);
+        }
+
+        /* ══ STANDARD DESIGN: Bottom nav ══ */
+        html.design-standard .nav-inner {
+            background: rgba(255,255,255,0.92);
+            border: 1px solid rgba(0,0,0,0.07);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1);
+        }
+        html.theme-dark.design-standard .nav-inner {
+            background: rgba(18,18,18,0.94);
+            border: 1px solid rgba(255,255,255,0.07);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        html.design-standard .nav-item {
+            color: #9ca3af;
+        }
+        html.design-standard .nav-item.active {
+            background: rgba(94,129,172,0.10);
+        }
+        html.design-standard .nav-item.active::after {
+            background: none;
+            opacity: 0;
+        }
+        html.design-standard .nav-item.active .nav-icon svg {
+            stroke: #5e81ac;
+            filter: drop-shadow(0 0 3px rgba(94,129,172,0.30));
+        }
+        html.design-standard .nav-item.active .nav-label {
+            background: none;
+            -webkit-background-clip: unset;
+            -webkit-text-fill-color: #5e81ac;
+            background-clip: unset;
+            font-weight: 600;
+        }
+        html.design-standard .nav-icon svg {
+            stroke: #9ca3af;
+        }
+        @media (hover: hover) {
+            html.design-standard .nav-item:not(.active):hover { background: rgba(94,129,172,0.07); }
+            html.design-standard .nav-item:not(.active):hover .nav-icon svg { stroke: #5e81ac; }
+            html.design-standard .nav-item:not(.active):hover .nav-label { color: #5e81ac; }
+        }
 </style>
 
   <script src="/settings.js" defer></script>

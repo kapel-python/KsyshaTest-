@@ -6488,7 +6488,7 @@ async def index(request: web.Request) -> web.StreamResponse:
             return web.Response(text="cannot read index.html", status=500)
 
         html_raw = html_raw.replace("{{API_SECRET_KEY}}", "")
-        bot_username = (getattr(config, "BOT_USERNAME", "") or "Akimova_Ksysha_love_bot").strip()
+        bot_username = (getattr(config, "BOT_USERNAME", "") or "bot").strip()
         html_raw = html_raw.replace("{{BOT_USERNAME}}", bot_username)
 
         _INDEX_HTML_CACHE = html_raw
@@ -6519,7 +6519,7 @@ async def not_found_page(request: web.Request, status_code: int = 200) -> web.Re
     if not page_path.exists():
         return web.Response(text="404 — page not found", status=404)
     html = page_path.read_text(encoding="utf-8")
-    bot_username = (getattr(config, "BOT_USERNAME", "") or "Akimova_Ksysha_love_bot").strip()
+    bot_username = (getattr(config, "BOT_USERNAME", "") or "bot").strip()
     html = html.replace("{{BOT_USERNAME}}", bot_username)
     return web.Response(text=html, content_type="text/html", charset="utf-8", status=status_code)
 
@@ -6535,7 +6535,7 @@ async def main_page(request: web.Request) -> web.Response:
     except Exception:
         logger.exception("Cannot read main.html")
         return web.Response(text="cannot read main.html", status=500)
-    bot_username = (getattr(config, "BOT_USERNAME", "") or "Akimova_Ksysha_love_bot").strip()
+    bot_username = (getattr(config, "BOT_USERNAME", "") or "bot").strip()
     html = html.replace("{{BOT_USERNAME}}", bot_username)
     return web.Response(
         text=html,

@@ -25,7 +25,7 @@ class Config:
     SITE_DIRECT_URL: str = os.getenv("SITE_DIRECT_URL", "")
     HTTP_HOST: str = os.getenv("HTTP_HOST", "0.0.0.0")  # 0.0.0.0 needed for cloudflared container; port NOT published to host (see docker-compose.yml)
     HTTP_PORT: int = int(os.getenv("HTTP_PORT", "25086"))
-    BOT_USERNAME: str = os.getenv("BOT_USERNAME", "Akimova_Ksysha_love_bot")
+    BOT_USERNAME: str = os.getenv("BOT_USERNAME", "")
     API_SECRET_KEY: str = os.getenv("API_SECRET_KEY", "")
     AI_SESSION_SECRET: str = os.getenv("AI_SESSION_SECRET", "")
     MEDIA_ACCESS_TOKEN: str = os.getenv("MEDIA_ACCESS_TOKEN", "")
@@ -103,6 +103,22 @@ class Config:
             self._check_required_secrets()
 
         os.makedirs(self.MEDIA_FOLDER, exist_ok=True)
+
+        if not self.BOT_USERNAME:
+            self.BOT_USERNAME = os.getenv("BOT_USERNAME", "").strip()
+        if not self.BOT_USERNAME and self.BOT_TOKEN:
+            try:
+                import urllib.request
+                import json
+                url = f"https://api.telegram.org/bot{self.BOT_TOKEN}/getMe"
+                with urllib.request.urlopen(url, timeout=2.0) as response:
+                    data = json.loads(response.read().decode('utf-8'))
+                    if data.get("ok"):
+                        self.BOT_USERNAME = data["result"].get("username", "")
+            except Exception:
+                pass
+        if not self.BOT_USERNAME:
+            self.BOT_USERNAME = "bot"
 
         if self.SITE_OPEN_DATE is None:
             self.SITE_OPEN_DATE = date(2026, 2, 8)

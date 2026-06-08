@@ -371,6 +371,53 @@
       .illustration { width: 120px; height: 120px; margin-bottom: 24px; }
       .error-title { font-size: 1.2rem; }
     }
+
+    /* ══ STANDARD DESIGN ══ */
+    html.design-standard {
+      --accent-color:    #4b5563;
+      --border-color:    #e5e7eb;
+      --accent-soft:     #f9fafb;
+      --divider-color:   rgba(0,0,0,0.08);
+      --feature-icon-bg: #f3f4f6;
+    }
+    html.design-standard.theme-dark {
+      --accent-color:    #a1aab8;
+      --border-color:    #2a2a2a;
+      --accent-soft:     #1c1c1c;
+      --divider-color:   rgba(255,255,255,0.07);
+      --feature-icon-bg: #1c1c1c;
+    }
+
+    html.design-standard .error-code {
+      background: none;
+      -webkit-background-clip: unset;
+      -webkit-text-fill-color: var(--text-color);
+      background-clip: unset;
+      opacity: 0.9;
+    }
+
+    html.design-standard .btn-primary {
+      background: var(--text-color);
+      color: var(--bg-color);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    html.design-standard .btn-primary:hover {
+      opacity: 0.82;
+    }
+
+    html.design-standard .btn-secondary:hover {
+      border-color: var(--text-color);
+      color: var(--text-color);
+    }
+
+    html.design-standard .footer-link:hover {
+      color: var(--text-color);
+    }
+
+    html.design-standard .nav-logo-dot {
+      background: var(--text-color);
+      opacity: 0.35;
+    }
   </style>
 </head>
 

@@ -2117,16 +2117,16 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
 
     tz1 = _tz_line(u1)
     st1 = _status_line(u1)
-    p1_block = _member_block(name1, city1, desc1, tz1, st1, "👑", "создатель пары")
+    p1_block = _member_block(name1, city1, desc1, tz1, st1, "👤", "создатель пары")
 
     if u2:
         tz2 = _tz_line(u2)
         st2 = _status_line(u2)
-        p2_block = _member_block(name2, city2, desc2, tz2, st2, "💙", "партнёр")
+        p2_block = _member_block(name2, city2, desc2, tz2, st2, "👤", "партнёр")
         pair_line = f"<b>{_esc(name1)}</b>  ✦  <b>{_esc(name2)}</b>"
     else:
         p2_block = (
-            "💙 <b>Партнёр ещё не присоединился</b>\n"
+            "👤 <b>Партнёр ещё не присоединился</b>\n"
             "<i>Добавь партнёра по ссылке-приглашению, чтобы открыть общую статистику и события.</i>"
         )
         pair_line = f"<b>{_esc(name1)}</b>  ✦  <b>?</b>"

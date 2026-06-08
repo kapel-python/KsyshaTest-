@@ -4,6 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bottom Navigation</title>
+<script>
+(function() {
+  try {
+    var theme = localStorage.getItem('memories_theme');
+    if (!theme && typeof window.matchMedia === 'function')
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    if (theme === 'dark') document.documentElement.classList.add('theme-dark');
+    var design = localStorage.getItem('memories_design') || 'bright';
+    document.documentElement.classList.add(design === 'bright' ? 'design-bright' : 'design-standard');
+  } catch(e) {}
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* ══ BOTTOM NAVIGATION ══ */
@@ -126,6 +138,42 @@
     .nav-item:not(.active):hover .nav-label {
       color: rgba(124,58,237,0.45);
     }
+  }
+
+  /* ══ STANDARD DESIGN ══ */
+  html.design-standard .nav-inner {
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(0,0,0,0.07);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1);
+  }
+  html.design-standard.theme-dark .nav-inner {
+    background: rgba(18,18,18,0.94);
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  html.design-standard .nav-item { color: #9ca3af; }
+  html.design-standard .nav-item.active {
+    background: rgba(94,129,172,0.10);
+  }
+  html.design-standard .nav-item.active::after {
+    background: none; opacity: 0;
+  }
+  html.design-standard .nav-item.active .nav-icon svg {
+    stroke: #5e81ac;
+    filter: drop-shadow(0 0 3px rgba(94,129,172,0.30));
+  }
+  html.design-standard .nav-item.active .nav-label {
+    background: none;
+    -webkit-background-clip: unset;
+    -webkit-text-fill-color: #5e81ac;
+    background-clip: unset;
+    font-weight: 600;
+  }
+  html.design-standard .nav-icon svg { stroke: #9ca3af; }
+  @media (hover: hover) {
+    html.design-standard .nav-item:not(.active):hover { background: rgba(94,129,172,0.07); }
+    html.design-standard .nav-item:not(.active):hover .nav-icon svg { stroke: #5e81ac; }
+    html.design-standard .nav-item:not(.active):hover .nav-label { color: #5e81ac; }
   }
 </style>
 </head>

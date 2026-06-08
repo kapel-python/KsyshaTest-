@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.391'
-description = 'Нижнее навигационное меню'
+version = '1.0.392'
+description = 'Стандартный дизайн в профиле нижнего навигационного меню'
 
 
 def get_version_metadata() -> tuple[str, str]:

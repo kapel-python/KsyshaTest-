@@ -1952,20 +1952,14 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
     u2 = couple.get("user2_id")
 
     def _name(uid): return db.get_display_name(uid, "Участник")
-    def _city(uid):
-        tz_mode = db.get_user_setting(uid, "website_timezone_mode") or "auto"
-        if tz_mode == "auto":
-            return ""
-        return db.get_user_setting(uid, "city") or ""
     def _desc(uid):
         p = db.get_user_profile(uid)
         return (p or {}).get("description") or ""
     def _esc(value: str) -> str:
         return html.escape((value or "").strip())
 
-    name1 = _name(u1); city1 = _city(u1); desc1 = _desc(u1)
+    name1 = _name(u1); desc1 = _desc(u1)
     name2 = _name(u2) if u2 else None
-    city2 = _city(u2) if u2 else ""
     desc2 = _desc(u2) if u2 else ""
 
     # ── Время вместе ──
@@ -1997,9 +1991,6 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
 
     # ── Часовой пояс участника ──
     def _tz_line(uid):
-        tz_mode = db.get_user_setting(uid, "website_timezone_mode") or "auto"
-        if tz_mode != "auto":
-            return ""
         tz = db.get_user_setting(uid, "timezone")
         if not tz:
             return ""
@@ -2124,12 +2115,12 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
 
     tz1 = _tz_line(u1)
     st1 = _status_line(u1)
-    p1_block = _member_block(name1, city1, desc1, tz1, st1, "👤", "создатель пары")
+    p1_block = _member_block(name1, "", desc1, tz1, st1, "👤", "создатель пары")
 
     if u2:
         tz2 = _tz_line(u2)
         st2 = _status_line(u2)
-        p2_block = _member_block(name2, city2, desc2, tz2, st2, "👤", "партнёр")
+        p2_block = _member_block(name2, "", desc2, tz2, st2, "👤", "партнёр")
         pair_line = f"<b>{_esc(name1)}</b>  ✦  <b>{_esc(name2)}</b>"
     else:
         p2_block = (

@@ -1290,6 +1290,14 @@
 
         }
 
+        html.design-standard .recent-section-header {
+            border-bottom-color: rgba(0, 0, 0, 0.10);
+        }
+
+        html.theme-dark.design-standard .recent-section-header {
+            border-bottom-color: rgba(255, 255, 255, 0.10);
+        }
+
         .recent-section-header-title {
 
             font-size: 0.72rem;
@@ -1308,6 +1316,10 @@
 
             gap: 7px;
 
+        }
+
+        html.design-standard .recent-section-header-title {
+            color: var(--text-color);
         }
 
         .recent-section-header-dot {
@@ -1438,6 +1450,26 @@
 
         }
 
+        html.design-standard .event-countdown-card {
+            background: var(--card-bg);
+            border-color: rgba(0, 0, 0, 0.12);
+            box-shadow: var(--card-shadow);
+        }
+
+        html.theme-dark.design-standard .event-countdown-card {
+            background: var(--card-bg);
+            border-color: rgba(255, 255, 255, 0.14);
+            box-shadow: var(--card-shadow);
+        }
+
+        html.design-standard .event-countdown-card::before {
+            background: rgba(0, 0, 0, 0.10);
+        }
+
+        html.theme-dark.design-standard .event-countdown-card::before {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
         .event-countdown-header {
 
             display: flex;
@@ -1480,6 +1512,17 @@
 
         }
 
+        html.design-standard .event-countdown-icon {
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--text-color);
+        }
+
+        html.theme-dark.design-standard .event-countdown-icon {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-color);
+            box-shadow: none;
+        }
+
         .event-countdown-title {
 
             font-size: 0.8rem;
@@ -1500,6 +1543,10 @@
 
         }
 
+        html.design-standard .event-countdown-title {
+            color: var(--text-color);
+        }
+
         .event-countdown-event-name {
 
             font-size: 1.15rem;
@@ -1518,6 +1565,10 @@
 
             color: #f9a8d4;
 
+        }
+
+        html.design-standard .event-countdown-event-name {
+            color: var(--text-color);
         }
 
         .event-countdown-label {
@@ -1554,6 +1605,12 @@
 
             font-variant-numeric: tabular-nums;
 
+        }
+
+        html.design-standard .event-countdown-value {
+            background: none;
+            -webkit-text-fill-color: currentColor;
+            color: var(--text-color);
         }
 
         .theme-dark .event-countdown-value.event-countdown-done {

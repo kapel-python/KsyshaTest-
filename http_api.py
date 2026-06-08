@@ -3900,6 +3900,7 @@ async def ai_message_reaction(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": "bad json"}, status=400))
     msg_id_raw = payload.get("msg_id")
     visitor_id = _pstr(payload.get("visitor_id")).strip()
+    visitor_id_base = visitor_id.split("_")[0] if visitor_id and "_" in visitor_id else visitor_id
     reaction   = payload.get("reaction") or None  # None = убрать реакцию
     msg_id = _safe_int(msg_id_raw)
     if not msg_id or not visitor_id:
@@ -3908,12 +3909,12 @@ async def ai_message_reaction(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": "unauthorized_ai_session"}, status=401))
     try:
         with db._get_connection() as conn:
-            conn.execute(
+            cur = conn.execute(
                 "UPDATE companion_messages SET reaction = ? WHERE id = ? AND visitor_id = ?",
-                (reaction, msg_id, visitor_id)
+                (reaction, msg_id, visitor_id_base)
             )
             conn.commit()
-        return _add_cors_headers(web.json_response({"ok": True}))
+        return _add_cors_headers(web.json_response({"ok": cur.rowcount > 0}))
     except Exception as e:
         logger.exception("Ошибка ai_message_reaction: %s", e)
         return _add_cors_headers(web.json_response({"ok": False, "error": "internal error"}, status=500))
@@ -3931,6 +3932,7 @@ async def ai_message_pin(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": "bad json"}, status=400))
     msg_id_raw = payload.get("msg_id")
     visitor_id = _pstr(payload.get("visitor_id")).strip()
+    visitor_id_base = visitor_id.split("_")[0] if visitor_id and "_" in visitor_id else visitor_id
     pinned     = bool(payload.get("pinned", False))
     msg_id = _safe_int(msg_id_raw)
     if not msg_id or not visitor_id:
@@ -3942,14 +3944,14 @@ async def ai_message_pin(request: web.Request) -> web.Response:
             if pinned:
                 conn.execute(
                     "UPDATE companion_messages SET is_pinned = 0 WHERE visitor_id = ?",
-                    (visitor_id,)
+                    (visitor_id_base,)
                 )
-            conn.execute(
+            cur = conn.execute(
                 "UPDATE companion_messages SET is_pinned = ? WHERE id = ? AND visitor_id = ?",
-                (1 if pinned else 0, msg_id, visitor_id)
+                (1 if pinned else 0, msg_id, visitor_id_base)
             )
             conn.commit()
-        return _add_cors_headers(web.json_response({"ok": True}))
+        return _add_cors_headers(web.json_response({"ok": cur.rowcount > 0}))
     except Exception as e:
         logger.exception("Ошибка ai_message_pin: %s", e)
         return _add_cors_headers(web.json_response({"ok": False, "error": "internal error"}, status=500))

@@ -10,7 +10,7 @@ import subprocess
 import os
 
 version = '1.0.383'
-description = 'Случайно вернул наше небо и вернул блок наш бот'
+description = '.'
 
 
 def get_version_metadata() -> tuple[str, str]:

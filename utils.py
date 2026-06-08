@@ -2008,15 +2008,15 @@ WISH_STATUS_LABELS = {
 }
 
 def get_wish_display_number(wish: Wish) -> str:
-    """Возвращает номер желания в формате #<pair>-<ordinal>."""
+    """Возвращает локальный номер желания в формате #<ordinal>."""
     try:
         from database import db
 
-        couple = db.get_couple_by_user(wish.user_id) if wish.user_id else None
-        couple_id = int((couple or {}).get("id") or 0)
         wish_index = int(getattr(wish, "wish_number", 0) or 0)
 
         if wish_index <= 0:
+            couple = db.get_couple_by_user(wish.user_id) if wish.user_id else None
+            couple_id = int((couple or {}).get("id") or 0)
             wishes = db.get_couple_wishes(couple_id) if couple_id else db.get_user_wishes(wish.user_id)
             wishes = wishes or []
             for idx, item in enumerate(wishes, start=1):
@@ -2027,8 +2027,7 @@ def get_wish_display_number(wish: Wish) -> str:
         if wish_index <= 0:
             wish_index = int(getattr(wish, "id", 0) or 0)
 
-        prefix = couple_id if couple_id > 0 else int(getattr(wish, "user_id", 0) or 0)
-        return f"#{prefix}-{wish_index}" if prefix and wish_index else f"#{wish_index}"
+        return f"#{wish_index}" if wish_index else "#?"
     except Exception:
         wish_index = int(getattr(wish, "wish_number", 0) or getattr(wish, "id", 0) or 0)
         return f"#{wish_index}" if wish_index else "#?"

@@ -1938,27 +1938,6 @@ async def cat_menu(callback: CallbackQuery):
     await callback.answer()
 
 
-def _get_user_city_with_fallback(uid: int) -> str:
-    """Получает город: сначала явно заданный, затем автоопределённый с сайта."""
-    explicit_city = db.get_user_setting(uid, "city") or ""
-    if explicit_city.strip():
-        return explicit_city
-    try:
-        from http_api import _visitor_to_user_id
-        with db._get_connection() as conn:
-            cursor = conn.execute(
-                "SELECT visitor_id, city FROM devices WHERE city IS NOT NULL AND city != '' ORDER BY last_seen_utc DESC"
-            )
-            for row in cursor.fetchall():
-                v_id = row[0]
-                city = row[1]
-                if _visitor_to_user_id(v_id) == uid and city:
-                    return city
-    except Exception:
-        pass
-    return ""
-
-
 def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
     """Формирует текст и клавиатуру для экрана 'Наша пара'."""
     from datetime import datetime, timezone as _tz
@@ -1973,7 +1952,11 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
     u2 = couple.get("user2_id")
 
     def _name(uid): return db.get_display_name(uid, "Участник")
-    def _city(uid): return _get_user_city_with_fallback(uid)
+    def _city(uid):
+        tz_mode = db.get_user_setting(uid, "website_timezone_mode") or "auto"
+        if tz_mode == "auto":
+            return ""
+        return db.get_user_setting(uid, "city") or ""
     def _desc(uid):
         p = db.get_user_profile(uid)
         return (p or {}).get("description") or ""
@@ -2014,6 +1997,9 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
 
     # ── Часовой пояс участника ──
     def _tz_line(uid):
+        tz_mode = db.get_user_setting(uid, "website_timezone_mode") or "auto"
+        if tz_mode != "auto":
+            return ""
         tz = db.get_user_setting(uid, "timezone")
         if not tz:
             return ""

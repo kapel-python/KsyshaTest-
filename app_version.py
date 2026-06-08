@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.400'
-description = 'Фикс отображения города в о нас'
+version = '1.0.401'
+description = 'Второй фикс'
 
 
 def get_version_metadata() -> tuple[str, str]:

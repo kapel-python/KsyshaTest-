@@ -2756,16 +2756,31 @@ async def leave_space_exec_custom(callback: CallbackQuery, state: FSMContext):
         return
     if partner_id and partner_id > 0:
         my_name = db.get_display_name(user_id) or "Участник"
-        label = (reason_text[:80] + "…" if reason_text and len(reason_text) > 80 else reason_text) or "свой вариант"
+        label = (reason_text[:200] + "…" if reason_text and len(reason_text) > 200 else reason_text) or ""
+        notify_text = (
+            f"💔 <b>{html.escape(my_name)}</b> покинул(а) ваше пространство.\n\n"
+            + (f"💬 Причина: {html.escape(label)}\n\n" if label else "")
+            + "<i>Данные пространства хранятся 7 дней.</i>"
+        )
         try:
-            await callback.bot.send_message(
-                chat_id=partner_id,
-                text=f"💔 <b>{html.escape(my_name)}</b> покинул(а) ваше пространство.\n\n"
-                     f"💬 Причина: {html.escape(label)}\n\n"
-                     "<i>Данные пространства хранятся 7 дней.</i>",
-                parse_mode=ParseMode.HTML,
-                force_new_message=True,
-            )
+            # Сначала отправляем медиа если есть
+            if media_path and media_type and os.path.exists(media_path):
+                source = FSInputFile(media_path)
+                if media_type == "photo":
+                    await callback.bot.send_photo(chat_id=partner_id, photo=source, caption=notify_text, parse_mode=ParseMode.HTML, force_new_message=True)
+                elif media_type == "video":
+                    await callback.bot.send_video(chat_id=partner_id, video=source, caption=notify_text, parse_mode=ParseMode.HTML, force_new_message=True)
+                elif media_type == "voice":
+                    await callback.bot.send_voice(chat_id=partner_id, voice=source, caption=notify_text, parse_mode=ParseMode.HTML, force_new_message=True)
+                elif media_type == "video_note":
+                    await callback.bot.send_video_note(chat_id=partner_id, video_note=source, force_new_message=True)
+                    await callback.bot.send_message(chat_id=partner_id, text=notify_text, parse_mode=ParseMode.HTML, force_new_message=True)
+                elif media_type == "audio":
+                    await callback.bot.send_audio(chat_id=partner_id, audio=source, caption=notify_text, parse_mode=ParseMode.HTML, force_new_message=True)
+                else:
+                    await callback.bot.send_document(chat_id=partner_id, document=source, caption=notify_text, parse_mode=ParseMode.HTML, force_new_message=True)
+            else:
+                await callback.bot.send_message(chat_id=partner_id, text=notify_text, parse_mode=ParseMode.HTML, force_new_message=True)
         except Exception:
             pass
     await callback.message.edit_text(

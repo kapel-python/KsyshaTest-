@@ -3349,14 +3349,16 @@ class Database:
 
     def get_couple_by_user(self, user_id: int) -> Optional[Dict]:
         """Возвращает пару, в которой состоит пользователь, или None.
-        Предпочитает полные пары (user2_id IS NOT NULL) над незавершёнными.
+        Предпочитает активные полные пары (оба ID > 0), затем более новые.
         """
         try:
             with self._get_connection() as conn:
                 row = conn.execute(
                     '''SELECT * FROM couples
                        WHERE user1_id = ? OR user2_id = ?
-                       ORDER BY (user2_id IS NOT NULL) DESC
+                       ORDER BY (user1_id > 0 AND user2_id IS NOT NULL AND user2_id > 0) DESC,
+                                (user2_id IS NOT NULL) DESC,
+                                id DESC
                        LIMIT 1''',
                     (user_id, user_id)
                 ).fetchone()

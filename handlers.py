@@ -1408,12 +1408,24 @@ async def cmd_start(message: Message, state: FSMContext):
         u1 = couple.get("user1_id") or 0
         u2 = couple.get("user2_id") or 0
         if u1 < 0 or u2 < 0:
-            # Определяем кто ушёл
             left_id = abs(u1) if u1 < 0 else abs(u2)
             left_name = db.get_display_name(left_id) if left_id else "Участник"
+            stayed_id = u2 if u1 < 0 else u1
+            stayed_name = db.get_display_name(stayed_id) if stayed_id and stayed_id > 0 else None
+            warning = (
+                f"\n\n⚠️ Ты можешь создать новое пространство, но если твой партнёр будет "
+                f"отличаться от <b>{html.escape(stayed_name)}</b> — вы не сможете восстановить данные этой комнаты."
+                if stayed_name else
+                "\n\n⚠️ Ты можешь создать новое пространство, но данные этой комнаты восстановить не получится."
+            )
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")]
+            ])
             await message.answer(
-                f"💔 <b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
-                "<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>",
+                f"<b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
+                f"<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>"
+                f"{warning}",
+                reply_markup=kb,
                 parse_mode=ParseMode.HTML,
             )
             return
@@ -1914,9 +1926,22 @@ async def back_to_main(callback: CallbackQuery, state: FSMContext):
             if u1 < 0 or u2 < 0:
                 left_id = abs(u1) if u1 < 0 else abs(u2)
                 left_name = db.get_display_name(left_id) if left_id else "Участник"
+                stayed_id = u2 if u1 < 0 else u1
+                stayed_name = db.get_display_name(stayed_id) if stayed_id and stayed_id > 0 else None
+                warning = (
+                    f"\n\n⚠️ Ты можешь создать новое пространство, но если твой партнёр будет "
+                    f"отличаться от <b>{html.escape(stayed_name)}</b> — вы не сможете восстановить данные этой комнаты."
+                    if stayed_name else
+                    "\n\n⚠️ Ты можешь создать новое пространство, но данные этой комнаты восстановить не получится."
+                )
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")]
+                ])
                 await callback_edit_or_answer(callback,
-                    f"💔 <b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
-                    "<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>",
+                    f"<b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
+                    f"<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>"
+                    f"{warning}",
+                    reply_markup=kb,
                     parse_mode=ParseMode.HTML,
                 )
                 await callback.answer()

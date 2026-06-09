@@ -50,15 +50,20 @@ html.theme-dark {
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+  max-width: 100%;
+}
 
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip;
   position: relative;
+  max-width: 100%;
 }
 
 /* Фоновые глоу-пятна (mirrors stats.html body::before/::after) */
@@ -83,10 +88,19 @@ body::after {
 
 .page {
   max-width: 540px;
+  width: 100%;
   margin: 0 auto;
   padding: 14px 16px 80px;
   position: relative;
   z-index: 1;
+  /* Prevents any child from causing horizontal overflow */
+  contain: layout style;
+}
+
+/* Global overflow guard for all images and media */
+img, video, iframe {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ── Sticky header ── */
@@ -192,20 +206,19 @@ html.theme-dark .cover {
   z-index: 1;
 }
 
-/* Ampersand */
+/* Separator between names */
 .cover-amp {
   display: block;
-  font-family: 'Playfair Display', serif;
-  font-size: 1.6rem;
-  font-style: italic;
-  font-weight: 700;
-  background: linear-gradient(135deg, #d43f8d, #7c3aed);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 8px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.1rem;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--muted);
+  margin: 6px 0;
   position: relative;
   z-index: 1;
+  letter-spacing: 0.12em;
+  opacity: 0.6;
 }
 
 /* Ornamental rule */
@@ -241,7 +254,7 @@ html.theme-dark .cover-ornament-line {
   color: var(--text);
 }
 
-/* "[N] дней вместе" — italic serif, accent */
+/* days count — italic serif, accent */
 .cover-days {
   font-family: 'Playfair Display', serif;
   font-size: 1.05rem;
@@ -507,7 +520,7 @@ html.theme-dark .cover-count-badge {
 .memory-card {
   background: var(--surface);
   border-radius: 22px;
-  padding: 20px 18px 18px 24px;
+  padding: 20px 18px 20px 26px;
   border: 1.5px solid var(--pink-border);
   margin-bottom: 14px;
   display: flex;
@@ -566,22 +579,22 @@ html.theme-dark .cover-count-badge {
 }
 
 .memory-title {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--text);
   line-height: 1.35;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   word-break: break-word;
 }
 .memory-meta {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--muted);
   margin-bottom: 8px;
 }
 .memory-text {
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--text);
-  line-height: 1.65;
+  line-height: 1.7;
   word-break: break-word;
 }
 .memory-text.collapsed {
@@ -1578,14 +1591,14 @@ function render(data) {
   // Cover: meeting date
   var sinceEl = document.getElementById('coverSince');
   if (sinceEl && data.met_date_display) {
-    sinceEl.innerHTML = 'вместе с <strong>' + esc(data.met_date_display) + '</strong>';
+    sinceEl.innerHTML = 'с <strong>' + esc(data.met_date_display) + '</strong>';
   }
 
   // Cover: days together (italic serif accent)
   var daysEl = document.getElementById('coverDays');
   var days = data.days_together;
   if (daysEl && days != null) {
-    daysEl.textContent = days + ' ' + daysWord(days) + ' вместе';
+    daysEl.textContent = days + ' ' + daysWord(days) + ' в SureMemory';
   }
 
   // Cover: memory count badge
@@ -1612,7 +1625,7 @@ function render(data) {
   // Counter days line
   if (days != null) {
     document.getElementById('counterDays').innerHTML =
-      'Вместе <strong>' + days + '</strong> ' + daysWord(days);
+      'Итого <strong>' + days + '</strong> ' + daysWord(days);
   }
 
   document.getElementById('mcPhotos').textContent = stats.photos || 0;

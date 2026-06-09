@@ -1747,7 +1747,7 @@ function _populateProfile(data) {
   } else if (loggedInUserId === 'creator') {
     loggedInUserId = String(data.creator_id);
   }
-  const isCreator = loggedInUserId && String(data.creator_id) === loggedInUserId;
+  const isCreator = data.is_app_creator === true || (loggedInUserId && String(data.creator_id) === loggedInUserId && data.is_app_creator !== false);
   const isPartner = loggedInUserId && String(data.partner_id) === loggedInUserId;
 
   const users = data.users || {};
@@ -1940,7 +1940,7 @@ function _startAvatarPolling(data) {
   const creator = users.creator || {};
   const partner = users.ksyusha || users.partner || {};
   const myId = _getMyUserId(data);
-  const isCreator = myId === data.creator_id;
+  const isCreator = data.is_app_creator === true || (myId === data.creator_id && data.is_app_creator !== false);
   const myInfo    = isCreator ? creator : partner;
   const otherInfo = isCreator ? partner : creator;
 

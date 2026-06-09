@@ -2451,6 +2451,7 @@ def _collect_site_data(
         "ai_usage": ai_usage,
 
         "creator_id": creator_id,
+        "is_app_creator": bool(visitor_user_id and db.is_creator(visitor_user_id)),
 
         "ksusha_id": partner_id,  # legacy key
         "partner_id": partner_id,

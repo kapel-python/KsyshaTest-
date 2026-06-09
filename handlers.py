@@ -359,7 +359,8 @@ class BotActivityMiddleware(BaseMiddleware):
                     ban_until = "<b>навсегда</b>"
                 ban_text = f"🚫 Твой аккаунт заблокирован {ban_until}"
                 if ban.get("reason"):
-                    ban_text += f"\n\n💬 Причина:\n{html.escape(ban['reason'])}"
+                    import html as _html
+                    ban_text += f"\n\n💬 Причина:\n{_html.escape(ban['reason'])}"
                 ban_text += "\n\n👤 Если есть вопросы или оспаривание бана, пиши @very_fast_earn_money"
                 try:
                     msg = event.message if isinstance(event, Update) and event.message else None

@@ -4679,7 +4679,7 @@ async def admin_unban_user(request: web.Request) -> web.Response:
 
 
 async def admin_parse_ban_time(request: web.Request) -> web.Response:
-    """POST /api/admin/parse_ban_time — разобрать текст срока бана через AI."""
+    """POST /api/admin/parse_ban_time — разобрать текст срока бана через AI (шаблон онбординга)."""
     if not _check_api_secret(request):
         return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
     visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
@@ -4698,11 +4698,11 @@ async def admin_parse_ban_time(request: web.Request) -> web.Response:
 
     try:
         from api import parse_date_with_ai
-        from utils import get_user_datetime_context, parse_ai_date_to_db
+        from utils import get_user_datetime_context, parse_ai_date_to_db, _tz_offset
 
+        # Точный шаблон из onboarding_met_date_raw, но allow_future=True
         ctx = get_user_datetime_context(req_user_id)
-        import asyncio as _aio
-        ai_date = await _aio.to_thread(parse_date_with_ai, raw, ctx, True)
+        ai_date = await asyncio.to_thread(parse_date_with_ai, raw, ctx, True)
 
         if not ai_date or ai_date == "ERROR:PAST_DATE":
             return _add_cors_headers(web.json_response({"ok": False, "error": "cannot_parse"}))
@@ -4711,19 +4711,26 @@ async def admin_parse_ban_time(request: web.Request) -> web.Response:
         if not db_fmt:
             return _add_cors_headers(web.json_response({"ok": False, "error": "cannot_parse"}))
 
-        # Конвертируем в ISO UTC
-        from utils import format_scheduled_event_datetime
+        # db_fmt = "YYYY-MM-DD HH:MM:SS" в локальном времени пользователя
+        # Конвертируем в UTC с учётом его timezone (как _event_datetime_to_utc)
         from datetime import timezone as _tz
-        # db_fmt is like "D.M.YYYY" or "D.M.YYYY HH:MM"
-        parts = db_fmt.split()
-        date_part = parts[0]
-        time_part = parts[1] if len(parts) > 1 else "00:00"
-        d, m, y = date_part.split(".")
-        hh, mm = time_part.split(":")
-        naive = datetime(int(y), int(m), int(d), int(hh), int(mm))
-        iso_utc = naive.replace(tzinfo=_tz.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        naive = datetime.strptime(db_fmt[:19], "%Y-%m-%d %H:%M:%S")
+        try:
+            tz_id = db.get_user_setting(req_user_id, "timezone")
+            offset_hours = _tz_offset(tz_id, 0)
+        except Exception:
+            offset_hours = 0
+        utc_dt = naive - timedelta(hours=offset_hours)
+        iso_utc = utc_dt.strftime("%Y-%m-%dT%H:%M:%S")
 
-        display = format_scheduled_event_datetime(db_fmt, req_user_id, req_user_id)
+        # Человеческий формат для отображения
+        _mn = ["января","февраля","марта","апреля","мая","июня",
+               "июля","августа","сентября","октября","ноября","декабря"]
+        display = (
+            f"{naive.day} {_mn[naive.month-1]} {naive.year}"
+            + (f", {naive.strftime('%H:%M')}" if naive.hour or naive.minute else "")
+        )
+
         return _add_cors_headers(web.json_response({"ok": True, "expires_at": iso_utc, "display": display}))
 
     except Exception as e:

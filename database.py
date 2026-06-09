@@ -6921,6 +6921,171 @@ class Database:
         logger.info("hard_delete_expired_couple: couple %s permanently deleted", couple_id)
         return True
 
+    def get_latest_restorable_leave(self, user_id: int) -> Optional[Dict]:
+        """Возвращает самую свежую запись в couple_leave_log для user_id, где пара ещё не удалена."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    """SELECT cll.*, c.user1_id, c.user2_id
+                       FROM couple_leave_log cll
+                       JOIN couples c ON c.id = cll.couple_id
+                       WHERE cll.user_id = ?
+                         AND cll.restored_at_utc IS NULL
+                         AND c.delete_after_utc IS NOT NULL
+                         AND c.delete_after_utc > datetime('now')
+                       ORDER BY cll.left_at_utc DESC
+                       LIMIT 1""",
+                    (user_id,)
+                ).fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.exception("get_latest_restorable_leave error: %s", e)
+            return None
+
+    def get_restore_stats(self, couple_id: int) -> Dict:
+        """Подсчитывает восстанавливаемые данные по паре (couple_id со старыми отрицательными ID)."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute("SELECT user1_id, user2_id FROM couples WHERE id = ?", (couple_id,)).fetchone()
+                if not row:
+                    return {}
+                uids = [abs(row["user1_id"] or 0), abs(row["user2_id"] or 0)]
+                uids = [u for u in uids if u > 0]
+                uid_placeholders = ",".join("?" * len(uids))
+                memories = conn.execute(
+                    f"SELECT COUNT(*) FROM memories WHERE couple_id = ? OR user_id IN ({uid_placeholders})",
+                    [couple_id] + uids
+                ).fetchone()[0]
+                wishes = conn.execute(
+                    f"SELECT COUNT(*) FROM wishes WHERE user_id IN ({uid_placeholders})",
+                    uids
+                ).fetchone()[0] if uids else 0
+                events = conn.execute(
+                    f"SELECT COUNT(*) FROM scheduled_events WHERE user_id IN ({uid_placeholders})",
+                    uids
+                ).fetchone()[0] if uids else 0
+                categories = conn.execute(
+                    "SELECT COUNT(*) FROM custom_categories WHERE couple_id = ?", (couple_id,)
+                ).fetchone()[0]
+                met_date = conn.execute(
+                    "SELECT met_date FROM couples WHERE id = ?", (couple_id,)
+                ).fetchone()
+                return {
+                    "memories": memories,
+                    "wishes": wishes,
+                    "events": events,
+                    "categories": categories,
+                    "met_date": met_date["met_date"] if met_date else None,
+                }
+        except Exception as e:
+            logger.exception("get_restore_stats error: %s", e)
+            return {}
+
+    def restore_couple(self, restoring_user_id: int, couple_id: int) -> bool:
+        """Восстанавливает данные пары couple_id для пользователя restoring_user_id.
+
+        Алгоритм:
+        1. Проверяет что couple_id ещё не удалён и restoring_user_id — участник.
+        2. Если restoring_user_id уже в активной паре с тем же партнёром — просто
+           переносит контент из старой пары в текущую (объединяет memories, categories и т.д.)
+           и очищает старую пару.
+        3. Иначе (restoring_user_id не в паре) — реактивирует старую пару, делая ID снова
+           положительным и сбрасывая delete_after_utc.
+        """
+        try:
+            with self._get_connection() as conn:
+                old = conn.execute(
+                    "SELECT * FROM couples WHERE id = ?", (couple_id,)
+                ).fetchone()
+                if not old or old["delete_after_utc"] is None:
+                    logger.warning("restore_couple: couple %s not restorable", couple_id)
+                    return False
+
+                old_u1 = old["user1_id"]
+                old_u2 = old["user2_id"]
+                # Определяем партнёра (тот, чей слот НЕ принадлежит restoring_user_id)
+                if abs(old_u1 or 0) == restoring_user_id:
+                    partner_id = abs(old_u2 or 0) if old_u2 else None
+                    restorer_slot = "user1_id"
+                elif abs(old_u2 or 0) == restoring_user_id:
+                    partner_id = abs(old_u1 or 0) if old_u1 else None
+                    restorer_slot = "user2_id"
+                else:
+                    logger.warning("restore_couple: user %s not in couple %s", restoring_user_id, couple_id)
+                    return False
+
+                if not partner_id:
+                    logger.warning("restore_couple: no partner found in couple %s", couple_id)
+                    return False
+
+                # Проверяем: есть ли у restoring_user_id текущая активная пара с тем же партнёром?
+                active = conn.execute(
+                    """SELECT id FROM couples
+                       WHERE delete_after_utc IS NULL
+                         AND ((user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?))
+                    """,
+                    (restoring_user_id, partner_id, partner_id, restoring_user_id)
+                ).fetchone()
+
+                if active:
+                    # Режим MERGE: перенести данные из старой пары в активную
+                    target_id = active["id"]
+                    logger.info("restore_couple: merging couple %s into active couple %s", couple_id, target_id)
+                    # memories привязаны к couple_id
+                    conn.execute(
+                        "UPDATE memories SET couple_id = ? WHERE couple_id = ?",
+                        (target_id, couple_id)
+                    )
+                    # custom_categories: переносим только те категории, которых нет в target
+                    existing_cats = {
+                        r["name"] for r in conn.execute(
+                            "SELECT name FROM custom_categories WHERE couple_id = ?", (target_id,)
+                        ).fetchall()
+                    }
+                    old_cats = conn.execute(
+                        "SELECT * FROM custom_categories WHERE couple_id = ?", (couple_id,)
+                    ).fetchall()
+                    for cat in old_cats:
+                        if cat["name"] not in existing_cats:
+                            conn.execute(
+                                "INSERT INTO custom_categories (couple_id, name, description, color, emoji) VALUES (?,?,?,?,?)",
+                                (target_id, cat["name"], cat["description"], cat["color"], cat["emoji"])
+                            )
+                    # met_date: восстанавливаем если в активной паре нет
+                    if old["met_date"]:
+                        conn.execute(
+                            "UPDATE couples SET met_date = ? WHERE id = ? AND (met_date IS NULL OR met_date = '')",
+                            (old["met_date"], target_id)
+                        )
+                    # paired_at: восстанавливаем если в активной нет
+                    if old["paired_at"]:
+                        conn.execute(
+                            "UPDATE couples SET paired_at = ? WHERE id = ? AND paired_at IS NULL",
+                            (old["paired_at"], target_id)
+                        )
+                    # Удаляем старую пару (данные уже перенесены)
+                    conn.execute("DELETE FROM custom_categories WHERE couple_id = ?", (couple_id,))
+                    conn.execute("DELETE FROM invite_codes WHERE couple_id = ?", (couple_id,))
+                    conn.execute("DELETE FROM couples WHERE id = ?", (couple_id,))
+                else:
+                    # Режим REACTIVATE: просто делаем ID снова положительным, убираем таймер
+                    logger.info("restore_couple: reactivating couple %s for user %s", couple_id, restoring_user_id)
+                    conn.execute(
+                        f"UPDATE couples SET {restorer_slot} = ?, delete_after_utc = NULL, leave_user_id = NULL WHERE id = ?",
+                        (restoring_user_id, couple_id)
+                    )
+
+                # Помечаем в логе как восстановлено
+                conn.execute(
+                    "UPDATE couple_leave_log SET restored_at_utc = datetime('now') WHERE couple_id = ? AND user_id = ? AND restored_at_utc IS NULL",
+                    (couple_id, restoring_user_id)
+                )
+                conn.commit()
+                return True
+        except Exception as e:
+            logger.exception("restore_couple error: %s", e)
+            return False
+
     def delete_all_data(self) -> Dict[str, int]:
         """Удаляет абсолютно все пользовательские данные (кроме таблицы settings и admins)."""
         result = {}

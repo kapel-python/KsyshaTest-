@@ -1390,6 +1390,21 @@ async def cmd_start(message: Message, state: FSMContext):
     if not db.is_in_couple(user_id):
         couple = db.get_couple_by_user(user_id)
         if not couple:
+            # Проверяем: может этот пользователь сам покинул пару (ID отрицательный в БД)
+            leave_info = db.get_latest_restorable_leave(user_id)
+            if leave_info:
+                kb_rows = [[InlineKeyboardButton(
+                    text="↩️ Восстановить данные",
+                    callback_data=f"restore_space_info:{leave_info['couple_id']}"
+                )]]
+                kb_rows.append([InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")])
+                await message.answer(
+                    "Ты покинул(а) ваше пространство.\n\n"
+                    "<i>Данные хранятся 7 дней. Ты можешь восстановить их, пока срок не истёк.</i>",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
+                    parse_mode=ParseMode.HTML,
+                )
+                return
             # Нет пары — запускаем онбординг, пара создастся после
             await state.update_data(creating_couple=True)
             await state.set_state(CoupleOnboardingStates.waiting_for_name)
@@ -1412,22 +1427,41 @@ async def cmd_start(message: Message, state: FSMContext):
             left_name = db.get_display_name(left_id) if left_id else "Участник"
             stayed_id = u2 if u1 < 0 else u1
             stayed_name = db.get_display_name(stayed_id) if stayed_id and stayed_id > 0 else None
-            warning = (
-                f"\n\n⚠️ Ты можешь создать новое пространство, но если твой партнёр будет "
-                f"отличаться от <b>{html.escape(stayed_name)}</b> — вы не сможете восстановить данные этой комнаты."
-                if stayed_name else
-                "\n\n⚠️ Ты можешь создать новое пространство, но данные этой комнаты восстановить не получится."
-            )
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")]
-            ])
-            await message.answer(
-                f"<b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
-                f"<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>"
-                f"{warning}",
-                reply_markup=kb,
-                parse_mode=ParseMode.HTML,
-            )
+            i_left = (left_id == user_id)
+            if i_left:
+                # Это тот, кто сам ушёл — предлагаем восстановление
+                leave_info = db.get_latest_restorable_leave(user_id)
+                kb_rows = []
+                if leave_info:
+                    kb_rows.append([InlineKeyboardButton(
+                        text="↩️ Восстановить данные",
+                        callback_data=f"restore_space_info:{leave_info['couple_id']}"
+                    )])
+                kb_rows.append([InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")])
+                await message.answer(
+                    "Ты покинул(а) ваше пространство.\n\n"
+                    "<i>Данные хранятся 7 дней. Ты можешь восстановить их, пока срок не истёк.</i>",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
+                    parse_mode=ParseMode.HTML,
+                )
+            else:
+                # Это оставшийся участник — показываем кто ушёл + предупреждение
+                warning = (
+                    f"\n\n⚠️ Ты можешь создать новое пространство, но если твой партнёр будет "
+                    f"отличаться от <b>{html.escape(stayed_name)}</b> — вы не сможете восстановить данные этой комнаты."
+                    if stayed_name else
+                    "\n\n⚠️ Ты можешь создать новое пространство, но данные этой комнаты восстановить не получится."
+                )
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")]
+                ])
+                await message.answer(
+                    f"<b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
+                    f"<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>"
+                    f"{warning}",
+                    reply_markup=kb,
+                    parse_mode=ParseMode.HTML,
+                )
             return
         # Уже создана пара (партнёр ещё не присоединился) — показываем ссылку
         couple_id = couple["id"]
@@ -1928,22 +1962,39 @@ async def back_to_main(callback: CallbackQuery, state: FSMContext):
                 left_name = db.get_display_name(left_id) if left_id else "Участник"
                 stayed_id = u2 if u1 < 0 else u1
                 stayed_name = db.get_display_name(stayed_id) if stayed_id and stayed_id > 0 else None
-                warning = (
-                    f"\n\n⚠️ Ты можешь создать новое пространство, но если твой партнёр будет "
-                    f"отличаться от <b>{html.escape(stayed_name)}</b> — вы не сможете восстановить данные этой комнаты."
-                    if stayed_name else
-                    "\n\n⚠️ Ты можешь создать новое пространство, но данные этой комнаты восстановить не получится."
-                )
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")]
-                ])
-                await callback_edit_or_answer(callback,
-                    f"<b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
-                    f"<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>"
-                    f"{warning}",
-                    reply_markup=kb,
-                    parse_mode=ParseMode.HTML,
-                )
+                i_left = (left_id == user_id)
+                if i_left:
+                    leave_info = db.get_latest_restorable_leave(user_id)
+                    kb_rows = []
+                    if leave_info:
+                        kb_rows.append([InlineKeyboardButton(
+                            text="↩️ Восстановить данные",
+                            callback_data=f"restore_space_info:{leave_info['couple_id']}"
+                        )])
+                    kb_rows.append([InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")])
+                    await callback_edit_or_answer(callback,
+                        "Ты покинул(а) ваше пространство.\n\n"
+                        "<i>Данные хранятся 7 дней. Ты можешь восстановить их, пока срок не истёк.</i>",
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
+                        parse_mode=ParseMode.HTML,
+                    )
+                else:
+                    warning = (
+                        f"\n\n⚠️ Ты можешь создать новое пространство, но если твой партнёр будет "
+                        f"отличаться от <b>{html.escape(stayed_name)}</b> — вы не сможете восстановить данные этой комнаты."
+                        if stayed_name else
+                        "\n\n⚠️ Ты можешь создать новое пространство, но данные этой комнаты восстановить не получится."
+                    )
+                    kb = InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")]
+                    ])
+                    await callback_edit_or_answer(callback,
+                        f"<b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
+                        f"<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>"
+                        f"{warning}",
+                        reply_markup=kb,
+                        parse_mode=ParseMode.HTML,
+                    )
                 await callback.answer()
                 return
             couple_id = couple["id"]
@@ -2776,8 +2827,13 @@ async def leave_space_exec(callback: CallbackQuery, state: FSMContext):
             )
         except Exception:
             pass
+    leave_info = db.get_latest_restorable_leave(user_id)
+    restore_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="↩️ Восстановить данные", callback_data=f"restore_space_info:{leave_info['couple_id']}")]
+    ]) if leave_info else None
     await callback.message.edit_text(
-        f"✅ Ты покинул(а) комнату с {html.escape(partner_name)}",
+        f"✅ Ты покинул(а) комнату с <b>{html.escape(partner_name)}</b>",
+        reply_markup=restore_kb,
         parse_mode=ParseMode.HTML,
     )
     await callback.answer()
@@ -2839,11 +2895,165 @@ async def leave_space_exec_custom(callback: CallbackQuery, state: FSMContext):
                 await callback.bot.send_message(chat_id=partner_id, text=notify_text, parse_mode=ParseMode.HTML, force_new_message=True)
         except Exception:
             pass
+    leave_info = db.get_latest_restorable_leave(user_id)
+    restore_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="↩️ Восстановить данные", callback_data=f"restore_space_info:{leave_info['couple_id']}")]
+    ]) if leave_info else None
     await callback.message.edit_text(
-        f"✅ Ты покинул(а) комнату с {html.escape(partner_name)}",
+        f"✅ Ты покинул(а) комнату с <b>{html.escape(partner_name)}</b>",
+        reply_markup=restore_kb,
         parse_mode=ParseMode.HTML,
     )
     await callback.answer()
+    welcome_text = format_welcome_message(user_id)
+    await callback.message.answer(
+        welcome_text,
+        reply_markup=create_main_keyboard(user_id),
+        parse_mode=ParseMode.HTML,
+    )
+
+
+@router.callback_query(F.data.startswith("restore_space_info:"))
+async def restore_space_info(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    try:
+        couple_id = int(callback.data.split(":", 1)[1])
+    except (ValueError, IndexError):
+        await callback.answer("Ошибка: неверный идентификатор", show_alert=True)
+        return
+
+    leave_info = db.get_latest_restorable_leave(user_id)
+    if not leave_info or leave_info["couple_id"] != couple_id:
+        await callback.answer("Срок хранения истёк или данные уже восстановлены.", show_alert=True)
+        return
+
+    # Проверка: не состоит ли пользователь в ДРУГОЙ паре (не с тем же партнёром)
+    partner_id = leave_info.get("partner_id")
+    if db.is_in_couple(user_id):
+        current_partner = db.get_partner_id(user_id)
+        if current_partner != partner_id:
+            partner_name_c = db.get_display_name(current_partner) if current_partner else "другим человеком"
+            await callback.message.edit_text(
+                "⛔ Восстановление невозможно\n\n"
+                f"Ты сейчас состоишь в паре с <b>{html.escape(partner_name_c)}</b>.\n\n"
+                "Восстановить данные старой комнаты можно только если ты не состоишь в другом пространстве. "
+                "Покинь текущую пару и попробуй снова.",
+                parse_mode=ParseMode.HTML,
+            )
+            await callback.answer()
+            return
+
+    stats = db.get_restore_stats(couple_id)
+    partner_name = db.get_display_name(partner_id) if partner_id else "партнёра"
+
+    lines = [f"↩️ <b>Восстановление пространства с {html.escape(partner_name)}</b>\n"]
+    if stats.get("memories"):
+        lines.append(f"📸 Воспоминаний: <b>{stats['memories']}</b>")
+    if stats.get("wishes"):
+        lines.append(f"🌠 Желаний: <b>{stats['wishes']}</b>")
+    if stats.get("events"):
+        lines.append(f"📅 Событий: <b>{stats['events']}</b>")
+    if stats.get("categories"):
+        lines.append(f"🗂 Категорий: <b>{stats['categories']}</b>")
+    if stats.get("met_date"):
+        lines.append(f"💑 Дата знакомства: <b>{stats['met_date']}</b>")
+    if not any(stats.get(k) for k in ("memories", "wishes", "events", "categories", "met_date")):
+        lines.append("ℹ️ Данных для восстановления нет, но пространство будет воссоздано.")
+
+    # Срок хранения
+    import datetime as _dt
+    deadline = leave_info.get("delete_after_utc", "")
+    if deadline:
+        try:
+            d = _dt.datetime.strptime(deadline[:10], "%Y-%m-%d")
+            lines.append(f"\n⏳ Данные хранятся до <b>{d.strftime('%d.%m.%Y')}</b>")
+        except Exception:
+            pass
+
+    lines.append("\nПодтверди восстановление — и ты снова сможешь пользоваться сервисом вместе.")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Восстановить", callback_data=f"restore_space_exec:{couple_id}")],
+        [InlineKeyboardButton(text="🚫 Отмена", callback_data="restore_space_cancel")],
+    ])
+    await callback.message.edit_text(
+        "\n".join(lines),
+        reply_markup=kb,
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "restore_space_cancel")
+async def restore_space_cancel(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "Восстановление отменено.",
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("restore_space_exec:"))
+async def restore_space_exec(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    try:
+        couple_id = int(callback.data.split(":", 1)[1])
+    except (ValueError, IndexError):
+        await callback.answer("Ошибка: неверный идентификатор", show_alert=True)
+        return
+
+    leave_info = db.get_latest_restorable_leave(user_id)
+    if not leave_info or leave_info["couple_id"] != couple_id:
+        await callback.answer("Срок хранения истёк или данные уже восстановлены.", show_alert=True)
+        return
+
+    partner_id = leave_info.get("partner_id")
+
+    # Повторная проверка блокировки (параллельная пара с другим человеком)
+    if db.is_in_couple(user_id):
+        current_partner = db.get_partner_id(user_id)
+        if current_partner != partner_id:
+            await callback.answer("Сначала покинь текущую пару.", show_alert=True)
+            return
+
+    await callback.message.edit_text(
+        "⏳ Восстанавливаю данные...",
+        parse_mode=ParseMode.HTML,
+    )
+
+    ok = db.restore_couple(restoring_user_id=user_id, couple_id=couple_id)
+    if not ok:
+        await callback.message.edit_text(
+            "❌ Не удалось восстановить данные. Возможно, срок хранения уже истёк.",
+            parse_mode=ParseMode.HTML,
+        )
+        await callback.answer()
+        return
+
+    partner_name = db.get_display_name(partner_id) if partner_id else "партнёра"
+    await callback.message.edit_text(
+        f"✅ <b>Данные восстановлены!</b>\n\n"
+        f"Ваше пространство с <b>{html.escape(partner_name)}</b> снова активно.\n"
+        "Все воспоминания, события и категории возвращены.",
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+    # Уведомляем партнёра
+    if partner_id and partner_id > 0:
+        my_name = db.get_display_name(user_id) or "Участник"
+        try:
+            await callback.bot.send_message(
+                chat_id=partner_id,
+                text=f"✅ <b>{html.escape(my_name)}</b> восстановил(а) ваше пространство!\n\n"
+                     "Все данные снова доступны — можете продолжать вместе.",
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
+            )
+        except Exception:
+            pass
+
+    # Показываем главное меню
     welcome_text = format_welcome_message(user_id)
     await callback.message.answer(
         welcome_text,

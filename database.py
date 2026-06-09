@@ -4887,35 +4887,78 @@ class Database:
         """Сводная статистика для админ-панели."""
         try:
             with self._get_connection() as conn:
-                total_devices = conn.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
-                cutoff5 = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+                now = datetime.now(timezone.utc)
+                cutoff5m  = (now - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+                cutoff24h = (now - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+                cutoff7d  = (now - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+                cutoff30d = (now - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+
+                total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+                # Полные пары (оба участника присоединились)
+                total_couples = conn.execute(
+                    "SELECT COUNT(*) FROM couples WHERE user2_id IS NOT NULL"
+                ).fetchone()[0]
+
+                # Активные пары: хотя бы один участник посещал сайт за 30 дней
+                active_couples = conn.execute("""
+                    SELECT COUNT(DISTINCT c.id) FROM couples c
+                    WHERE c.user2_id IS NOT NULL AND c.leave_user_id IS NULL
+                    AND EXISTS (
+                        SELECT 1 FROM user_tokens ut
+                        INNER JOIN devices d ON d.visitor_id = ut.token
+                        WHERE (ut.user_id = c.user1_id OR ut.user_id = c.user2_id)
+                        AND d.last_seen_utc >= ?
+                    )
+                """, (cutoff30d,)).fetchone()[0]
+
+                # Онлайн сейчас (устройства за 5 минут)
                 online_count = conn.execute(
-                    "SELECT COUNT(*) FROM devices WHERE last_seen_utc >= ?", (cutoff5,)
+                    "SELECT COUNT(*) FROM devices WHERE last_seen_utc >= ?", (cutoff5m,)
                 ).fetchone()[0]
-                ai_messages = conn.execute("SELECT COUNT(*) FROM companion_messages").fetchone()[0]
-                memories_count = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-                site_visits = conn.execute("SELECT COUNT(*) FROM site_visits").fetchone()[0]
-                wishes_count = conn.execute("SELECT COUNT(*) FROM wishes").fetchone()[0]
-                events_count = conn.execute("SELECT COUNT(*) FROM scheduled_events").fetchone()[0]
-                favorites_count = conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0]
-                today_cutoff = datetime.now(timezone.utc).strftime("%Y-%m-%d") + " 00:00:00"
-                today_visits = conn.execute(
-                    "SELECT COUNT(*) FROM site_visits WHERE visited_at_utc >= ?", (today_cutoff,)
-                ).fetchone()[0]
-                today_ai = conn.execute(
-                    "SELECT COUNT(*) FROM companion_messages WHERE created_at_utc >= ?", (today_cutoff,)
-                ).fetchone()[0]
+
+                # Уникальных пользователей за 24ч / 7д / 30д через токены и устройства
+                users_24h = conn.execute("""
+                    SELECT COUNT(DISTINCT ut.user_id) FROM user_tokens ut
+                    INNER JOIN devices d ON d.visitor_id = ut.token
+                    WHERE d.last_seen_utc >= ?
+                """, (cutoff24h,)).fetchone()[0]
+
+                users_7d = conn.execute("""
+                    SELECT COUNT(DISTINCT ut.user_id) FROM user_tokens ut
+                    INNER JOIN devices d ON d.visitor_id = ut.token
+                    WHERE d.last_seen_utc >= ?
+                """, (cutoff7d,)).fetchone()[0]
+
+                users_30d = conn.execute("""
+                    SELECT COUNT(DISTINCT ut.user_id) FROM user_tokens ut
+                    INNER JOIN devices d ON d.visitor_id = ut.token
+                    WHERE d.last_seen_utc >= ?
+                """, (cutoff30d,)).fetchone()[0]
+
+                # Новых пар за 7д / 30д (по дате присоединения партнёра)
+                new_couples_7d = conn.execute("""
+                    SELECT COUNT(*) FROM couples
+                    WHERE user2_id IS NOT NULL
+                    AND COALESCE(paired_at, created_at) >= ?
+                """, (cutoff7d,)).fetchone()[0]
+
+                new_couples_30d = conn.execute("""
+                    SELECT COUNT(*) FROM couples
+                    WHERE user2_id IS NOT NULL
+                    AND COALESCE(paired_at, created_at) >= ?
+                """, (cutoff30d,)).fetchone()[0]
+
                 return {
-                    "total_devices": total_devices,
+                    "total_users": total_users,
+                    "total_couples": total_couples,
+                    "active_couples": active_couples,
                     "online_count": online_count,
-                    "ai_messages": ai_messages,
-                    "ai_today": today_ai,
-                    "memories": memories_count,
-                    "site_visits": site_visits,
-                    "today_visits": today_visits,
-                    "wishes": wishes_count,
-                    "events": events_count,
-                    "favorites": favorites_count,
+                    "users_24h": users_24h,
+                    "users_7d": users_7d,
+                    "users_30d": users_30d,
+                    "new_couples_7d": new_couples_7d,
+                    "new_couples_30d": new_couples_30d,
                 }
         except Exception as e:
             logger.exception("Ошибка get_admin_stats: %s", e)

@@ -4131,6 +4131,90 @@ async def api_version(request: web.Request) -> web.Response:
     }))
 
 
+async def admin_users_list(request: web.Request) -> web.Response:
+    """GET /api/admin/users — список пользователей для админ-панели."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    creator_id = int(getattr(config, "CREATOR_ID", 0) or 0)
+    users = db.get_admin_users_list()
+    for u in users:
+        u["is_creator"] = u.get("user_id") == creator_id
+        u["has_avatar"] = bool(u.get("tg_avatar_path"))
+    return _add_cors_headers(web.json_response({"ok": True, "users": users}))
+
+
+async def admin_user_detail(request: web.Request) -> web.Response:
+    """GET /api/admin/users/{user_id} — детальная инфо о пользователе (только числа, без контента)."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        target_id = int(request.match_info.get("user_id", 0) or 0)
+    except (ValueError, TypeError):
+        target_id = 0
+    if target_id <= 0:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
+
+    detail = db.get_admin_user_detail(target_id)
+    if not detail:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "not_found"}, status=404))
+
+    creator_id = int(getattr(config, "CREATOR_ID", 0) or 0)
+    detail["is_creator"] = detail.get("user_id") == creator_id
+    detail["has_avatar"] = bool(detail.get("tg_avatar_path"))
+    detail["partner_has_avatar"] = bool(detail.get("partner_tg_avatar_path"))
+    # Удаляем пути к файлам из ответа — клиент запрашивает аватар через отдельный эндпоинт
+    detail.pop("tg_avatar_path", None)
+    detail.pop("tg_avatar_file_id", None)
+    detail.pop("tg_avatar_updated", None)
+    detail.pop("partner_tg_avatar_path", None)
+    return _add_cors_headers(web.json_response({"ok": True, "user": detail}))
+
+
+async def admin_user_avatar(request: web.Request) -> web.Response:
+    """GET /api/admin/user_avatar?user_id={id} — аватар пользователя (только для creator)."""
+    if not _check_api_secret(request):
+        return web.Response(status=403)
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return web.Response(status=403)
+
+    try:
+        target_id = int(request.rel_url.query.get("user_id", 0) or 0)
+    except (ValueError, TypeError):
+        return web.Response(status=400)
+
+    user = db.get_user(target_id)
+    if not user:
+        return web.Response(status=404)
+    avatar_path = user.get("tg_avatar_path")
+    if not avatar_path:
+        return web.Response(status=404)
+
+    from pathlib import Path
+    import mimetypes
+    project_root = Path(__file__).resolve().parent
+    full = (project_root / avatar_path) if not Path(avatar_path).is_absolute() else Path(avatar_path)
+    if not full.exists():
+        return web.Response(status=404)
+    mime, _ = mimetypes.guess_type(str(full))
+    return web.Response(
+        body=full.read_bytes(),
+        content_type=mime or "image/jpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
 async def admin_version_history(request: web.Request) -> web.Response:
     """Возвращает полную историю версий (только creator)."""
     if not _check_api_secret(request):
@@ -10099,6 +10183,9 @@ def create_app() -> web.Application:
     app.router.add_post("/api/admin/backup", admin_backup)
     app.router.add_get("/api/admin/stats", admin_stats)
     app.router.add_post("/api/admin/action", admin_action)
+    app.router.add_get("/api/admin/users", admin_users_list)
+    app.router.add_get("/api/admin/users/{user_id}", admin_user_detail)
+    app.router.add_get("/api/admin/user_avatar", admin_user_avatar)
     app.router.add_get("/api/version", api_version)
     app.router.add_get("/api/admin/version-history", admin_version_history)
     app.router.add_route("OPTIONS", "/api/admin/challenge/init", handle_options)

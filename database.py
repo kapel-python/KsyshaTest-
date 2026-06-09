@@ -4960,6 +4960,156 @@ class Database:
             logger.exception("Ошибка get_admin_stats: %s", e)
             return {}
 
+    def get_admin_users_list(self) -> List[Dict[str, Any]]:
+        """Список всех пользователей для админ-панели (без личного контента)."""
+        try:
+            with self._get_connection() as conn:
+                rows = conn.execute("""
+                    SELECT
+                        u.user_id, u.first_name, u.last_name, u.username,
+                        u.created_at, u.last_seen, u.tg_avatar_path,
+                        COALESCE(ust.tier, 'free') AS tier,
+                        ust.expires_at AS tier_expires_at,
+                        c.id AS couple_id,
+                        CASE WHEN c.user1_id = u.user_id THEN c.user2_id
+                             ELSE c.user1_id END AS partner_id
+                    FROM users u
+                    LEFT JOIN user_subscription_tier ust
+                        ON ust.user_key = CAST(u.user_id AS TEXT)
+                    LEFT JOIN couples c
+                        ON (c.user1_id = u.user_id OR c.user2_id = u.user_id)
+                        AND c.user2_id IS NOT NULL AND c.leave_user_id IS NULL
+                    ORDER BY u.created_at DESC
+                """).fetchall()
+                now = datetime.now(timezone.utc)
+                result = []
+                for r in rows:
+                    d = dict(r)
+                    if d['tier'] != 'free' and d.get('tier_expires_at'):
+                        try:
+                            exp = datetime.fromisoformat(d['tier_expires_at']).replace(tzinfo=timezone.utc)
+                            if now > exp:
+                                d['tier'] = 'free'
+                                d['tier_expired'] = True
+                        except Exception:
+                            pass
+                    result.append(d)
+                return result
+        except Exception as e:
+            logger.exception("Ошибка get_admin_users_list: %s", e)
+            return []
+
+    def get_admin_user_detail(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Детальная административная информация о пользователе (без личного контента)."""
+        try:
+            with self._get_connection() as conn:
+                user_row = conn.execute(
+                    "SELECT * FROM users WHERE user_id = ?", (user_id,)
+                ).fetchone()
+                if not user_row:
+                    return None
+                d: Dict[str, Any] = dict(user_row)
+
+                # Подписка
+                tier_row = conn.execute(
+                    "SELECT tier, expires_at FROM user_subscription_tier WHERE user_key = ?",
+                    (str(user_id),)
+                ).fetchone()
+                if tier_row:
+                    tier, exp_at = tier_row[0], tier_row[1]
+                    is_expired = False
+                    if exp_at:
+                        try:
+                            exp = datetime.fromisoformat(exp_at).replace(tzinfo=timezone.utc)
+                            if datetime.now(timezone.utc) > exp:
+                                tier = 'free'
+                                is_expired = True
+                        except Exception:
+                            pass
+                    d['tier'] = tier or 'free'
+                    d['tier_expires_at'] = exp_at
+                    d['tier_expired'] = is_expired
+                else:
+                    d['tier'] = 'free'
+                    d['tier_expires_at'] = None
+                    d['tier_expired'] = False
+
+                # Пара и партнёр
+                couple_row = conn.execute("""
+                    SELECT * FROM couples
+                    WHERE (user1_id = ? OR user2_id = ?)
+                      AND user2_id IS NOT NULL AND leave_user_id IS NULL
+                    ORDER BY id DESC LIMIT 1
+                """, (user_id, user_id)).fetchone()
+
+                if couple_row:
+                    c = dict(couple_row)
+                    d['couple_id'] = c['id']
+                    d['couple_created_at'] = c.get('paired_at') or c.get('created_at')
+                    partner_id = c['user2_id'] if c['user1_id'] == user_id else c['user1_id']
+                    d['partner_id'] = partner_id
+                    if partner_id:
+                        p_row = conn.execute(
+                            "SELECT user_id, first_name, last_name, username, tg_avatar_path, last_seen FROM users WHERE user_id = ?",
+                            (partner_id,)
+                        ).fetchone()
+                        if p_row:
+                            p = dict(p_row)
+                            d['partner_first_name'] = p.get('first_name')
+                            d['partner_last_name'] = p.get('last_name')
+                            d['partner_username'] = p.get('username')
+                            d['partner_last_seen'] = p.get('last_seen')
+                            d['partner_tg_avatar_path'] = p.get('tg_avatar_path')
+                        pt_row = conn.execute(
+                            "SELECT tier, expires_at FROM user_subscription_tier WHERE user_key = ?",
+                            (str(partner_id),)
+                        ).fetchone()
+                        if pt_row:
+                            pt, pexp = pt_row[0], pt_row[1]
+                            if pexp:
+                                try:
+                                    exp2 = datetime.fromisoformat(pexp).replace(tzinfo=timezone.utc)
+                                    if datetime.now(timezone.utc) > exp2:
+                                        pt = 'free'
+                                except Exception:
+                                    pass
+                            d['partner_tier'] = pt or 'free'
+                        else:
+                            d['partner_tier'] = 'free'
+                else:
+                    d['couple_id'] = None
+                    d['partner_id'] = None
+                    d['couple_created_at'] = None
+
+                # Счётчики контента (только числа — без содержимого)
+                stats_row = conn.execute("""
+                    SELECT COUNT(*) AS memories_count,
+                           SUM(CASE WHEN media_type IN ('photo','image') THEN 1 ELSE 0 END) AS photos_count
+                    FROM memories WHERE user_id = ?
+                """, (user_id,)).fetchone()
+                d['memories_count'] = stats_row[0] if stats_row else 0
+                d['photos_count'] = stats_row[1] if stats_row else 0
+
+                d['events_count'] = conn.execute(
+                    "SELECT COUNT(*) FROM scheduled_events WHERE user_id = ?", (user_id,)
+                ).fetchone()[0] or 0
+                d['wishes_count'] = conn.execute(
+                    "SELECT COUNT(*) FROM wishes WHERE user_id = ?", (user_id,)
+                ).fetchone()[0] or 0
+
+                # Последняя активность через устройства
+                dev_row = conn.execute("""
+                    SELECT MAX(d.last_seen_utc) FROM user_tokens ut
+                    INNER JOIN devices d ON d.visitor_id = ut.token
+                    WHERE ut.user_id = ?
+                """, (user_id,)).fetchone()
+                d['last_device_seen'] = dev_row[0] if dev_row else None
+
+                return d
+        except Exception as e:
+            logger.exception("Ошибка get_admin_user_detail(%s): %s", user_id, e)
+            return None
+
     def log_app_event(self, level: str, message: str, detail: Optional[str] = None) -> bool:
         """Записывает системное событие/ошибку в app_logs."""
         try:

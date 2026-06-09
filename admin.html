@@ -124,6 +124,75 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .health-m-value.danger{color:var(--red);}
 .health-m-unit{font-size:0.65rem;font-weight:400;color:var(--muted);margin-left:2px;}
 
+/* ── Users tab ── */
+.users-list{display:flex;flex-direction:column;gap:6px;}
+.user-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s,border-color 0.15s,transform 0.15s;animation:fadeUp 0.3s ease both;}
+.user-card:hover{background:var(--tint);border-color:rgba(124,58,237,0.25);transform:translateX(2px);}
+.user-card-av{width:44px;height:44px;border-radius:50%;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,rgba(124,58,237,0.18),rgba(200,80,192,0.14));display:flex;align-items:center;justify-content:center;position:relative;}
+.user-card-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:none;position:absolute;inset:0;}
+.user-card-av-init{font-size:0.88rem;font-weight:700;color:var(--accent);user-select:none;}
+.user-card-body{flex:1;min-width:0;}
+.user-card-name{font-size:0.87rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-card-sub{font-size:0.7rem;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.user-card-right{flex-shrink:0;text-align:right;min-width:60px;}
+.user-card-seen{font-size:0.65rem;color:var(--meta);font-family:'JetBrains Mono',monospace;}
+
+.tier-badge{display:inline-block;font-size:0.6rem;font-weight:700;padding:1px 7px;border-radius:10px;letter-spacing:0.04em;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.tier-free{background:var(--tint-sm);border:1px solid var(--border);color:var(--muted);}
+.tier-plus{background:rgba(65,88,208,0.12);border:1px solid rgba(65,88,208,0.3);color:#818cf8;}
+.tier-premium{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;}
+.tier-expired{background:var(--tint-sm);border:1px solid var(--border);color:var(--meta);text-decoration:line-through;}
+.couple-badge{display:inline-block;font-size:0.6rem;font-weight:600;padding:1px 7px;border-radius:10px;background:rgba(200,80,192,0.1);border:1px solid rgba(200,80,192,0.25);color:var(--accent2);white-space:nowrap;}
+.creator-badge{display:inline-block;font-size:0.6rem;font-weight:700;padding:1px 7px;border-radius:10px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.35);color:var(--accent);letter-spacing:0.04em;font-family:'JetBrains Mono',monospace;}
+
+.user-detail-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:fadeUp 0.3s ease both;}
+.user-detail-head{display:flex;align-items:center;gap:16px;padding:20px 20px 16px;}
+.user-detail-av{width:64px;height:64px;border-radius:50%;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,rgba(124,58,237,0.18),rgba(200,80,192,0.14));display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:var(--accent);position:relative;}
+.user-detail-av img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%;}
+.user-detail-info{flex:1;min-width:0;}
+.user-detail-name{font-family:'Unbounded',sans-serif;font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:4px;word-break:break-word;line-height:1.3;}
+.user-detail-uname{font-size:0.73rem;color:var(--muted);margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
+.user-detail-badges{display:flex;gap:5px;flex-wrap:wrap;}
+.ud-divider{height:1px;background:var(--border);}
+.ud-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 16px;}
+@media(min-width:500px){.ud-grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:700px){.ud-grid{grid-template-columns:repeat(4,1fr);}}
+.ud-item{background:var(--tint-sm);border:1px solid var(--border);border-radius:11px;padding:9px 11px;}
+.ud-label{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;font-weight:500;}
+.ud-value{font-size:0.8rem;font-weight:600;color:var(--text);word-break:break-word;line-height:1.3;}
+.ud-value.accent{color:var(--accent);}
+.ud-value.warn{color:#f59e0b;}
+.ud-value.ok{color:var(--green);}
+.ud-value.muted{color:var(--muted);}
+
+.user-partner-wrap{padding:0 16px 14px;}
+.user-partner-card{background:var(--surface);border:1px solid rgba(200,80,192,0.2);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s,transform 0.15s;}
+.user-partner-card:hover{background:var(--tint);transform:translateX(2px);}
+.user-partner-av{width:40px;height:40px;border-radius:50%;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,rgba(200,80,192,0.2),rgba(124,58,237,0.15));display:flex;align-items:center;justify-content:center;font-size:0.82rem;font-weight:700;color:var(--accent2);position:relative;}
+.user-partner-av img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%;}
+.user-partner-info{flex:1;min-width:0;}
+.user-partner-name{font-size:0.84rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-partner-sub{font-size:0.7rem;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px;}
+.user-partner-arrow{font-size:0.8rem;color:var(--muted);flex-shrink:0;}
+
+.ua-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0 16px 16px;}
+@media(min-width:500px){.ua-grid{grid-template-columns:repeat(3,1fr);}}
+.ua-btn{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 12px;cursor:pointer;transition:background 0.15s,transform 0.15s;text-align:left;}
+.ua-btn:hover{background:var(--tint);transform:translateY(-1px);}
+.ua-btn-icon{font-size:1.2rem;margin-bottom:6px;display:block;}
+.ua-btn-label{font-size:0.78rem;font-weight:600;color:var(--text);margin-bottom:2px;}
+.ua-btn-sub{font-size:0.65rem;color:var(--muted);line-height:1.4;}
+.ua-btn.ua-premium .ua-btn-label{color:#f59e0b;}
+.ua-btn.ua-premium{border-color:rgba(245,158,11,0.2);}
+.ua-btn.ua-warn .ua-btn-label{color:#f59e0b;}
+.ua-btn.ua-warn{border-color:rgba(245,158,11,0.2);}
+.ua-btn.ua-danger .ua-btn-label{color:var(--red);}
+.ua-btn.ua-danger{border-color:rgba(239,68,68,0.2);}
+
+.ud-back{display:inline-flex;align-items:center;gap:6px;background:var(--tint-sm);border:1px solid var(--border);color:var(--muted);font-size:0.78rem;padding:7px 13px;border-radius:10px;cursor:pointer;transition:all 0.15s;margin-bottom:14px;font-family:'DM Sans',sans-serif;}
+.ud-back:hover{background:var(--tint-lg);color:var(--text);}
+.users-empty{text-align:center;color:var(--muted);font-size:0.82rem;padding:40px 0;}
+
 .controls-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
 @media(min-width:600px){.controls-grid{grid-template-columns:repeat(3,1fr);}}
 .ctrl-btn{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;cursor:pointer;transition:all 0.18s;text-align:left;animation:fadeUp 0.4s ease both;}
@@ -366,6 +435,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
   <div class="tab-nav" id="tabNav">
     <button class="tab-btn active" data-tab="dashboard">📊 Дашборд</button>
+    <button class="tab-btn" data-tab="users">👥 Пользователи</button>
     <button class="tab-btn" data-tab="monitoring">📈 Мониторинг</button>
     <button class="tab-btn" data-tab="logs">📋 Логи</button>
     <button class="tab-btn" data-tab="settings">⚙️ Настройки</button>
@@ -476,6 +546,41 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         <div class="section-title">Устройства / Сессии</div>
         <div class="devices-list" id="devicesList">
           <div style="text-align:center;color:var(--muted);font-size:0.8rem;padding:20px">Загрузка…</div>
+        </div>
+      </div>
+
+      </div>
+      </div>
+    </div>
+
+    <!-- ════ TAB: USERS ════ -->
+    <div class="tab-content" id="tab-users">
+      <div class="admin-scroll">
+      <div class="admin-scroll-inner">
+
+      <!-- LIST VIEW -->
+      <div id="usersListView">
+        <div class="section">
+          <div class="refresh-row">
+            <div class="section-title" style="flex:1;margin-bottom:0">Все пользователи <span id="usersCount" style="font-weight:400;opacity:0.5"></span></div>
+            <button class="refresh-btn" id="usersRefreshBtn" onclick="loadUsersList()">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6A4 4 0 1 1 6 2a4 4 0 0 1 2.83 1.17L10 4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><polyline points="8,2 10,4.34 7.66,4.34" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Обновить
+            </button>
+          </div>
+          <div class="users-list" id="usersList">
+            <div class="users-empty">Загрузка…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DETAIL VIEW -->
+      <div id="usersDetailView" style="display:none">
+        <div class="section">
+          <button class="ud-back" onclick="showUsersList()">← Все пользователи</button>
+          <div id="userDetailContent">
+            <div class="users-empty">Загрузка…</div>
+          </div>
         </div>
       </div>
 
@@ -965,10 +1070,13 @@ const CAT = {'important_moments':'💫 Важные моменты','memories':'
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-'+name));
-  // Trigger tab-specific logic
   if (name === 'monitoring') startMonitoring();
   else if (name === 'logs') { loadLogs(); ensureShellWs(); }
   else if (name === 'settings') loadVersionHistory();
+  else if (name === 'users') {
+    _handleUsersHash();
+    if (!_usersCache) loadUsersList();
+  }
 }
 document.getElementById('tabNav').addEventListener('click', e => {
   const btn = e.target.closest('.tab-btn');
@@ -1767,6 +1875,232 @@ function doFullReset() {
 }
 window.doFullReset = doFullReset;
 
+// ── Users tab ─────────────────────────────────────
+let _usersCache = null;
+let _avatarObserver = null;
+
+function _tierBadge(tier, expired) {
+  if (expired || tier === 'free') return '<span class="tier-badge tier-free">Free</span>';
+  if (tier === 'premium') return '<span class="tier-badge tier-premium">Premium</span>';
+  if (tier === 'plus')    return '<span class="tier-badge tier-plus">Plus</span>';
+  return '<span class="tier-badge tier-free">' + h(tier) + '</span>';
+}
+
+function _userInitials(u) {
+  const fn = (u.first_name || '').trim();
+  const ln = (u.last_name  || '').trim();
+  if (fn && ln) return (fn[0] + ln[0]).toUpperCase();
+  if (fn) return fn.slice(0,2).toUpperCase();
+  if (u.username) return u.username.slice(0,2).toUpperCase();
+  return '?';
+}
+
+function _avatarUrl(userId) {
+  return '/api/admin/user_avatar?user_id=' + userId + '&v=' + encodeURIComponent(VISITOR_ID);
+}
+
+function _initAvatarObserver() {
+  if (_avatarObserver) return;
+  _avatarObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const uid = el.dataset.userId;
+      const img = el.querySelector('img');
+      if (img && !img.src) {
+        img.src = _avatarUrl(uid);
+        img.onload  = () => { img.style.display = 'block'; };
+        img.onerror = () => { img.style.display = 'none'; };
+      }
+      _avatarObserver.unobserve(el);
+    });
+  }, { rootMargin: '120px' });
+}
+
+function _observeAvatars() {
+  _initAvatarObserver();
+  document.querySelectorAll('.user-card-av[data-user-id]').forEach(el => {
+    _avatarObserver.observe(el);
+  });
+}
+
+async function loadUsersList() {
+  const btn = document.getElementById('usersRefreshBtn');
+  if (btn) btn.classList.add('spinning');
+  try {
+    const r = await fetch('/api/admin/users?v=' + encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'error');
+    _usersCache = d.users || [];
+    renderUsersList(_usersCache);
+  } catch(e) { toast('Ошибка загрузки пользователей', 'error'); }
+  finally { if (btn) btn.classList.remove('spinning'); }
+}
+
+function renderUsersList(users) {
+  const el  = document.getElementById('usersList');
+  const cnt = document.getElementById('usersCount');
+  if (!el) return;
+  if (cnt) cnt.textContent = users.length ? '(' + users.length + ')' : '';
+  if (!users.length) { el.innerHTML = '<div class="users-empty">Пользователей нет</div>'; return; }
+
+  el.innerHTML = users.map((u, i) => {
+    const name   = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Без имени';
+    const uname  = u.username ? '@' + h(u.username) : '<span style="color:var(--meta)">нет username</span>';
+    const tier   = _tierBadge(u.tier, u.tier_expired);
+    const couple = u.partner_id ? '<span class="couple-badge">В паре</span>' : '';
+    const cr     = u.is_creator ? '<span class="creator-badge">CREATOR</span>' : '';
+    const seen   = u.last_seen ? relativeTime(u.last_seen) : '—';
+    const delay  = 'animation-delay:' + Math.min(i * 0.03, 0.3) + 's';
+    return `<div class="user-card" onclick="openUser(${u.user_id})" style="${delay}">
+      <div class="user-card-av" data-user-id="${u.user_id}">
+        ${u.has_avatar ? '<img alt="">' : ''}<span class="user-card-av-init">${h(_userInitials(u))}</span>
+      </div>
+      <div class="user-card-body">
+        <div class="user-card-name">${h(name)}</div>
+        <div class="user-card-sub">${uname}&nbsp;${tier}${couple}${cr}</div>
+      </div>
+      <div class="user-card-right"><div class="user-card-seen">${seen}</div></div>
+    </div>`;
+  }).join('');
+
+  _observeAvatars();
+}
+
+function openUser(userId) {
+  history.pushState(null, '', location.pathname + location.search + '#user' + userId);
+  _showUserDetail(userId);
+}
+window.openUser = openUser;
+
+function showUsersList() {
+  history.pushState(null, '', location.pathname + location.search);
+  document.getElementById('usersListView').style.display = '';
+  document.getElementById('usersDetailView').style.display = 'none';
+}
+window.showUsersList = showUsersList;
+
+async function _showUserDetail(userId) {
+  document.getElementById('usersListView').style.display = 'none';
+  document.getElementById('usersDetailView').style.display = '';
+  const content = document.getElementById('userDetailContent');
+  content.innerHTML = '<div class="users-empty">Загрузка…</div>';
+  try {
+    const r = await fetch('/api/admin/users/' + userId + '?v=' + encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'error');
+    renderUserDetail(d.user, content);
+  } catch(e) {
+    content.innerHTML = '<div class="users-empty">Ошибка загрузки</div>';
+  }
+}
+
+function renderUserDetail(u, container) {
+  const name     = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Без имени';
+  const initials = h(_userInitials(u));
+  const uname    = u.username ? '@' + h(u.username) : '—';
+  const tier     = _tierBadge(u.tier, u.tier_expired);
+  const cr       = u.is_creator ? '<span class="creator-badge">CREATOR</span>' : '';
+
+  let daysIn = '—';
+  if (u.created_at) {
+    try {
+      const ms = Date.now() - new Date(u.created_at.replace(' ','T') + (u.created_at.includes('Z') ? '' : 'Z')).getTime();
+      daysIn = Math.max(0, Math.floor(ms / 86400000)) + ' дн.';
+    } catch(e) {}
+  }
+
+  let tierStr = u.tier === 'free' ? 'Free' : (u.tier === 'premium' ? 'Premium' : 'Plus');
+  if (u.tier_expired) tierStr += ' (истёк)';
+  const tierExp = u.tier_expires_at ? relativeTime(u.tier_expires_at) : '—';
+  const lastSite = u.last_device_seen ? relativeTime(u.last_device_seen) : '—';
+  const lastBot  = u.last_seen ? relativeTime(u.last_seen) : '—';
+
+  const avatarImg = u.has_avatar
+    ? `<img src="${_avatarUrl(u.user_id)}" alt="" style="display:none" onload="this.style.display='block'" onerror="this.style.display='none'">`
+    : '';
+
+  let partnerHtml = '';
+  if (u.partner_id) {
+    const pName  = [u.partner_first_name, u.partner_last_name].filter(Boolean).join(' ') || 'Партнёр';
+    const pUname = u.partner_username ? '@' + h(u.partner_username) : 'нет username';
+    const pTier  = _tierBadge(u.partner_tier, false);
+    const pSeen  = u.partner_last_seen ? relativeTime(u.partner_last_seen) : '—';
+    const pInit  = h(_userInitials({ first_name: u.partner_first_name, last_name: u.partner_last_name, username: u.partner_username }));
+    const pAv    = u.partner_has_avatar
+      ? `<img src="${_avatarUrl(u.partner_id)}" alt="" style="display:none" onload="this.style.display='block'" onerror="this.style.display='none'">`
+      : '';
+    partnerHtml = `
+      <div class="ud-divider"></div>
+      <div class="user-partner-wrap">
+        <div class="section-title" style="margin-bottom:10px">Партнёр</div>
+        <div class="user-partner-card" onclick="openUser(${u.partner_id})">
+          <div class="user-partner-av">${pAv}<span>${pInit}</span></div>
+          <div class="user-partner-info">
+            <div class="user-partner-name">${h(pName)}</div>
+            <div class="user-partner-sub">${pUname}&nbsp;${pTier}&nbsp;·&nbsp;${pSeen}</div>
+          </div>
+          <span class="user-partner-arrow">›</span>
+        </div>
+      </div>`;
+  }
+
+  container.innerHTML = `
+    <div class="user-detail-card">
+      <div class="user-detail-head">
+        <div class="user-detail-av">${avatarImg}<span>${initials}</span></div>
+        <div class="user-detail-info">
+          <div class="user-detail-name">${h(name)}</div>
+          <div class="user-detail-uname">${h(uname)} · #${u.user_id}</div>
+          <div class="user-detail-badges">${tier}${cr}</div>
+        </div>
+      </div>
+      <div class="ud-divider"></div>
+      <div class="ud-grid">
+        <div class="ud-item"><div class="ud-label">Telegram ID</div><div class="ud-value accent">${u.user_id}</div></div>
+        <div class="ud-item"><div class="ud-label">Регистрация</div><div class="ud-value">${relativeTime(u.created_at) || '—'}</div></div>
+        <div class="ud-item"><div class="ud-label">В проекте</div><div class="ud-value">${daysIn}</div></div>
+        <div class="ud-item"><div class="ud-label">Подписка</div><div class="ud-value ${u.tier === 'premium' ? 'warn' : ''}">${tierStr}</div></div>
+        <div class="ud-item"><div class="ud-label">Истекает</div><div class="ud-value muted">${tierExp}</div></div>
+        <div class="ud-item"><div class="ud-label">Сайт</div><div class="ud-value">${lastSite}</div></div>
+        <div class="ud-item"><div class="ud-label">Бот</div><div class="ud-value">${lastBot}</div></div>
+        <div class="ud-item"><div class="ud-label">Пара</div><div class="ud-value ${u.partner_id ? 'ok' : 'muted'}">${u.partner_id ? 'В паре' : 'Нет'}</div></div>
+      </div>
+      <div class="ud-divider"></div>
+      <div class="section-title" style="padding:14px 16px 0;margin-bottom:0">Контент</div>
+      <div class="ud-grid">
+        <div class="ud-item"><div class="ud-label">Воспоминаний</div><div class="ud-value">${u.memories_count}</div></div>
+        <div class="ud-item"><div class="ud-label">Фотографий</div><div class="ud-value">${u.photos_count}</div></div>
+        <div class="ud-item"><div class="ud-label">Событий</div><div class="ud-value">${u.events_count}</div></div>
+        <div class="ud-item"><div class="ud-label">Желаний</div><div class="ud-value">${u.wishes_count}</div></div>
+      </div>
+      ${partnerHtml}
+      <div class="ud-divider"></div>
+      <div class="section-title" style="padding:14px 16px 0;margin-bottom:0">Действия</div>
+      <div class="ua-grid">
+        <button class="ua-btn ua-premium" onclick="adminActionStub('Выдать Premium')"><span class="ua-btn-icon">⭐</span><div class="ua-btn-label">Выдать Premium</div><div class="ua-btn-sub">Активировать подписку</div></button>
+        <button class="ua-btn ua-warn" onclick="adminActionStub('Продлить Premium')"><span class="ua-btn-icon">🔄</span><div class="ua-btn-label">Продлить Premium</div><div class="ua-btn-sub">Продлить срок действия</div></button>
+        <button class="ua-btn" onclick="adminActionStub('Написать пользователю')"><span class="ua-btn-icon">💬</span><div class="ua-btn-label">Написать</div><div class="ua-btn-sub">Уведомление при входе</div></button>
+        <button class="ua-btn ua-warn" onclick="adminActionStub('Заблокировать')"><span class="ua-btn-icon">🔒</span><div class="ua-btn-label">Заблокировать</div><div class="ua-btn-sub">Ограничить доступ</div></button>
+        <button class="ua-btn" onclick="adminActionStub('Разблокировать')"><span class="ua-btn-icon">🔓</span><div class="ua-btn-label">Разблокировать</div><div class="ua-btn-sub">Восстановить доступ</div></button>
+        <button class="ua-btn ua-danger" onclick="adminActionStub('Удалить пользователя')"><span class="ua-btn-icon">🗑️</span><div class="ua-btn-label">Удалить</div><div class="ua-btn-sub">Необратимое действие</div></button>
+      </div>
+    </div>`;
+}
+
+function adminActionStub(name) {
+  toast('🚧 «' + name + '» — будет реализовано позже');
+}
+window.adminActionStub = adminActionStub;
+
+function _handleUsersHash() {
+  if (!document.getElementById('tab-users').classList.contains('active')) return;
+  const m = window.location.hash.match(/^#user(\d+)$/);
+  if (m) { _showUserDetail(parseInt(m[1], 10)); }
+  else { document.getElementById('usersListView').style.display = ''; document.getElementById('usersDetailView').style.display = 'none'; }
+}
+window.addEventListener('hashchange', _handleUsersHash);
+
 // ── Theme toggle ─────────────────────────────────
 function _syncThemeIcon() {
   const isDark = document.documentElement.classList.contains('theme-dark');
@@ -1811,12 +2145,15 @@ async function init(){
     return;
   }
   _syncThemeIcon();
-  // Показываем панель сразу — данные подгружаются фоном
   loader.classList.add('hide');
   setTimeout(()=>{ loader.style.display='none'; document.getElementById('adminApp').classList.add('show'); }, 400);
   loadData();
   setInterval(loadData, 30000);
   startHealthLive();
+  // Если открыли /admin#user1234 напрямую — переключаемся на Users
+  if (/^#user\d+$/.test(window.location.hash)) {
+    switchTab('users');
+  }
 }
 init();
 })();

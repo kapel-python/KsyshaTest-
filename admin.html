@@ -1830,9 +1830,10 @@ async function init(){
     return;
   }
   _syncThemeIcon();
-  await loadData();
+  // Показываем панель сразу — данные подгружаются фоном
   loader.classList.add('hide');
-  setTimeout(()=>{ loader.style.display='none'; document.getElementById('adminApp').classList.add('show'); },400);
+  setTimeout(()=>{ loader.style.display='none'; document.getElementById('adminApp').classList.add('show'); }, 400);
+  loadData();
   setInterval(loadData, 30000);
   startHealthLive();
 }

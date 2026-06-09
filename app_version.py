@@ -9,7 +9,7 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.423'
+version = '1.0.424'
 description = 'Фикс админки'
 
 

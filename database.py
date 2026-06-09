@@ -4895,48 +4895,44 @@ class Database:
 
                 total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
 
-                # Полные пары (оба участника присоединились)
                 total_couples = conn.execute(
                     "SELECT COUNT(*) FROM couples WHERE user2_id IS NOT NULL"
                 ).fetchone()[0]
 
-                # Активные пары: хотя бы один участник посещал сайт за 30 дней
-                active_couples = conn.execute("""
-                    SELECT COUNT(DISTINCT c.id) FROM couples c
-                    WHERE c.user2_id IS NOT NULL AND c.leave_user_id IS NULL
-                    AND EXISTS (
-                        SELECT 1 FROM user_tokens ut
-                        INNER JOIN devices d ON d.visitor_id = ut.token
-                        WHERE (ut.user_id = c.user1_id OR ut.user_id = c.user2_id)
-                        AND d.last_seen_utc >= ?
-                    )
-                """, (cutoff30d,)).fetchone()[0]
-
-                # Онлайн сейчас (устройства за 5 минут)
                 online_count = conn.execute(
                     "SELECT COUNT(*) FROM devices WHERE last_seen_utc >= ?", (cutoff5m,)
                 ).fetchone()[0]
 
-                # Уникальных пользователей за 24ч / 7д / 30д через токены и устройства
-                users_24h = conn.execute("""
-                    SELECT COUNT(DISTINCT ut.user_id) FROM user_tokens ut
+                # Активные user_id за 30 дней — один простой JOIN по индексированным полям
+                active_rows = conn.execute("""
+                    SELECT DISTINCT ut.user_id FROM user_tokens ut
                     INNER JOIN devices d ON d.visitor_id = ut.token
                     WHERE d.last_seen_utc >= ?
-                """, (cutoff24h,)).fetchone()[0]
+                """, (cutoff30d,)).fetchall()
+                active_ids_30d = {r[0] for r in active_rows}
 
-                users_7d = conn.execute("""
-                    SELECT COUNT(DISTINCT ut.user_id) FROM user_tokens ut
-                    INNER JOIN devices d ON d.visitor_id = ut.token
-                    WHERE d.last_seen_utc >= ?
-                """, (cutoff7d,)).fetchone()[0]
+                # Активные пары — Python-join, не коррелированный подзапрос
+                couples_rows = conn.execute(
+                    "SELECT user1_id, user2_id FROM couples WHERE user2_id IS NOT NULL AND leave_user_id IS NULL"
+                ).fetchall()
+                active_couples = sum(
+                    1 for r in couples_rows
+                    if r[0] in active_ids_30d or r[1] in active_ids_30d
+                )
 
-                users_30d = conn.execute("""
-                    SELECT COUNT(DISTINCT ut.user_id) FROM user_tokens ut
-                    INNER JOIN devices d ON d.visitor_id = ut.token
-                    WHERE d.last_seen_utc >= ?
-                """, (cutoff30d,)).fetchone()[0]
+                # Пользователей за 24ч / 7д / 30д
+                def count_active(cutoff: str) -> int:
+                    rows = conn.execute("""
+                        SELECT COUNT(DISTINCT ut.user_id) FROM user_tokens ut
+                        INNER JOIN devices d ON d.visitor_id = ut.token
+                        WHERE d.last_seen_utc >= ?
+                    """, (cutoff,)).fetchone()
+                    return rows[0] if rows else 0
 
-                # Новых пар за 7д / 30д (по дате присоединения партнёра)
+                users_24h = count_active(cutoff24h)
+                users_7d  = count_active(cutoff7d)
+                users_30d = len(active_ids_30d)
+
                 new_couples_7d = conn.execute("""
                     SELECT COUNT(*) FROM couples
                     WHERE user2_id IS NOT NULL

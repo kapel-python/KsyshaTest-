@@ -1399,7 +1399,7 @@ async def cmd_start(message: Message, state: FSMContext):
                 )]]
                 kb_rows.append([InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")])
                 await message.answer(
-                    "Ты покинул(а) ваше пространство.\n\n"
+                    "Ты покинул(а) вашу комнату.\n\n"
                     "<i>Данные хранятся 7 дней. Ты можешь восстановить их, пока срок не истёк.</i>",
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
                     parse_mode=ParseMode.HTML,
@@ -1439,7 +1439,7 @@ async def cmd_start(message: Message, state: FSMContext):
                     )])
                 kb_rows.append([InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")])
                 await message.answer(
-                    "Ты покинул(а) ваше пространство.\n\n"
+                    "Ты покинул(а) вашу комнату.\n\n"
                     "<i>Данные хранятся 7 дней. Ты можешь восстановить их, пока срок не истёк.</i>",
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
                     parse_mode=ParseMode.HTML,
@@ -1447,17 +1447,17 @@ async def cmd_start(message: Message, state: FSMContext):
             else:
                 # Это оставшийся участник — показываем кто ушёл + предупреждение
                 warning = (
-                    f"\n\n⚠️ Ты можешь создать новое пространство, но если твой партнёр будет "
+                    f"\n\n⚠️ Ты можешь создать новую комнату, но если твой партнёр будет "
                     f"отличаться от <b>{html.escape(stayed_name)}</b> — вы не сможете восстановить данные этой комнаты."
                     if stayed_name else
-                    "\n\n⚠️ Ты можешь создать новое пространство, но данные этой комнаты восстановить не получится."
+                    "\n\n⚠️ Ты можешь создать новую комнату, но данные этой комнаты восстановить не получится."
                 )
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")]
                 ])
                 await message.answer(
-                    f"<b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
-                    f"<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>"
+                    f"<b>{html.escape(left_name)}</b> покинул(а) вашу комнату.\n\n"
+                    f"<i>Данные хранятся 7 дней. После этого комната будет удалена.</i>"
                     f"{warning}",
                     reply_markup=kb,
                     parse_mode=ParseMode.HTML,
@@ -1973,24 +1973,24 @@ async def back_to_main(callback: CallbackQuery, state: FSMContext):
                         )])
                     kb_rows.append([InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")])
                     await callback_edit_or_answer(callback,
-                        "Ты покинул(а) ваше пространство.\n\n"
+                        "Ты покинул(а) вашу комнату.\n\n"
                         "<i>Данные хранятся 7 дней. Ты можешь восстановить их, пока срок не истёк.</i>",
                         reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
                         parse_mode=ParseMode.HTML,
                     )
                 else:
                     warning = (
-                        f"\n\n⚠️ Ты можешь создать новое пространство, но если твой партнёр будет "
+                        f"\n\n⚠️ Ты можешь создать новую комнату, но если твой партнёр будет "
                         f"отличаться от <b>{html.escape(stayed_name)}</b> — вы не сможете восстановить данные этой комнаты."
                         if stayed_name else
-                        "\n\n⚠️ Ты можешь создать новое пространство, но данные этой комнаты восстановить не получится."
+                        "\n\n⚠️ Ты можешь создать новую комнату, но данные этой комнаты восстановить не получится."
                     )
                     kb = InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="🆕 Создать новую комнату", callback_data="rebound_create_new")]
                     ])
                     await callback_edit_or_answer(callback,
-                        f"<b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
-                        f"<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>"
+                        f"<b>{html.escape(left_name)}</b> покинул(а) вашу комнату.\n\n"
+                        f"<i>Данные хранятся 7 дней. После этого комната будет удалена.</i>"
                         f"{warning}",
                         reply_markup=kb,
                         parse_mode=ParseMode.HTML,
@@ -2317,7 +2317,7 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
             kb_rows.append([InlineKeyboardButton(text="📅 Установить дату знакомства", callback_data="set_couple_met_date")])
         kb_rows.extend([
             [InlineKeyboardButton(text="➕ Добавить момент", callback_data="cat_menu")],
-            [InlineKeyboardButton(text="🚪 Покинуть пространство", callback_data="leave_space_start")],
+            [InlineKeyboardButton(text="🚪 Покинуть комнату", callback_data="leave_space_start")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
         ])
         kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
@@ -2325,7 +2325,7 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔗 Пригласить партнёра", callback_data="get_invite_link")],
             [InlineKeyboardButton(text="➕ Добавить первый момент", callback_data="cat_menu")],
-            [InlineKeyboardButton(text="🚪 Покинуть пространство", callback_data="leave_space_start")],
+            [InlineKeyboardButton(text="🚪 Покинуть комнату", callback_data="leave_space_start")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
         ])
     return text, kb
@@ -2689,7 +2689,7 @@ async def leave_space_start(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="❌ Отмена", callback_data="our_couple")],
     ])
     await callback.message.edit_text(
-        f"⚠️ <b>Ты уверен(а), что хочешь выйти из пространства, в котором находишься с {html.escape(partner_name)}?</b>\n\n"
+        f"⚠️ <b>Ты уверен(а), что хочешь выйти из комнаты, в которой находишься с {html.escape(partner_name)}?</b>\n\n"
         f"📆 Ваша комната зарегистрирована в боте с {created_human}",
         reply_markup=kb,
         parse_mode=ParseMode.HTML,
@@ -2724,8 +2724,8 @@ async def _show_leave_final_confirm(callback: CallbackQuery, reason_label: str, 
     await callback.message.edit_text(
         f"🔐 <b>{html.escape(my_name)}</b>, последнее подтверждение\n\n"
         f"💬 Причина ухода: {reason_label}\n\n"
-        "❌ Вернуть все данные ты не сможешь — придётся создавать новое пространство снова\n\n"
-        "<i>Данные хранятся 7 дней. За это время можно попросить поддержку восстановить их.</i>",
+        "⚠️ <b>У тебя будет 7 дней, чтобы восстановить данные.</b>\n\n"
+        "<i>Для восстановления ты должен быть без партнёра или с тем же партнёром, с которым выходишь из этой комнаты.</i>",
         reply_markup=kb,
         parse_mode=ParseMode.HTML,
     )
@@ -2793,8 +2793,8 @@ async def leave_reason_custom_text(message: Message, state: FSMContext):
     await message.answer(
         f"🔐 <b>{html.escape(my_name)}</b>, последнее подтверждение\n\n"
         f"💬 Причина ухода: {reason_label}\n\n"
-        "❌ Вернуть все данные ты не сможешь — придётся создавать новое пространство снова\n\n"
-        "<i>Данные хранятся 7 дней. За это время можно попросить поддержку восстановить их.</i>",
+        "⚠️ <b>У тебя будет 7 дней, чтобы восстановить данные.</b>\n\n"
+        "<i>Для восстановления ты должен быть без партнёра или с тем же партнёром, с которым выходишь из этой комнаты.</i>",
         reply_markup=kb,
         parse_mode=ParseMode.HTML,
     )
@@ -2812,16 +2812,16 @@ async def leave_space_exec(callback: CallbackQuery, state: FSMContext):
     ok = db.leave_couple(user_id=user_id, reason=reason_key)
     await state.clear()
     if not ok:
-        await callback.answer("Ошибка при выходе из пространства", show_alert=True)
+        await callback.answer("Ошибка при выходе из комнаты", show_alert=True)
         return
     if partner_id and partner_id > 0:
         my_name = db.get_display_name(user_id) or "Участник"
         try:
             await callback.bot.send_message(
                 chat_id=partner_id,
-                text=f"💔 <b>{html.escape(my_name)}</b> покинул(а) ваше пространство.\n\n"
+                text=f"💔 <b>{html.escape(my_name)}</b> покинул(а) вашу комнату.\n\n"
                      f"💬 Причина: {html.escape(reason_label)}\n\n"
-                     "<i>Данные пространства хранятся 7 дней.</i>",
+                     "<i>Данные комнаты хранятся 7 дней.</i>",
                 parse_mode=ParseMode.HTML,
                 force_new_message=True,
             )
@@ -2864,15 +2864,15 @@ async def leave_space_exec_custom(callback: CallbackQuery, state: FSMContext):
     )
     await state.clear()
     if not ok:
-        await callback.answer("Ошибка при выходе из пространства", show_alert=True)
+        await callback.answer("Ошибка при выходе из комнаты", show_alert=True)
         return
     if partner_id and partner_id > 0:
         my_name = db.get_display_name(user_id) or "Участник"
         label = (reason_text[:200] + "…" if reason_text and len(reason_text) > 200 else reason_text) or ""
         notify_text = (
-            f"💔 <b>{html.escape(my_name)}</b> покинул(а) ваше пространство.\n\n"
+            f"💔 <b>{html.escape(my_name)}</b> покинул(а) вашу комнату.\n\n"
             + (f"💬 Причина: {html.escape(label)}\n\n" if label else "")
-            + "<i>Данные пространства хранятся 7 дней.</i>"
+            + "<i>Данные комнаты хранятся 7 дней.</i>"
         )
         try:
             # Сначала отправляем медиа если есть
@@ -2936,7 +2936,7 @@ async def restore_space_info(callback: CallbackQuery, state: FSMContext):
             await callback.message.edit_text(
                 "⛔ Восстановление невозможно\n\n"
                 f"Ты сейчас состоишь в паре с <b>{html.escape(partner_name_c)}</b>.\n\n"
-                "Восстановить данные старой комнаты можно только если ты не состоишь в другом пространстве. "
+                "Восстановить данные старой комнаты можно только если ты не состоишь в другой комнате. "
                 "Покинь текущую пару и попробуй снова.",
                 parse_mode=ParseMode.HTML,
             )
@@ -2946,7 +2946,7 @@ async def restore_space_info(callback: CallbackQuery, state: FSMContext):
     stats = db.get_restore_stats(couple_id)
     partner_name = db.get_display_name(partner_id) if partner_id else "партнёра"
 
-    lines = [f"↩️ <b>Восстановление пространства с {html.escape(partner_name)}</b>\n"]
+    lines = [f"↩️ <b>Восстановление комнаты с {html.escape(partner_name)}</b>\n"]
     if stats.get("memories"):
         lines.append(f"📸 Воспоминаний: <b>{stats['memories']}</b>")
     if stats.get("wishes"):
@@ -2958,7 +2958,7 @@ async def restore_space_info(callback: CallbackQuery, state: FSMContext):
     if stats.get("met_date"):
         lines.append(f"💑 Дата знакомства: <b>{stats['met_date']}</b>")
     if not any(stats.get(k) for k in ("memories", "wishes", "events", "categories", "met_date")):
-        lines.append("ℹ️ Данных для восстановления нет, но пространство будет воссоздано.")
+        lines.append("ℹ️ Данных для восстановления нет, но комната будет воссоздана.")
 
     # Срок хранения
     import datetime as _dt
@@ -3033,7 +3033,7 @@ async def restore_space_exec(callback: CallbackQuery, state: FSMContext):
     partner_name = db.get_display_name(partner_id) if partner_id else "партнёра"
     await callback.message.edit_text(
         f"✅ <b>Данные восстановлены!</b>\n\n"
-        f"Ваше пространство с <b>{html.escape(partner_name)}</b> снова активно.\n"
+        f"Ваша комната с <b>{html.escape(partner_name)}</b> снова активна.\n"
         "Все воспоминания, события и категории возвращены.",
         parse_mode=ParseMode.HTML,
     )
@@ -3045,7 +3045,7 @@ async def restore_space_exec(callback: CallbackQuery, state: FSMContext):
         try:
             await callback.bot.send_message(
                 chat_id=partner_id,
-                text=f"✅ <b>{html.escape(my_name)}</b> восстановил(а) ваше пространство!\n\n"
+                text=f"✅ <b>{html.escape(my_name)}</b> восстановил(а) вашу комнату!\n\n"
                      "Все данные снова доступны — можете продолжать вместе.",
                 parse_mode=ParseMode.HTML,
                 force_new_message=True,

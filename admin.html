@@ -2103,7 +2103,7 @@ function renderUserDetail(u, container) {
       <div class="ua-grid">
         ${u.tier !== 'free' && !u.tier_expired
           ? `<button class="ua-btn ua-premium" onclick="openExtendPremium(${u.user_id})"><span class="ua-btn-icon">🔄</span><div class="ua-btn-label">Продлить Premium</div><div class="ua-btn-sub">Добавить срок к текущему</div></button>
-             <button class="ua-btn ua-danger" onclick="adminActionStub('Удалить Premium')"><span class="ua-btn-icon">✕</span><div class="ua-btn-label">Удалить Premium</div><div class="ua-btn-sub">Убрать подписку</div></button>`
+             <button class="ua-btn ua-danger" onclick="confirmRevokePremium(${u.user_id})"><span class="ua-btn-icon">✕</span><div class="ua-btn-label">Удалить Premium</div><div class="ua-btn-sub">Убрать подписку</div></button>`
           : `<button class="ua-btn ua-premium" onclick="openGrantPremium(${u.user_id}, false)"><span class="ua-btn-icon">⭐</span><div class="ua-btn-label">Выдать Premium</div><div class="ua-btn-sub">Активировать подписку</div></button>`
         }
         <button class="ua-btn" onclick="openDirectMsg(${u.user_id}, '${h([u.first_name, u.last_name].filter(Boolean).join(' ') || '')}')"><span class="ua-btn-icon">💬</span><div class="ua-btn-label">Написать</div><div class="ua-btn-sub">Сообщение в Telegram</div></button>
@@ -2280,6 +2280,37 @@ window.sendDirectMsg = async function() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Отправить'; }
   }
+};
+
+window.confirmRevokePremium = function(userId) {
+  document.getElementById('maintIcon').textContent = '✕';
+  document.getElementById('maintTitle').textContent = 'Удалить Premium?';
+  document.getElementById('maintText').textContent = 'Подписка будет немедленно аннулирована. Пользователь перейдёт на Free.';
+  const okBtn = document.getElementById('maintOkBtn');
+  okBtn.textContent = 'Удалить';
+  okBtn.className = 'amodal-btn ok-red';
+  okBtn.onclick = async function() {
+    closeModal('maintenanceModal');
+    okBtn.onclick = null;
+    try {
+      const r = await fetch(
+        '/api/admin/users/' + userId + '/revoke_premium?v=' + encodeURIComponent(VISITOR_ID),
+        { method: 'POST', headers: _authHeaders({'Content-Type': 'application/json'}), credentials: 'include', body: '{}' }
+      );
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'error');
+      showActionDone('Premium удалён', 'Пользователь переведён на Free');
+      if (d.user) {
+        const content = document.getElementById('userDetailContent');
+        if (content) renderUserDetail(d.user, content);
+      }
+    } catch(e) { toast('Ошибка: ' + e.message, 'error'); }
+    // Восстанавливаем кнопку для следующего использования модалки (техперерыв)
+    okBtn.textContent = 'Подтвердить';
+    okBtn.className = 'amodal-btn ok-red';
+    okBtn.onclick = confirmMaintenance;
+  };
+  openModal('maintenanceModal');
 };
 
 // ── Theme toggle ─────────────────────────────────

@@ -4416,12 +4416,14 @@ async def admin_send_direct(request: web.Request) -> web.Response:
             _bot = Bot(token=config.BOT_TOKEN)
             if media_path and media_type_val:
                 from pathlib import Path as _Path2
+                from aiogram.types import FSInputFile
                 fp = _Path2(media_path)
                 if fp.exists():
+                    file = FSInputFile(str(fp))
                     if media_type_val == "photo":
-                        await _bot.send_photo(chat_id=target_id, photo=fp.open("rb"), caption=text, parse_mode=ParseMode.HTML)
+                        await _bot.send_photo(chat_id=target_id, photo=file, caption=text, parse_mode=ParseMode.HTML)
                     else:
-                        await _bot.send_video(chat_id=target_id, video=fp.open("rb"), caption=text, parse_mode=ParseMode.HTML)
+                        await _bot.send_video(chat_id=target_id, video=file, caption=text, parse_mode=ParseMode.HTML)
                 else:
                     await _bot.send_message(chat_id=target_id, text=text, parse_mode=ParseMode.HTML)
             else:
@@ -4442,6 +4444,50 @@ async def admin_send_direct(request: web.Request) -> web.Response:
         return _add_cors_headers(web.json_response({"ok": False, "error": "tg_error", "detail": str(e)}, status=500))
 
     return _add_cors_headers(web.json_response({"ok": True}))
+
+
+async def admin_revoke_premium(request: web.Request) -> web.Response:
+    """POST /api/admin/users/{user_id}/revoke_premium — убрать Premium."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        target_id = int(request.match_info.get("user_id", 0) or 0)
+    except (ValueError, TypeError):
+        target_id = 0
+    if target_id <= 0:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
+
+    try:
+        with db._get_connection() as conn:
+            conn.execute(
+                "UPDATE user_subscription_tier SET tier = 'free', expires_at = NULL WHERE user_key = ?",
+                (str(target_id),),
+            )
+            conn.commit()
+    except Exception as e:
+        logger.exception("admin_revoke_premium DB error: %s", e)
+        return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
+
+    detail = db.get_admin_user_detail(target_id) or {}
+    detail.pop("tg_avatar_path", None)
+    detail.pop("tg_avatar_file_id", None)
+    detail.pop("tg_avatar_updated", None)
+    detail.pop("partner_tg_avatar_path", None)
+    u = db.get_user(target_id)
+    detail["has_avatar"] = bool(u and u.get("tg_avatar_path"))
+    detail["is_creator"] = target_id == int(getattr(config, "CREATOR_ID", 0) or 0)
+    if detail.get("partner_id"):
+        pu = db.get_user(detail["partner_id"])
+        detail["partner_has_avatar"] = bool(pu and pu.get("tg_avatar_path"))
+    else:
+        detail["partner_has_avatar"] = False
+
+    return _add_cors_headers(web.json_response({"ok": True, "user": detail}))
 
 
 async def admin_action(request: web.Request) -> web.Response:
@@ -10403,6 +10449,7 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/users/{user_id}", admin_user_detail)
     app.router.add_get("/api/admin/user_avatar", admin_user_avatar)
     app.router.add_post("/api/admin/users/{user_id}/grant_premium", admin_grant_premium)
+    app.router.add_post("/api/admin/users/{user_id}/revoke_premium", admin_revoke_premium)
     app.router.add_post("/api/admin/users/{user_id}/send", admin_send_direct)
     app.router.add_get("/api/version", api_version)
     app.router.add_get("/api/admin/version-history", admin_version_history)

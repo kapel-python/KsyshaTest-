@@ -2101,9 +2101,12 @@ function renderUserDetail(u, container) {
       <div class="ud-divider"></div>
       <div class="section-title" style="padding:14px 16px 0;margin-bottom:0">Действия</div>
       <div class="ua-grid">
-        <button class="ua-btn ua-premium" onclick="adminActionStub('Выдать Premium')"><span class="ua-btn-icon">⭐</span><div class="ua-btn-label">Выдать Premium</div><div class="ua-btn-sub">Активировать подписку</div></button>
-        <button class="ua-btn ua-warn" onclick="adminActionStub('Продлить Premium')"><span class="ua-btn-icon">🔄</span><div class="ua-btn-label">Продлить Premium</div><div class="ua-btn-sub">Продлить срок действия</div></button>
-        <button class="ua-btn" onclick="adminActionStub('Написать пользователю')"><span class="ua-btn-icon">💬</span><div class="ua-btn-label">Написать</div><div class="ua-btn-sub">Уведомление при входе</div></button>
+        ${u.tier !== 'free' && !u.tier_expired
+          ? `<button class="ua-btn ua-premium" onclick="openExtendPremium(${u.user_id})"><span class="ua-btn-icon">🔄</span><div class="ua-btn-label">Продлить Premium</div><div class="ua-btn-sub">Добавить срок к текущему</div></button>
+             <button class="ua-btn ua-danger" onclick="adminActionStub('Удалить Premium')"><span class="ua-btn-icon">✕</span><div class="ua-btn-label">Удалить Premium</div><div class="ua-btn-sub">Убрать подписку</div></button>`
+          : `<button class="ua-btn ua-premium" onclick="openGrantPremium(${u.user_id}, false)"><span class="ua-btn-icon">⭐</span><div class="ua-btn-label">Выдать Premium</div><div class="ua-btn-sub">Активировать подписку</div></button>`
+        }
+        <button class="ua-btn" onclick="openDirectMsg(${u.user_id}, '${h([u.first_name, u.last_name].filter(Boolean).join(' ') || '')}')"><span class="ua-btn-icon">💬</span><div class="ua-btn-label">Написать</div><div class="ua-btn-sub">Сообщение в Telegram</div></button>
         <button class="ua-btn ua-warn" onclick="adminActionStub('Заблокировать')"><span class="ua-btn-icon">🔒</span><div class="ua-btn-label">Заблокировать</div><div class="ua-btn-sub">Ограничить доступ</div></button>
         <button class="ua-btn" onclick="adminActionStub('Разблокировать')"><span class="ua-btn-icon">🔓</span><div class="ua-btn-label">Разблокировать</div><div class="ua-btn-sub">Восстановить доступ</div></button>
         <button class="ua-btn ua-danger" onclick="adminActionStub('Удалить пользователя')"><span class="ua-btn-icon">🗑️</span><div class="ua-btn-label">Удалить</div><div class="ua-btn-sub">Необратимое действие</div></button>
@@ -2140,6 +2143,144 @@ function _handleUsersHash() {
   else { document.getElementById('usersListView').style.display = ''; document.getElementById('usersDetailView').style.display = 'none'; }
 }
 window.addEventListener('hashchange', _handleUsersHash);
+
+// ── Admin user actions ───────────────────────────
+let _premiumTargetId   = null;
+let _premiumAction     = 'grant'; // 'grant' | 'extend'
+let _premiumMonths     = 1;
+let _directTargetId    = null;
+let _directFile        = null;
+let _directFileType    = null;
+
+// --- Premium: открыть модалку выбора срока ---
+window.openGrantPremium = function(userId, hasPremium) {
+  _premiumTargetId = userId;
+  _premiumAction   = 'grant';
+  const title = document.getElementById('premiumDurTitle');
+  if (title) title.textContent = hasPremium ? 'Продлить Premium' : 'Выдать Premium';
+  document.getElementById('premiumComment').value = '';
+  closeModal('premiumConfirmModal');
+  openModal('premiumDurationModal');
+};
+
+window.openExtendPremium = function(userId) {
+  _premiumTargetId = userId;
+  _premiumAction   = 'extend';
+  const title = document.getElementById('premiumDurTitle');
+  if (title) title.textContent = 'Продлить Premium';
+  document.getElementById('premiumComment').value = '';
+  closeModal('premiumConfirmModal');
+  openModal('premiumDurationModal');
+};
+
+window.selectPremiumDuration = function(months) {
+  _premiumMonths = months;
+  closeModal('premiumDurationModal');
+  const labels = {1:'1 месяц', 3:'3 месяца', 6:'6 месяцев', 12:'1 год'};
+  const label = labels[months] || (months + ' мес.');
+  const verb  = _premiumAction === 'extend' ? 'Продлить' : 'Выдать';
+  const confTitle = document.getElementById('premiumConfTitle');
+  const confText  = document.getElementById('premiumConfText');
+  if (confTitle) confTitle.textContent = verb + ' Premium на ' + label;
+  if (confText)  confText.textContent  = _premiumAction === 'extend'
+    ? 'Срок будет добавлен к текущей подписке. Пользователь получит уведомление в Telegram.'
+    : 'Пользователь получит Premium и уведомление в Telegram.';
+  openModal('premiumConfirmModal');
+};
+
+window.confirmGrantPremium = async function() {
+  const btn = document.getElementById('premiumConfBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  const comment = (document.getElementById('premiumComment').value || '').trim();
+  try {
+    const r = await fetch(
+      '/api/admin/users/' + _premiumTargetId + '/grant_premium?v=' + encodeURIComponent(VISITOR_ID),
+      {
+        method: 'POST',
+        headers: _authHeaders({'Content-Type': 'application/json'}),
+        credentials: 'include',
+        body: JSON.stringify({ months: _premiumMonths, comment, action: _premiumAction }),
+      }
+    );
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'error');
+    closeModal('premiumConfirmModal');
+    const verb = _premiumAction === 'extend' ? 'Продлена' : 'Выдана';
+    const labels = {1:'1 месяц', 3:'3 месяца', 6:'6 месяцев', 12:'1 год'};
+    showActionDone(verb + '!', 'Premium на ' + (labels[_premiumMonths] || _premiumMonths + ' мес.') + ' до ' + (d.new_expires_human || ''));
+    // Обновляем карточку без перезагрузки
+    if (d.user) {
+      const content = document.getElementById('userDetailContent');
+      if (content) renderUserDetail(d.user, content);
+    }
+  } catch(e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Подтвердить'; }
+  }
+};
+
+// --- Direct message ---
+window.openDirectMsg = function(userId, userName) {
+  _directTargetId = userId;
+  _directFile     = null;
+  _directFileType = null;
+  const txt = document.getElementById('directMsgText');
+  const fn  = document.getElementById('directMsgFileName');
+  const fi  = document.getElementById('directMsgFile');
+  if (txt) txt.value = '';
+  if (fn)  fn.textContent = '';
+  if (fi)  fi.value = '';
+  const tgt = document.getElementById('directMsgTarget');
+  if (tgt) tgt.textContent = 'Кому: ' + (userName || 'пользователь #' + userId);
+  openModal('directMsgModal');
+};
+
+window.onDirectFileAttached = function(input) {
+  const file = input.files && input.files[0];
+  if (!file) { _directFile = null; _directFileType = null; return; }
+  _directFile     = file;
+  _directFileType = file.type.startsWith('video/') ? 'video' : 'photo';
+  const fn = document.getElementById('directMsgFileName');
+  if (fn) fn.textContent = file.name;
+};
+
+window.sendDirectMsg = async function() {
+  const text = (document.getElementById('directMsgText').value || '').trim();
+  if (!text) { toast('Введите текст сообщения', 'error'); return; }
+  const btn = document.getElementById('directMsgBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    let r;
+    if (_directFile) {
+      const fd = new FormData();
+      fd.append('text', text);
+      fd.append(_directFileType, _directFile, _directFile.name);
+      r = await fetch(
+        '/api/admin/users/' + _directTargetId + '/send?v=' + encodeURIComponent(VISITOR_ID),
+        { method: 'POST', headers: _authHeaders(), credentials: 'include', body: fd }
+      );
+    } else {
+      r = await fetch(
+        '/api/admin/users/' + _directTargetId + '/send?v=' + encodeURIComponent(VISITOR_ID),
+        {
+          method: 'POST',
+          headers: _authHeaders({'Content-Type': 'application/json'}),
+          credentials: 'include',
+          body: JSON.stringify({ text }),
+        }
+      );
+    }
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'error');
+    closeModal('directMsgModal');
+    showActionDone('Отправлено!', 'Сообщение доставлено в Telegram');
+  } catch(e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Отправить'; }
+  }
+};
 
 // ── Theme toggle ─────────────────────────────────
 function _syncThemeIcon() {
@@ -2198,5 +2339,60 @@ async function init(){
 init();
 })();
 </script>
+
+<!-- ── Premium modal: выбор срока ── -->
+<div class="amodal-wrap" id="premiumDurationModal">
+  <div class="amodal-overlay" onclick="closeModal('premiumDurationModal')"></div>
+  <div class="amodal-card" style="max-width:340px">
+    <span class="amodal-icon">⭐</span>
+    <div class="amodal-title" id="premiumDurTitle">Выдать Premium</div>
+    <div class="amodal-text">Выберите срок подписки</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
+      <button class="amodal-btn ok-purple" onclick="selectPremiumDuration(1)">1 месяц</button>
+      <button class="amodal-btn ok-purple" onclick="selectPremiumDuration(3)">3 месяца</button>
+      <button class="amodal-btn ok-purple" onclick="selectPremiumDuration(6)">6 месяцев</button>
+      <button class="amodal-btn ok-purple" onclick="selectPremiumDuration(12)">1 год</button>
+    </div>
+    <div class="amodal-btns">
+      <button class="amodal-btn cancel" onclick="closeModal('premiumDurationModal')">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Premium modal: комментарий и подтверждение ── -->
+<div class="amodal-wrap" id="premiumConfirmModal">
+  <div class="amodal-overlay" onclick="closeModal('premiumConfirmModal')"></div>
+  <div class="amodal-card" style="max-width:360px">
+    <span class="amodal-icon">⭐</span>
+    <div class="amodal-title" id="premiumConfTitle"></div>
+    <div class="amodal-text" id="premiumConfText"></div>
+    <textarea class="compose-area" id="premiumComment" placeholder="Комментарий (необязательно)…" style="min-height:70px;margin-bottom:4px"></textarea>
+    <div style="font-size:0.68rem;color:var(--muted);margin-bottom:16px">Комментарий будет отправлен пользователю в Telegram</div>
+    <div class="amodal-btns">
+      <button class="amodal-btn cancel" onclick="closeModal('premiumConfirmModal');openModal('premiumDurationModal')">← Назад</button>
+      <button class="amodal-btn ok-green" id="premiumConfBtn" onclick="confirmGrantPremium()">Подтвердить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Direct message modal ── -->
+<div class="amodal-wrap" id="directMsgModal">
+  <div class="amodal-overlay" onclick="closeModal('directMsgModal')"></div>
+  <div class="amodal-card" style="max-width:400px">
+    <div class="amodal-title" style="margin-bottom:4px">💬 Написать пользователю</div>
+    <div class="amodal-text" id="directMsgTarget" style="margin-bottom:14px"></div>
+    <div class="compose-hint" style="margin-bottom:10px">HTML-теги: <code>&lt;b&gt;</code> <code>&lt;i&gt;</code> <code>&lt;u&gt;</code> — отобразятся в Telegram</div>
+    <textarea class="compose-area" id="directMsgText" placeholder="Текст сообщения…" style="min-height:90px"></textarea>
+    <div class="compose-toolbar" style="margin-bottom:8px">
+      <label class="compose-attach-btn" for="directMsgFile">📎 Фото / видео</label>
+      <input type="file" id="directMsgFile" accept="image/*,video/*" style="display:none" onchange="onDirectFileAttached(this)">
+      <span class="compose-file-name" id="directMsgFileName"></span>
+    </div>
+    <div class="amodal-btns">
+      <button class="amodal-btn cancel" onclick="closeModal('directMsgModal')">Отмена</button>
+      <button class="amodal-btn ok-green" id="directMsgBtn" onclick="sendDirectMsg()">Отправить</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

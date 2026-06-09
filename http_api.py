@@ -4228,6 +4228,222 @@ async def admin_version_history(request: web.Request) -> web.Response:
     return _add_cors_headers(web.json_response({"ok": True, "history": history}))
 
 
+async def admin_grant_premium(request: web.Request) -> web.Response:
+    """POST /api/admin/users/{user_id}/grant_premium — выдать/продлить Premium."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        target_id = int(request.match_info.get("user_id", 0) or 0)
+    except (ValueError, TypeError):
+        target_id = 0
+    if target_id <= 0:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    months = int(payload.get("months") or 1)
+    comment = str(payload.get("comment") or "").strip()
+    action_type = str(payload.get("action") or "grant")  # "grant" или "extend"
+
+    if months < 1 or months > 24:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_months"}, status=400))
+
+    # Вычисляем новую дату: grant заменяет с now, extend прибавляет к текущей
+    from datetime import timezone as _tz
+    import math
+
+    now_utc = datetime.now(_tz.utc)
+    tier_info = db.get_user_tier_info(str(target_id))
+    current_exp = None
+    if tier_info.get("tier") != "free" and tier_info.get("expires_at") and not tier_info.get("is_expired"):
+        try:
+            exp_s = str(tier_info["expires_at"]).replace(" ", "T")
+            if not exp_s.endswith("Z") and "+" not in exp_s:
+                exp_s += "Z"
+            current_exp = datetime.fromisoformat(exp_s).replace(tzinfo=_tz.utc)
+        except Exception:
+            current_exp = None
+
+    if action_type == "extend" and current_exp and current_exp > now_utc:
+        base = current_exp
+    else:
+        base = now_utc
+
+    new_exp = base + timedelta(days=30 * months)
+    new_exp_str = new_exp.strftime("%Y-%m-%dT%H:%M:%S")
+    new_exp_human = new_exp.strftime("%d.%m.%Y")
+
+    # Записываем в БД напрямую (grant_user_premium берёт max, нам нужно точное значение)
+    try:
+        with db._get_connection() as conn:
+            conn.execute(
+                """INSERT INTO user_subscription_tier (user_key, tier, expires_at)
+                   VALUES (?, 'premium', ?)
+                   ON CONFLICT(user_key) DO UPDATE SET
+                       tier = 'premium',
+                       expires_at = ?""",
+                (str(target_id), new_exp_str, new_exp_str),
+            )
+            conn.commit()
+    except Exception as e:
+        logger.exception("admin_grant_premium DB error: %s", e)
+        return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
+
+    # Отправляем уведомление через Telegram
+    label = "продлена" if action_type == "extend" else "выдана"
+    month_word = {1: "месяц", 2: "2 месяца", 3: "3 месяца", 6: "6 месяцев", 12: "1 год"}.get(
+        months, f"{months} мес."
+    )
+    tg_text = (
+        f"🎉 Тебе {label} подписка <b>Premium на {month_word}</b>\n"
+        f"(до {new_exp_human})\n"
+    )
+    if comment:
+        tg_text += f"\n💬 Комментарий:\n{comment}\n"
+    tg_text += (
+        "\n✦ С подпиской тебе доступно:\n"
+        "• безлимитный ИИ чат\n"
+        "• удобный экспорт данных"
+    )
+
+    async def _send_tg():
+        _bot = None
+        try:
+            _bot = Bot(token=config.BOT_TOKEN)
+            await _bot.send_message(chat_id=target_id, text=tg_text, parse_mode=ParseMode.HTML)
+        except Exception as e:
+            logger.warning("admin_grant_premium TG notify error for %s: %s", target_id, e)
+        finally:
+            if _bot:
+                try:
+                    await _bot.session.close()
+                except Exception:
+                    pass
+
+    asyncio.create_task(_send_tg())
+
+    # Возвращаем свежие данные пользователя
+    detail = db.get_admin_user_detail(target_id) or {}
+    detail.pop("tg_avatar_path", None)
+    detail.pop("tg_avatar_file_id", None)
+    detail.pop("tg_avatar_updated", None)
+    detail.pop("partner_tg_avatar_path", None)
+    detail["has_avatar"] = bool(db.get_user(target_id) and db.get_user(target_id).get("tg_avatar_path"))
+    detail["is_creator"] = target_id == int(getattr(config, "CREATOR_ID", 0) or 0)
+    detail["partner_has_avatar"] = False
+    if detail.get("partner_id"):
+        pu = db.get_user(detail["partner_id"])
+        detail["partner_has_avatar"] = bool(pu and pu.get("tg_avatar_path"))
+
+    return _add_cors_headers(web.json_response({
+        "ok": True,
+        "new_expires_at": new_exp_str,
+        "new_expires_human": new_exp_human,
+        "months": months,
+        "action": action_type,
+        "user": detail,
+    }))
+
+
+async def admin_send_direct(request: web.Request) -> web.Response:
+    """POST /api/admin/users/{user_id}/send — отправить сообщение пользователю через Telegram."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        target_id = int(request.match_info.get("user_id", 0) or 0)
+    except (ValueError, TypeError):
+        target_id = 0
+    if target_id <= 0:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
+
+    if not db.get_user(target_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "not_found"}, status=404))
+
+    # Для медиа читаем multipart, иначе JSON
+    content_type = request.content_type or ""
+    media_path = None
+    media_type_val = None
+    text = ""
+
+    if "multipart" in content_type:
+        try:
+            reader = await request.multipart()
+            async for part in reader:
+                if part.name == "text":
+                    text = (await part.read()).decode("utf-8", errors="replace").strip()
+                elif part.name in ("photo", "video"):
+                    media_type_val = part.name
+                    from pathlib import Path as _Path
+                    import uuid as _uuid
+                    import aiofiles
+                    save_dir = _Path(__file__).resolve().parent / "media" / "notifications"
+                    save_dir.mkdir(parents=True, exist_ok=True)
+                    ext = (_Path(part.filename or "file").suffix or ".bin").lower()
+                    fname = f"admsnd_{_uuid.uuid4().hex}{ext}"
+                    fpath = save_dir / fname
+                    raw = await part.read()
+                    async with aiofiles.open(fpath, "wb") as f:
+                        await f.write(raw)
+                    media_path = str(fpath)
+        except Exception as e:
+            logger.exception("admin_send_direct multipart error: %s", e)
+    else:
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        text = str(payload.get("text") or "").strip()
+
+    if not text:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "empty_text"}, status=400))
+
+    async def _do_send():
+        _bot = None
+        try:
+            _bot = Bot(token=config.BOT_TOKEN)
+            if media_path and media_type_val:
+                from pathlib import Path as _Path2
+                fp = _Path2(media_path)
+                if fp.exists():
+                    if media_type_val == "photo":
+                        await _bot.send_photo(chat_id=target_id, photo=fp.open("rb"), caption=text, parse_mode=ParseMode.HTML)
+                    else:
+                        await _bot.send_video(chat_id=target_id, video=fp.open("rb"), caption=text, parse_mode=ParseMode.HTML)
+                else:
+                    await _bot.send_message(chat_id=target_id, text=text, parse_mode=ParseMode.HTML)
+            else:
+                await _bot.send_message(chat_id=target_id, text=text, parse_mode=ParseMode.HTML)
+        except Exception as e:
+            logger.warning("admin_send_direct TG error for %s: %s", target_id, e)
+            raise
+        finally:
+            if _bot:
+                try:
+                    await _bot.session.close()
+                except Exception:
+                    pass
+
+    try:
+        await _do_send()
+    except Exception as e:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "tg_error", "detail": str(e)}, status=500))
+
+    return _add_cors_headers(web.json_response({"ok": True}))
+
+
 async def admin_action(request: web.Request) -> web.Response:
     """Выполняет действие из админ-панели (включить/выключить техперерыв и др.)."""
     if not _check_api_secret(request):
@@ -10186,6 +10402,8 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/users", admin_users_list)
     app.router.add_get("/api/admin/users/{user_id}", admin_user_detail)
     app.router.add_get("/api/admin/user_avatar", admin_user_avatar)
+    app.router.add_post("/api/admin/users/{user_id}/grant_premium", admin_grant_premium)
+    app.router.add_post("/api/admin/users/{user_id}/send", admin_send_direct)
     app.router.add_get("/api/version", api_version)
     app.router.add_get("/api/admin/version-history", admin_version_history)
     app.router.add_route("OPTIONS", "/api/admin/challenge/init", handle_options)

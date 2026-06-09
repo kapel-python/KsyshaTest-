@@ -2101,10 +2101,12 @@ function renderUserDetail(u, container) {
       <div class="ud-divider"></div>
       <div class="section-title" style="padding:14px 16px 0;margin-bottom:0">Действия</div>
       <div class="ua-grid">
-        ${u.tier !== 'free' && !u.tier_expired
-          ? `<button class="ua-btn ua-premium" onclick="openExtendPremium(${u.user_id})"><span class="ua-btn-icon">🔄</span><div class="ua-btn-label">Продлить Premium</div><div class="ua-btn-sub">Добавить срок к текущему</div></button>
-             <button class="ua-btn ua-danger" onclick="confirmRevokePremium(${u.user_id})"><span class="ua-btn-icon">✕</span><div class="ua-btn-label">Удалить Premium</div><div class="ua-btn-sub">Убрать подписку</div></button>`
-          : `<button class="ua-btn ua-premium" onclick="openGrantPremium(${u.user_id}, false)"><span class="ua-btn-icon">⭐</span><div class="ua-btn-label">Выдать Premium</div><div class="ua-btn-sub">Активировать подписку</div></button>`
+        ${u.is_creator
+          ? `<div style="grid-column:1/-1;padding:6px 4px 2px;font-size:0.72rem;color:var(--muted)">⚙️ Creator всегда имеет Premium — управление подпиской недоступно</div>`
+          : u.tier !== 'free' && !u.tier_expired
+            ? `<button class="ua-btn ua-premium" onclick="openExtendPremium(${u.user_id})"><span class="ua-btn-icon">🔄</span><div class="ua-btn-label">Продлить Premium</div><div class="ua-btn-sub">Добавить срок к текущему</div></button>
+               <button class="ua-btn ua-danger" onclick="confirmRevokePremium(${u.user_id})"><span class="ua-btn-icon">✕</span><div class="ua-btn-label">Удалить Premium</div><div class="ua-btn-sub">Убрать подписку</div></button>`
+            : `<button class="ua-btn ua-premium" onclick="openGrantPremium(${u.user_id}, false)"><span class="ua-btn-icon">⭐</span><div class="ua-btn-label">Выдать Premium</div><div class="ua-btn-sub">Активировать подписку</div></button>`
         }
         <button class="ua-btn" onclick="openDirectMsg(${u.user_id}, '${h([u.first_name, u.last_name].filter(Boolean).join(' ') || '')}')"><span class="ua-btn-icon">💬</span><div class="ua-btn-label">Написать</div><div class="ua-btn-sub">Сообщение в Telegram</div></button>
         <button class="ua-btn ua-warn" onclick="adminActionStub('Заблокировать')"><span class="ua-btn-icon">🔒</span><div class="ua-btn-label">Заблокировать</div><div class="ua-btn-sub">Ограничить доступ</div></button>

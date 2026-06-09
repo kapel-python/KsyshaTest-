@@ -4244,6 +4244,14 @@ async def admin_grant_premium(request: web.Request) -> web.Response:
     if target_id <= 0:
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
 
+    # Creator's premium is always active via is_creator() — the table has no effect
+    if db.is_creator(target_id):
+        return _add_cors_headers(web.json_response({
+            "ok": False,
+            "error": "creator_premium_hardcoded",
+            "detail": "Creator always has Premium via is_creator() — subscription table is not used.",
+        }, status=400))
+
     try:
         payload = await request.json()
     except Exception:
@@ -4462,6 +4470,14 @@ async def admin_revoke_premium(request: web.Request) -> web.Response:
     if target_id <= 0:
         return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
 
+    # Creator's premium is hardcoded via is_creator() — the table has no effect
+    if db.is_creator(target_id):
+        return _add_cors_headers(web.json_response({
+            "ok": False,
+            "error": "creator_premium_hardcoded",
+            "detail": "Creator always has Premium — it cannot be revoked via subscription table.",
+        }, status=400))
+
     try:
         with db._get_connection() as conn:
             conn.execute(
@@ -4473,6 +4489,27 @@ async def admin_revoke_premium(request: web.Request) -> web.Response:
         logger.exception("admin_revoke_premium DB error: %s", e)
         return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
 
+    # Уведомление пользователю в Telegram
+    async def _notify_revoke():
+        _bot = None
+        try:
+            _bot = Bot(token=config.BOT_TOKEN)
+            await _bot.send_message(
+                chat_id=target_id,
+                text="ℹ️ Твоя подписка <b>Premium</b> была деактивирована администратором.",
+                parse_mode=ParseMode.HTML,
+            )
+        except Exception as e:
+            logger.warning("admin_revoke_premium TG notify error for %s: %s", target_id, e)
+        finally:
+            if _bot:
+                try:
+                    await _bot.session.close()
+                except Exception:
+                    pass
+
+    asyncio.create_task(_notify_revoke())
+
     detail = db.get_admin_user_detail(target_id) or {}
     detail.pop("tg_avatar_path", None)
     detail.pop("tg_avatar_file_id", None)
@@ -4480,7 +4517,7 @@ async def admin_revoke_premium(request: web.Request) -> web.Response:
     detail.pop("partner_tg_avatar_path", None)
     u = db.get_user(target_id)
     detail["has_avatar"] = bool(u and u.get("tg_avatar_path"))
-    detail["is_creator"] = target_id == int(getattr(config, "CREATOR_ID", 0) or 0)
+    detail["is_creator"] = False  # already guarded above
     if detail.get("partner_id"):
         pu = db.get_user(detail["partner_id"])
         detail["partner_has_avatar"] = bool(pu and pu.get("tg_avatar_path"))

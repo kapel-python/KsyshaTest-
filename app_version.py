@@ -9,8 +9,8 @@ DB settings: rollback_active / rollback_target_commit / rollback_previous_commit
 import subprocess
 import os
 
-version = '1.0.415'
-description = 'Нейтрализация сайта в боте'
+version = '1.0.416'
+description = 'Улучшение документов'
 
 
 def get_version_metadata() -> tuple[str, str]:
@@ -30,6 +30,9 @@ def _get_repo_root() -> str:
     return file_dir
 
 
+_cached_commit = None
+
+
 def get_git_commit() -> str | None:
     """Returns the current Git commit hash (8-char short form), or None.
 
@@ -37,35 +40,42 @@ def get_git_commit() -> str | None:
     1. /app/.git_commit file baked into the Docker image at build time (True running commit).
     2. Live ``git rev-parse HEAD`` subprocess (works on dev host / CI / fallback).
     """
+    global _cached_commit
+    if _cached_commit is not None:
+        return _cached_commit
+
+    commit = None
     # Strategy 1: baked file written by Dockerfile ARG GIT_COMMIT
     try:
         baked_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".git_commit")
         if os.path.exists(baked_file):
             with open(baked_file, "r") as fh:
-                commit = fh.read().strip()[:8]
-                if commit and commit != "unknown":
-                    return commit
+                c = fh.read().strip()[:8]
+                if c and c != "unknown":
+                    commit = c
     except Exception:
         pass
 
-    # Strategy 2: live git
-    try:
-        repo_root = _get_repo_root()
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            commit = result.stdout.strip()[:8]
-            if commit:
-                return commit
-    except Exception:
-        pass
+    if not commit:
+        # Strategy 2: live git
+        try:
+            repo_root = _get_repo_root()
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                c = result.stdout.strip()[:8]
+                if c:
+                    commit = c
+        except Exception:
+            pass
 
-    return None
+    _cached_commit = commit
+    return commit
 
 
 def get_git_status_info() -> dict:

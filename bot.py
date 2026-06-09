@@ -795,8 +795,9 @@ async def _run_tests_background(bot, chat_id: int, msg_id, site_url: str):
                 "logs": logs,
             })
 
-        # load_tests=True — полный прогон; localhost в whitelist, не банит реальных пользователей
-        result = await run_all_tests(load_tests=True, progress_callback=_on_test_progress)
+        # load_tests=False — пропускает нагрузочные секции (19, 20), которые намеренно
+        # триггерят rate-limiter и кладут сайт для реальных пользователей.
+        result = await run_all_tests(load_tests=False, progress_callback=_on_test_progress)
         passed  = result["passed"]
         failed  = result["failed"]
         total   = result["total"]

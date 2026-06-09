@@ -1693,7 +1693,10 @@ function _populateProfile(data) {
 
       if (myAvatarUrl) {
         const imgL = document.getElementById('avatarImgLeft');
-        if (imgL) imgL.src = myAvatarUrl;
+        if (imgL) {
+          imgL.src = myAvatarUrl + '?t=' + Date.now();
+          imgL.style.display = 'block';
+        }
       } else {
         // Нет фото «меня» — оставляем SVG-кружок с инициалом слева
         const circleL = document.getElementById('avatarPhotoLeft');
@@ -1704,7 +1707,10 @@ function _populateProfile(data) {
 
       if (otherAvatarUrl) {
         const imgR = document.getElementById('avatarImgRight');
-        if (imgR) imgR.src = otherAvatarUrl;
+        if (imgR) {
+          imgR.src = otherAvatarUrl + '?t=' + Date.now();
+          imgR.style.display = 'block';
+        }
       } else {
         const circleR = document.getElementById('avatarPhotoRight');
         if (circleR) {

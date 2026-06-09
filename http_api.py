@@ -1942,6 +1942,7 @@ async def site_bootstrap_data(request: web.Request) -> web.Response:
     bootstrap_payload = {
         "ok": True,
         "creator_id": data.get("creator_id"),
+        "is_app_creator": data.get("is_app_creator", False),
         "ksusha_id": data.get("ksusha_id"),
         "partner_id": data.get("partner_id"),
         "export_url": data.get("export_url"),

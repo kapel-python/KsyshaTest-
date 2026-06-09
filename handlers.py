@@ -243,6 +243,7 @@ class BotActivityMiddleware(BaseMiddleware):
     }
     _ALLOWED_UNAUTHORIZED_STATE_PREFIXES = (
         "CoupleOnboardingStates:",
+        "LeaveSpaceStates:",
     )
     _ALLOWED_WAITING_PARTNER_CALLBACKS = (
         "get_invite_link",
@@ -1403,6 +1404,19 @@ async def cmd_start(message: Message, state: FSMContext):
                 parse_mode=ParseMode.HTML
             )
             return
+        # Кто-то покинул пространство — один из ID стал отрицательным
+        u1 = couple.get("user1_id") or 0
+        u2 = couple.get("user2_id") or 0
+        if u1 < 0 or u2 < 0:
+            # Определяем кто ушёл
+            left_id = abs(u1) if u1 < 0 else abs(u2)
+            left_name = db.get_display_name(left_id) if left_id else "Участник"
+            await message.answer(
+                f"💔 <b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
+                "<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>",
+                parse_mode=ParseMode.HTML,
+            )
+            return
         # Уже создана пара (партнёр ещё не присоединился) — показываем ссылку
         couple_id = couple["id"]
         existing_code = db.get_active_invite_for_couple(couple_id)
@@ -1895,6 +1909,18 @@ async def back_to_main(callback: CallbackQuery, state: FSMContext):
     if not db.is_in_couple(user_id):
         couple = db.get_couple_by_user(user_id)
         if couple:
+            u1 = couple.get("user1_id") or 0
+            u2 = couple.get("user2_id") or 0
+            if u1 < 0 or u2 < 0:
+                left_id = abs(u1) if u1 < 0 else abs(u2)
+                left_name = db.get_display_name(left_id) if left_id else "Участник"
+                await callback_edit_or_answer(callback,
+                    f"💔 <b>{html.escape(left_name)}</b> покинул(а) ваше пространство.\n\n"
+                    "<i>Данные хранятся 7 дней. После этого пространство будет удалено.</i>",
+                    parse_mode=ParseMode.HTML,
+                )
+                await callback.answer()
+                return
             couple_id = couple["id"]
             existing_code = db.get_active_invite_for_couple(couple_id)
             code = existing_code if existing_code else db.create_invite_code(couple_id, user_id)
@@ -1903,7 +1929,7 @@ async def back_to_main(callback: CallbackQuery, state: FSMContext):
             from urllib.parse import quote
             share_text = "Вступай в нашу пару по этой ссылке!"
             share_url = f"https://t.me/share/url?url={quote(invite_link, safe='')}&text={quote(share_text, safe='')}"
-            await callback_edit_or_answer(callback, 
+            await callback_edit_or_answer(callback,
                 "💓 <b>Партнёр ещё не добавлен</b>\n\n"
                 "🎁 Чтобы ты мог(ла) создавать, изменять и делиться моментами — тебе нужно добавить партнёра\n\n"
                 "🔗 Сделать это можно по ссылке ниже",
@@ -2566,12 +2592,16 @@ def _natural_date(dt_str: str) -> str:
 
 
 @router.callback_query(F.data == "leave_space_start")
-async def leave_space_start(callback: CallbackQuery):
+async def leave_space_start(callback: CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
+    if not db.is_in_couple(user_id):
+        await callback.answer("Нет активной пары", show_alert=True)
+        return
     couple = db.get_couple_by_user(user_id)
     if not couple:
         await callback.answer("Пара не найдена", show_alert=True)
         return
+    await state.clear()
     u1 = couple["user1_id"]
     u2 = couple.get("user2_id")
     partner_id = u2 if u1 == user_id else u1
@@ -2592,7 +2622,8 @@ async def leave_space_start(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "leave_space_confirm")
-async def leave_space_confirm(callback: CallbackQuery):
+async def leave_space_confirm(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="😔 Надоело", callback_data="leave_reason_bored")],
         [InlineKeyboardButton(text="😕 Неудобный сервис", callback_data="leave_reason_ux")],

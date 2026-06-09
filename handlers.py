@@ -3097,16 +3097,9 @@ async def bot_site(callback: CallbackQuery):
     personal_url = f"{domain_url}?token={token}" if token else domain_url
 
     # Имя партнёра для текста (если есть)
-    partner_id = db.get_partner_id(user_id)
-    partner_name = db.get_display_name(partner_id) if partner_id else None
-    if partner_name:
-        sky_hint = f", посмотреть на небо (если вы с {partner_name} в разных городах)"
-    else:
-        sky_hint = ", посмотреть на небо"
-
     lines = [
         "🌐 <b>Сайт</b>\n",
-        f"На сайте удобнее смотреть моменты, можно использовать ИИ{sky_hint} и не только",
+        "На сайте доступны все функции: просмотр моментов, использование ИИ и другие возможности",
         "\n⚠️ Браузер Telegram может работать нестабильно и криво, советую использовать основной браузер, например Chrome",
     ]
 

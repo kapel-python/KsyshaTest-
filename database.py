@@ -4964,33 +4964,55 @@ class Database:
         """Список всех пользователей для админ-панели (без личного контента)."""
         try:
             with self._get_connection() as conn:
+                # Пользователи + подписка — без OR в JOIN, без couples
                 rows = conn.execute("""
                     SELECT
                         u.user_id, u.first_name, u.last_name, u.username,
                         u.created_at, u.last_seen, u.tg_avatar_path,
                         COALESCE(ust.tier, 'free') AS tier,
-                        ust.expires_at AS tier_expires_at,
-                        c.id AS couple_id,
-                        CASE WHEN c.user1_id = u.user_id THEN c.user2_id
-                             ELSE c.user1_id END AS partner_id
+                        ust.expires_at AS tier_expires_at
                     FROM users u
                     LEFT JOIN user_subscription_tier ust
                         ON ust.user_key = CAST(u.user_id AS TEXT)
-                    LEFT JOIN couples c
-                        ON (c.user1_id = u.user_id OR c.user2_id = u.user_id)
-                        AND c.user2_id IS NOT NULL AND c.leave_user_id IS NULL
                     ORDER BY u.created_at DESC
                 """).fetchall()
+
+                # Partner mapping через два простых запроса (без OR)
+                couple_rows = conn.execute(
+                    "SELECT user1_id, user2_id FROM couples WHERE user2_id IS NOT NULL"
+                ).fetchall()
+                partner_map: Dict[int, int] = {}
+                for cr in couple_rows:
+                    u1, u2 = int(cr[0]), int(cr[1])
+                    if u1 > 0 and u2 > 0:
+                        partner_map[u1] = u2
+                        partner_map[u2] = u1
+
                 now = datetime.now(timezone.utc)
                 result = []
                 for r in rows:
-                    d = dict(r)
-                    if d['tier'] != 'free' and d.get('tier_expires_at'):
+                    d: Dict[str, Any] = {
+                        "user_id":       int(r["user_id"]),
+                        "first_name":    r["first_name"],
+                        "last_name":     r["last_name"],
+                        "username":      r["username"],
+                        "created_at":    r["created_at"],
+                        "last_seen":     r["last_seen"],
+                        "tg_avatar_path": r["tg_avatar_path"],
+                        "tier":          r["tier"] or "free",
+                        "tier_expires_at": r["tier_expires_at"],
+                        "tier_expired":  False,
+                        "partner_id":    partner_map.get(int(r["user_id"])),
+                    }
+                    if d["tier"] != "free" and d.get("tier_expires_at"):
                         try:
-                            exp = datetime.fromisoformat(d['tier_expires_at']).replace(tzinfo=timezone.utc)
+                            exp_s = str(d["tier_expires_at"]).replace(" ", "T")
+                            if not exp_s.endswith("Z") and "+" not in exp_s:
+                                exp_s += "Z"
+                            exp = datetime.fromisoformat(exp_s).replace(tzinfo=timezone.utc)
                             if now > exp:
-                                d['tier'] = 'free'
-                                d['tier_expired'] = True
+                                d["tier"] = "free"
+                                d["tier_expired"] = True
                         except Exception:
                             pass
                     result.append(d)
@@ -5003,107 +5025,160 @@ class Database:
         """Детальная административная информация о пользователе (без личного контента)."""
         try:
             with self._get_connection() as conn:
+                # Явные колонки — не SELECT *, чтобы не тащить бинарные данные
                 user_row = conn.execute(
-                    "SELECT * FROM users WHERE user_id = ?", (user_id,)
+                    """SELECT user_id, first_name, last_name, username,
+                              created_at, last_seen, tg_avatar_path
+                       FROM users WHERE user_id = ?""",
+                    (user_id,)
                 ).fetchone()
                 if not user_row:
                     return None
-                d: Dict[str, Any] = dict(user_row)
+
+                d: Dict[str, Any] = {
+                    "user_id":       int(user_row["user_id"]),
+                    "first_name":    user_row["first_name"],
+                    "last_name":     user_row["last_name"],
+                    "username":      user_row["username"],
+                    "created_at":    user_row["created_at"],
+                    "last_seen":     user_row["last_seen"],
+                    "tg_avatar_path": user_row["tg_avatar_path"],
+                }
 
                 # Подписка
-                tier_row = conn.execute(
-                    "SELECT tier, expires_at FROM user_subscription_tier WHERE user_key = ?",
-                    (str(user_id),)
-                ).fetchone()
+                try:
+                    tier_row = conn.execute(
+                        "SELECT tier, expires_at FROM user_subscription_tier WHERE user_key = ?",
+                        (str(user_id),)
+                    ).fetchone()
+                except Exception:
+                    tier_row = None
+
                 if tier_row:
-                    tier, exp_at = tier_row[0], tier_row[1]
+                    tier, exp_at = (tier_row[0] or "free"), tier_row[1]
                     is_expired = False
-                    if exp_at:
+                    if exp_at and tier != "free":
                         try:
-                            exp = datetime.fromisoformat(exp_at).replace(tzinfo=timezone.utc)
+                            exp_s = str(exp_at).replace(" ", "T")
+                            if not exp_s.endswith("Z") and "+" not in exp_s:
+                                exp_s += "Z"
+                            exp = datetime.fromisoformat(exp_s).replace(tzinfo=timezone.utc)
                             if datetime.now(timezone.utc) > exp:
-                                tier = 'free'
+                                tier = "free"
                                 is_expired = True
                         except Exception:
                             pass
-                    d['tier'] = tier or 'free'
-                    d['tier_expires_at'] = exp_at
-                    d['tier_expired'] = is_expired
+                    d["tier"] = tier
+                    d["tier_expires_at"] = exp_at
+                    d["tier_expired"] = is_expired
                 else:
-                    d['tier'] = 'free'
-                    d['tier_expires_at'] = None
-                    d['tier_expired'] = False
+                    d["tier"] = "free"
+                    d["tier_expires_at"] = None
+                    d["tier_expired"] = False
 
-                # Пара и партнёр
-                couple_row = conn.execute("""
-                    SELECT * FROM couples
-                    WHERE (user1_id = ? OR user2_id = ?)
-                      AND user2_id IS NOT NULL AND leave_user_id IS NULL
-                    ORDER BY id DESC LIMIT 1
-                """, (user_id, user_id)).fetchone()
+                # Пара и партнёр — два простых запроса по индексированным полям (без OR)
+                d["couple_id"] = None
+                d["partner_id"] = None
+                d["couple_created_at"] = None
+                try:
+                    couple_row = conn.execute(
+                        """SELECT id, user1_id, user2_id,
+                                  COALESCE(paired_at, created_at) AS joined_at
+                           FROM couples
+                           WHERE user1_id = ? AND user2_id IS NOT NULL
+                           ORDER BY id DESC LIMIT 1""",
+                        (user_id,)
+                    ).fetchone()
+                    if not couple_row:
+                        couple_row = conn.execute(
+                            """SELECT id, user1_id, user2_id,
+                                      COALESCE(paired_at, created_at) AS joined_at
+                               FROM couples
+                               WHERE user2_id = ?
+                               ORDER BY id DESC LIMIT 1""",
+                            (user_id,)
+                        ).fetchone()
+                    if couple_row:
+                        d["couple_id"] = int(couple_row["id"])
+                        d["couple_created_at"] = couple_row["joined_at"]
+                        raw_u1 = couple_row["user1_id"]
+                        raw_u2 = couple_row["user2_id"]
+                        partner_id = int(raw_u2 if int(raw_u1) == user_id else raw_u1)
+                        d["partner_id"] = partner_id
 
-                if couple_row:
-                    c = dict(couple_row)
-                    d['couple_id'] = c['id']
-                    d['couple_created_at'] = c.get('paired_at') or c.get('created_at')
-                    partner_id = c['user2_id'] if c['user1_id'] == user_id else c['user1_id']
-                    d['partner_id'] = partner_id
-                    if partner_id:
                         p_row = conn.execute(
-                            "SELECT user_id, first_name, last_name, username, tg_avatar_path, last_seen FROM users WHERE user_id = ?",
+                            """SELECT user_id, first_name, last_name,
+                                      username, tg_avatar_path, last_seen
+                               FROM users WHERE user_id = ?""",
                             (partner_id,)
                         ).fetchone()
                         if p_row:
-                            p = dict(p_row)
-                            d['partner_first_name'] = p.get('first_name')
-                            d['partner_last_name'] = p.get('last_name')
-                            d['partner_username'] = p.get('username')
-                            d['partner_last_seen'] = p.get('last_seen')
-                            d['partner_tg_avatar_path'] = p.get('tg_avatar_path')
+                            d["partner_first_name"] = p_row["first_name"]
+                            d["partner_last_name"]  = p_row["last_name"]
+                            d["partner_username"]   = p_row["username"]
+                            d["partner_last_seen"]  = p_row["last_seen"]
+                            d["partner_tg_avatar_path"] = p_row["tg_avatar_path"]
+
                         pt_row = conn.execute(
                             "SELECT tier, expires_at FROM user_subscription_tier WHERE user_key = ?",
                             (str(partner_id),)
                         ).fetchone()
                         if pt_row:
-                            pt, pexp = pt_row[0], pt_row[1]
-                            if pexp:
+                            pt, pexp = (pt_row[0] or "free"), pt_row[1]
+                            if pexp and pt != "free":
                                 try:
-                                    exp2 = datetime.fromisoformat(pexp).replace(tzinfo=timezone.utc)
-                                    if datetime.now(timezone.utc) > exp2:
-                                        pt = 'free'
+                                    ps = str(pexp).replace(" ", "T")
+                                    if not ps.endswith("Z") and "+" not in ps:
+                                        ps += "Z"
+                                    if datetime.now(timezone.utc) > datetime.fromisoformat(ps).replace(tzinfo=timezone.utc):
+                                        pt = "free"
                                 except Exception:
                                     pass
-                            d['partner_tier'] = pt or 'free'
+                            d["partner_tier"] = pt
                         else:
-                            d['partner_tier'] = 'free'
-                else:
-                    d['couple_id'] = None
-                    d['partner_id'] = None
-                    d['couple_created_at'] = None
+                            d["partner_tier"] = "free"
+                except Exception as e:
+                    logger.warning("get_admin_user_detail couple query error for %s: %s", user_id, e)
 
-                # Счётчики контента (только числа — без содержимого)
-                stats_row = conn.execute("""
-                    SELECT COUNT(*) AS memories_count,
-                           SUM(CASE WHEN media_type IN ('photo','image') THEN 1 ELSE 0 END) AS photos_count
-                    FROM memories WHERE user_id = ?
-                """, (user_id,)).fetchone()
-                d['memories_count'] = stats_row[0] if stats_row else 0
-                d['photos_count'] = stats_row[1] if stats_row else 0
+                # Счётчики — явно int, не None
+                try:
+                    stats_row = conn.execute(
+                        """SELECT COUNT(*) AS mc,
+                                  COALESCE(SUM(CASE WHEN media_type IN ('photo','image') THEN 1 ELSE 0 END), 0) AS pc
+                           FROM memories WHERE user_id = ?""",
+                        (user_id,)
+                    ).fetchone()
+                    d["memories_count"] = int(stats_row[0]) if stats_row else 0
+                    d["photos_count"]   = int(stats_row[1]) if stats_row else 0
+                except Exception:
+                    d["memories_count"] = 0
+                    d["photos_count"]   = 0
 
-                d['events_count'] = conn.execute(
-                    "SELECT COUNT(*) FROM scheduled_events WHERE user_id = ?", (user_id,)
-                ).fetchone()[0] or 0
-                d['wishes_count'] = conn.execute(
-                    "SELECT COUNT(*) FROM wishes WHERE user_id = ?", (user_id,)
-                ).fetchone()[0] or 0
+                try:
+                    d["events_count"] = int(conn.execute(
+                        "SELECT COUNT(*) FROM scheduled_events WHERE user_id = ?", (user_id,)
+                    ).fetchone()[0] or 0)
+                except Exception:
+                    d["events_count"] = 0
 
-                # Последняя активность через устройства
-                dev_row = conn.execute("""
-                    SELECT MAX(d.last_seen_utc) FROM user_tokens ut
-                    INNER JOIN devices d ON d.visitor_id = ut.token
-                    WHERE ut.user_id = ?
-                """, (user_id,)).fetchone()
-                d['last_device_seen'] = dev_row[0] if dev_row else None
+                try:
+                    d["wishes_count"] = int(conn.execute(
+                        "SELECT COUNT(*) FROM wishes WHERE user_id = ?", (user_id,)
+                    ).fetchone()[0] or 0)
+                except Exception:
+                    d["wishes_count"] = 0
+
+                # Последняя активность на сайте (через токены устройств)
+                try:
+                    dev_row = conn.execute(
+                        """SELECT MAX(d.last_seen_utc) FROM user_tokens ut
+                           INNER JOIN devices d ON d.visitor_id = ut.token
+                           WHERE ut.user_id = ?""",
+                        (user_id,)
+                    ).fetchone()
+                    d["last_device_seen"] = dev_row[0] if dev_row else None
+                except Exception:
+                    d["last_device_seen"] = None
 
                 return d
         except Exception as e:

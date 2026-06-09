@@ -1877,6 +1877,7 @@ window.doFullReset = doFullReset;
 
 // ── Users tab ─────────────────────────────────────
 let _usersCache = null;
+let _usersLoading = false;
 let _avatarObserver = null;
 
 function _tierBadge(tier, expired) {
@@ -1906,11 +1907,13 @@ function _initAvatarObserver() {
       if (!entry.isIntersecting) return;
       const el = entry.target;
       const uid = el.dataset.userId;
-      const img = el.querySelector('img');
-      if (img && !img.src) {
-        img.src = _avatarUrl(uid);
+      // Используем data-src чтобы не конфликтовать с авто-разрешением пустого src браузером
+      const img = el.querySelector('img[data-src]');
+      if (img) {
+        img.src = img.dataset.src;
         img.onload  = () => { img.style.display = 'block'; };
         img.onerror = () => { img.style.display = 'none'; };
+        delete img.dataset.src;
       }
       _avatarObserver.unobserve(el);
     });
@@ -1925,16 +1928,30 @@ function _observeAvatars() {
 }
 
 async function loadUsersList() {
+  if (_usersLoading) return;
+  _usersLoading = true;
   const btn = document.getElementById('usersRefreshBtn');
   if (btn) btn.classList.add('spinning');
+  const el = document.getElementById('usersList');
+  if (el && el.textContent.trim() !== 'Загрузка…') {
+    // Не затирать уже показанный список при фоновом обновлении
+  } else if (el) {
+    el.innerHTML = '<div class="users-empty">Загрузка…</div>';
+  }
   try {
     const r = await fetch('/api/admin/users?v=' + encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || 'error');
     _usersCache = d.users || [];
     renderUsersList(_usersCache);
-  } catch(e) { toast('Ошибка загрузки пользователей', 'error'); }
-  finally { if (btn) btn.classList.remove('spinning'); }
+  } catch(e) {
+    if (el) el.innerHTML = '<div class="users-empty" style="cursor:pointer;color:var(--red)" onclick="loadUsersList()">Ошибка загрузки · нажмите чтобы повторить</div>';
+    toast('Ошибка загрузки пользователей', 'error');
+  } finally {
+    _usersLoading = false;
+    if (btn) btn.classList.remove('spinning');
+  }
 }
 
 function renderUsersList(users) {
@@ -1954,7 +1971,7 @@ function renderUsersList(users) {
     const delay  = 'animation-delay:' + Math.min(i * 0.03, 0.3) + 's';
     return `<div class="user-card" onclick="openUser(${u.user_id})" style="${delay}">
       <div class="user-card-av" data-user-id="${u.user_id}">
-        ${u.has_avatar ? '<img alt="">' : ''}<span class="user-card-av-init">${h(_userInitials(u))}</span>
+        ${u.has_avatar ? '<img data-src="' + _avatarUrl(u.user_id) + '" alt="">' : ''}<span class="user-card-av-init">${h(_userInitials(u))}</span>
       </div>
       <div class="user-card-body">
         <div class="user-card-name">${h(name)}</div>
@@ -2012,9 +2029,15 @@ function renderUserDetail(u, container) {
 
   let tierStr = u.tier === 'free' ? 'Free' : (u.tier === 'premium' ? 'Premium' : 'Plus');
   if (u.tier_expired) tierStr += ' (истёк)';
-  const tierExp = u.tier_expires_at ? relativeTime(u.tier_expires_at) : '—';
-  const lastSite = u.last_device_seen ? relativeTime(u.last_device_seen) : '—';
-  const lastBot  = u.last_seen ? relativeTime(u.last_seen) : '—';
+  const tierExp  = formatExpiry(u.tier_expires_at);
+  // Активность: показываем сайт + бот; если сайта нет — "Нет данных"
+  const lastSite = u.last_device_seen ? relativeTime(u.last_device_seen) : 'Нет данных';
+  const lastBot  = u.last_seen ? relativeTime(u.last_seen) : 'Нет данных';
+  // Числовые поля защищаем от null
+  const memCnt   = u.memories_count != null ? u.memories_count : '—';
+  const phCnt    = u.photos_count   != null ? u.photos_count   : '—';
+  const evCnt    = u.events_count   != null ? u.events_count   : '—';
+  const wiCnt    = u.wishes_count   != null ? u.wishes_count   : '—';
 
   const avatarImg = u.has_avatar
     ? `<img src="${_avatarUrl(u.user_id)}" alt="" style="display:none" onload="this.style.display='block'" onerror="this.style.display='none'">`
@@ -2028,7 +2051,7 @@ function renderUserDetail(u, container) {
     const pSeen  = u.partner_last_seen ? relativeTime(u.partner_last_seen) : '—';
     const pInit  = h(_userInitials({ first_name: u.partner_first_name, last_name: u.partner_last_name, username: u.partner_username }));
     const pAv    = u.partner_has_avatar
-      ? `<img src="${_avatarUrl(u.partner_id)}" alt="" style="display:none" onload="this.style.display='block'" onerror="this.style.display='none'">`
+      ? `<img src="${_avatarUrl(u.partner_id)}" alt="" onload="this.style.display='block'" onerror="this.style.display='none'" style="display:none">`
       : '';
     partnerHtml = `
       <div class="ud-divider"></div>
@@ -2069,10 +2092,10 @@ function renderUserDetail(u, container) {
       <div class="ud-divider"></div>
       <div class="section-title" style="padding:14px 16px 0;margin-bottom:0">Контент</div>
       <div class="ud-grid">
-        <div class="ud-item"><div class="ud-label">Воспоминаний</div><div class="ud-value">${u.memories_count}</div></div>
-        <div class="ud-item"><div class="ud-label">Фотографий</div><div class="ud-value">${u.photos_count}</div></div>
-        <div class="ud-item"><div class="ud-label">Событий</div><div class="ud-value">${u.events_count}</div></div>
-        <div class="ud-item"><div class="ud-label">Желаний</div><div class="ud-value">${u.wishes_count}</div></div>
+        <div class="ud-item"><div class="ud-label">Воспоминаний</div><div class="ud-value">${memCnt}</div></div>
+        <div class="ud-item"><div class="ud-label">Фотографий</div><div class="ud-value">${phCnt}</div></div>
+        <div class="ud-item"><div class="ud-label">Событий</div><div class="ud-value">${evCnt}</div></div>
+        <div class="ud-item"><div class="ud-label">Желаний</div><div class="ud-value">${wiCnt}</div></div>
       </div>
       ${partnerHtml}
       <div class="ud-divider"></div>
@@ -2092,6 +2115,23 @@ function adminActionStub(name) {
   toast('🚧 «' + name + '» — будет реализовано позже');
 }
 window.adminActionStub = adminActionStub;
+
+function formatExpiry(utcStr) {
+  if (!utcStr) return '—';
+  try {
+    const s = String(utcStr).replace(' ', 'T') + (String(utcStr).includes('Z') || String(utcStr).includes('+') ? '' : 'Z');
+    const dt = new Date(s);
+    if (isNaN(dt.getTime())) return utcStr;
+    const nowMs = Date.now();
+    const diffMs = dt.getTime() - nowMs;
+    const days = Math.round(Math.abs(diffMs) / 86400000);
+    const dateStr = dt.toLocaleDateString('ru-RU', {day: 'numeric', month: 'long', year: 'numeric'});
+    if (diffMs < 0) return 'Истёк ' + (days === 0 ? 'сегодня' : days + ' дн. назад');
+    if (days === 0) return 'Истекает сегодня';
+    if (days <= 30) return 'Через ' + days + ' дн. · ' + dateStr;
+    return 'До ' + dateStr;
+  } catch(e) { return utcStr; }
+}
 
 function _handleUsersHash() {
   if (!document.getElementById('tab-users').classList.contains('active')) return;

@@ -2367,6 +2367,11 @@ window.goToBanDuration = function() {
 window.selectBanDurationQuick = function(text) {
   const res = _parseBanDurationLocal(text);
   if (res) {
+    // null = навсегда — всегда допустимо
+    if (res.expires_at !== null) {
+      const ms = new Date(res.expires_at + 'Z').getTime();
+      if (ms <= Date.now() + 60000) { toast('Дата в прошлом', 'error'); return; }
+    }
     _banExpiresAt  = res.expires_at;
     _banExpDisplay = res.display;
     _showBanConfirm();
@@ -2392,18 +2397,28 @@ window.parseBanDurationInput = async function() {
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   resultEl.textContent = 'Спрашиваю ИИ…';
   try {
+    let _btz = '';
+    try { _btz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e) {}
     const r = await fetch('/api/admin/parse_ban_time?v=' + encodeURIComponent(VISITOR_ID), {
       method: 'POST',
       headers: _authHeaders({'Content-Type': 'application/json'}),
       credentials: 'include',
-      body: JSON.stringify({ text: txt }),
+      body: JSON.stringify({ text: txt, tz: _btz }),
     });
     const d = await r.json();
     if (d.ok) {
-      _banExpiresAt  = d.expires_at;
-      _banExpDisplay = d.display || _fmtBanDate(new Date(d.expires_at));
-      resultEl.textContent = '✓ ' + _banExpDisplay;
-      setTimeout(_showBanConfirm, 600);
+      // Финальная клиентская проверка: дата должна быть в будущем
+      const parsedMs = d.expires_at ? new Date(d.expires_at + 'Z').getTime() : Infinity;
+      if (d.expires_at && parsedMs <= Date.now() + 60000) {
+        resultEl.textContent = '❌ Дата в прошлом. Укажите будущее время.';
+      } else {
+        _banExpiresAt  = d.expires_at;
+        _banExpDisplay = d.display || _fmtBanDate(new Date(parsedMs));
+        resultEl.textContent = '✓ ' + _banExpDisplay;
+        setTimeout(_showBanConfirm, 600);
+      }
+    } else if (d.error === 'past_date') {
+      resultEl.textContent = '❌ Дата в прошлом. Укажите будущее время.';
     } else {
       resultEl.textContent = '❌ Не удалось разобрать. Попробуйте иначе.';
     }
@@ -2435,7 +2450,7 @@ window.executeBan = async function() {
         method: 'POST',
         headers: _authHeaders({'Content-Type': 'application/json'}),
         credentials: 'include',
-        body: JSON.stringify({ reason: _banReason, expires_at: _banExpiresAt }),
+        body: JSON.stringify({ reason: _banReason, expires_at: _banExpiresAt, display: _banExpDisplay }),
       }
     );
     const d = await r.json();

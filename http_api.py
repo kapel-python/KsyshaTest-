@@ -1216,6 +1216,8 @@ async def ws_site(request: web.Request) -> web.WebSocketResponse:
     couple_id = _safe_int(couple.get("id"), 0) or 0
     if couple_id <= 0:
         raise web.HTTPForbidden(text="forbidden")
+    if visitor_uid and db.is_user_banned(visitor_uid):
+        raise web.HTTPForbidden(text="banned")
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
     _ws_add(couple_id, sender_role, ws)
@@ -4554,24 +4556,28 @@ async def admin_ban_user(request: web.Request) -> web.Response:
 
     reason = str(payload.get("reason") or "").strip() or None
     expires_at = str(payload.get("expires_at") or "").strip() or None  # ISO UTC or None
+    # display — уже отформатированная строка из браузера в правильном timezone
+    frontend_display = str(payload.get("display") or "").strip() or None
 
     ok = db.ban_user(target_id, req_user_id, reason, expires_at)
     if not ok:
         return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
 
     # Уведомление пользователю в Telegram
+    # Используем display от фронтенда — он уже в правильном timezone admin-а.
+    # Fallback: форматируем UTC (лучше чем ничего).
     if expires_at:
-        try:
-            from datetime import timezone as _tz
-            exp = datetime.fromisoformat(expires_at).replace(tzinfo=_tz.utc)
-            exp_human = exp.strftime("%-d %B %Y, %H:%M").replace(
-                "January","января").replace("February","февраля").replace("March","марта").replace(
-                "April","апреля").replace("May","мая").replace("June","июня").replace(
-                "July","июля").replace("August","августа").replace("September","сентября").replace(
-                "October","октября").replace("November","ноября").replace("December","декабря")
-            ban_until = f"до <b>{exp_human}</b>"
-        except Exception:
-            ban_until = f"до <b>{expires_at}</b>"
+        if frontend_display:
+            ban_until = f"до <b>{frontend_display}</b>"
+        else:
+            try:
+                from datetime import timezone as _tz
+                exp = datetime.fromisoformat(expires_at).replace(tzinfo=_tz.utc)
+                _mn2 = {1:"января",2:"февраля",3:"марта",4:"апреля",5:"мая",6:"июня",
+                        7:"июля",8:"августа",9:"сентября",10:"октября",11:"ноября",12:"декабря"}
+                ban_until = f"до <b>{exp.day} {_mn2[exp.month]} {exp.year}, {exp.strftime('%H:%M')}</b>"
+            except Exception:
+                ban_until = f"до <b>{expires_at}</b>"
     else:
         ban_until = "<b>навсегда</b>"
 
@@ -4693,6 +4699,7 @@ async def admin_parse_ban_time(request: web.Request) -> web.Response:
         payload = {}
 
     raw = str(payload.get("text") or "").strip()
+    browser_tz = str(payload.get("tz") or "").strip()  # IANA tz от браузера (Intl API)
     if not raw:
         return _add_cors_headers(web.json_response({"ok": False, "error": "empty"}))
 
@@ -4700,30 +4707,58 @@ async def admin_parse_ban_time(request: web.Request) -> web.Response:
         from api import parse_date_with_ai
         from utils import get_user_datetime_context, parse_ai_date_to_db, _tz_offset
 
-        # Точный шаблон из onboarding_met_date_raw, но allow_future=True
-        ctx = get_user_datetime_context(req_user_id)
+        # Приоритет timezone: настройки пользователя → браузерный tz → UTC
+        try:
+            db_tz = db.get_user_setting(req_user_id, "timezone")
+        except Exception:
+            db_tz = None
+        effective_tz = db_tz or browser_tz or None
+        offset_hours = _tz_offset(effective_tz, 0) if effective_tz else 0
+
+        # Строим контекст вручную с правильным offset (не полагаемся на get_user_datetime_context
+        # которая тоже читает только db timezone и может вернуть UTC-контекст)
+        from datetime import timezone as _tz
+        _now_utc = datetime.now(_tz.utc)
+        _now_local = _now_utc + timedelta(hours=offset_hours)
+        _mn_ctx = ["января","февраля","марта","апреля","мая","июня",
+                   "июля","августа","сентября","октября","ноября","декабря"]
+        _dow_ctx = ["понедельник","вторник","среда","четверг","пятница","суббота","воскресенье"]
+        ctx = (
+            f"Сейчас у пользователя: {_now_local.day} {_mn_ctx[_now_local.month-1]} {_now_local.year}, "
+            f"{_dow_ctx[_now_local.weekday()]}, {_now_local.strftime('%H:%M')} "
+            f"(час {_now_local.hour}, минута {_now_local.minute}). "
+            f"Месяц: {_mn_ctx[_now_local.month-1]}, год: {_now_local.year}."
+        )
+
         ai_date = await asyncio.to_thread(parse_date_with_ai, raw, ctx, True)
 
         if not ai_date or ai_date == "ERROR:PAST_DATE":
-            return _add_cors_headers(web.json_response({"ok": False, "error": "cannot_parse"}))
+            err = "past_date" if ai_date == "ERROR:PAST_DATE" else "cannot_parse"
+            return _add_cors_headers(web.json_response({"ok": False, "error": err}))
 
         db_fmt = parse_ai_date_to_db(ai_date)
         if not db_fmt:
             return _add_cors_headers(web.json_response({"ok": False, "error": "cannot_parse"}))
 
-        # db_fmt = "YYYY-MM-DD HH:MM:SS" в локальном времени пользователя
-        # Конвертируем в UTC с учётом его timezone (как _event_datetime_to_utc)
-        from datetime import timezone as _tz
+        # db_fmt = "YYYY-MM-DD HH:MM:SS" в локальном времени admin-а
+        # Конвертируем в UTC используя тот же offset
         naive = datetime.strptime(db_fmt[:19], "%Y-%m-%d %H:%M:%S")
-        try:
-            tz_id = db.get_user_setting(req_user_id, "timezone")
-            offset_hours = _tz_offset(tz_id, 0)
-        except Exception:
-            offset_hours = 0
         utc_dt = naive - timedelta(hours=offset_hours)
+
+        # ── Системный запрет прошлых дат ──────────────────────────────
+        # Проверяем на уровне кода — независимо от того, что вернул ИИ.
+        # Минимальный запас — 60 секунд (защита от граничных случаев).
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        if utc_dt <= now_utc + timedelta(seconds=60):
+            return _add_cors_headers(web.json_response({
+                "ok": False,
+                "error": "past_date",
+            }))
+        # ──────────────────────────────────────────────────────────────
+
         iso_utc = utc_dt.strftime("%Y-%m-%dT%H:%M:%S")
 
-        # Человеческий формат для отображения
+        # Человеческий формат для отображения (в timezone admin-а, не UTC)
         _mn = ["января","февраля","марта","апреля","мая","июня",
                "июля","августа","сентября","октября","ноября","декабря"]
         display = (
@@ -6094,6 +6129,30 @@ async def token_auth(request: web.Request) -> web.Response:
 
     user_id = token_data["user_id"]
     role = token_data.get("role") or "user"
+
+    # Проверяем бан до выдачи credentials — иначе забаненный войдёт с чистой сессией
+    try:
+        ban = db.get_active_ban(user_id)
+    except Exception:
+        ban = None
+    if ban:
+        from datetime import timezone as _tz
+        _mn = {1:"января",2:"февраля",3:"марта",4:"апреля",5:"мая",6:"июня",
+               7:"июля",8:"августа",9:"сентября",10:"октября",11:"ноября",12:"декабря"}
+        if ban.get("expires_at"):
+            try:
+                exp = datetime.fromisoformat(ban["expires_at"]).replace(tzinfo=_tz.utc)
+                until = f"{exp.day} {_mn[exp.month]} {exp.year}, {exp.strftime('%H:%M')}"
+            except Exception:
+                until = ban["expires_at"]
+        else:
+            until = "навсегда"
+        return _add_cors_headers(web.json_response({
+            "ok": False,
+            "error": "banned",
+            "until": until,
+            "reason": ban.get("reason"),
+        }, status=403))
 
     # Сохраняем часовой пояс сразу при входе через токен (фикс: ТЗ не попадала в БД)
     tz_from_auth = (_pstr(payload.get("tz")) or _pstr(payload.get("timezone"))).strip()
@@ -9105,11 +9164,9 @@ async def security_headers_middleware(request: web.Request, handler):
 
 
 _BAN_EXEMPT_PREFIXES = (
-    "/terms", "/privacy", "/admin", "/static", "/api/admin",
+    "/terms", "/privacy", "/main", "/admin", "/static", "/api/admin",
     "/favicon", "/robots", "/sitemap",
 )
-_BAN_EXEMPT_PATHS = {"/terms", "/privacy"}
-
 _BAN_PAGE_HTML = """<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Аккаунт заблокирован</title>

@@ -1053,8 +1053,6 @@ function _renderHealthStatus(curr, perMin429, perMin5xx) {
   }
 }
 
-let _hmRaw = {};
-
 async function loadHealthMetrics() {
   try {
     const r = await fetch('/api/admin/health_metrics?v='+encodeURIComponent(VISITOR_ID), { headers: _authHeaders(), credentials: 'include' });

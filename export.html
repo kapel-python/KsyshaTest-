@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>История пары — SureMemory</title>
-<meta name="description" content="История вашей пары: воспоминания, события, желания и статистика">
+<title>История — SureMemory</title>
+<meta name="description" content="Ваша история: воспоминания, события, желания и статистика">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 
@@ -155,7 +155,7 @@ html.theme-dark .cover {
 }
 
 
-/* Eyebrow: "— ИСТОРИЯ ПАРЫ —" */
+/* Eyebrow: "— ВОСПОМИНАНИЯ —" */
 .cover-eyebrow {
   display: flex;
   align-items: center;
@@ -1062,7 +1062,7 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
       <path d="M19 12H5M12 19l-7-7 7-7"/>
     </svg>
   </a>
-  <span class="sticky-header-title" id="stickyTitle">История пары</span>
+  <span class="sticky-header-title" id="stickyTitle">История</span>
 </div>
 
 <div class="page" id="mainPage" style="display:none">
@@ -1070,10 +1070,10 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
   <!-- ── COVER (title-page of the history book) ── -->
   <section class="cover" id="heroCover">
 
-    <!-- Eyebrow label: — ИСТОРИЯ ПАРЫ — -->
+    <!-- Eyebrow label: — ВОСПОМИНАНИЯ — -->
     <div class="cover-eyebrow" aria-hidden="true">
       <span class="cover-eyebrow-line"></span>
-      <span class="cover-eyebrow-text">История пары</span>
+      <span class="cover-eyebrow-text">Воспоминания</span>
       <span class="cover-eyebrow-line"></span>
     </div>
 
@@ -1158,7 +1158,7 @@ html.theme-dark .media-file-row { border-color: rgba(212,63,141,0.18); }
   <div class="export-footer">
     <div id="exportDate"></div>
     <div style="margin-top:6px">
-      <a href="/">SureMemory</a> · История вашей пары
+      <a href="/">SureMemory</a> · Ваша история
     </div>
   </div>
 
@@ -1572,7 +1572,7 @@ function render(data) {
   var names = data.couple_names || ['—', '—'];
   document.getElementById('heroName1').textContent = names[0] || '—';
   document.getElementById('heroName2').textContent = names[1] || '—';
-  document.title = (names[0] || '') + ' & ' + (names[1] || '') + ' — История пары';
+  document.title = (names[0] || '') + ' & ' + (names[1] || '') + ' — История';
   document.getElementById('stickyTitle').textContent = (names[0] || '') + ' & ' + (names[1] || '');
 
   // Cover: meeting date
@@ -1681,7 +1681,7 @@ fetch('/api/export_data/' + encodeURIComponent(coupleToken), {
   })
   .catch(function(err) {
     if (err.message === 'forbidden') {
-      showError('Доступ запрещён. Эта история доступна только участникам пары.');
+      showError('Доступ запрещён. Эта история доступна только участникам пространства.');
     } else {
       showError('Не удалось загрузить данные. Попробуйте обновить страницу.');
     }

@@ -1003,6 +1003,38 @@ class Database:
             except Exception as e:
                 logger.debug("Migration skipped for couples export_token index: %s", e)
 
+            # Миграция: paired_at — когда оба участника собрались в паре
+            try:
+                conn.execute("ALTER TABLE couples ADD COLUMN paired_at TIMESTAMP")
+            except Exception as e:
+                logger.debug("Migration skipped for couples.paired_at: %s", e)
+
+            # Миграция: мягкое удаление — покинуть пространство
+            try:
+                conn.execute("ALTER TABLE couples ADD COLUMN leave_user_id INTEGER")
+            except Exception as e:
+                logger.debug("Migration skipped for couples.leave_user_id: %s", e)
+            try:
+                conn.execute("ALTER TABLE couples ADD COLUMN leave_reason TEXT")
+            except Exception as e:
+                logger.debug("Migration skipped for couples.leave_reason: %s", e)
+            try:
+                conn.execute("ALTER TABLE couples ADD COLUMN leave_reason_text TEXT")
+            except Exception as e:
+                logger.debug("Migration skipped for couples.leave_reason_text: %s", e)
+            try:
+                conn.execute("ALTER TABLE couples ADD COLUMN leave_reason_media_path TEXT")
+            except Exception as e:
+                logger.debug("Migration skipped for couples.leave_reason_media_path: %s", e)
+            try:
+                conn.execute("ALTER TABLE couples ADD COLUMN leave_reason_media_type TEXT")
+            except Exception as e:
+                logger.debug("Migration skipped for couples.leave_reason_media_type: %s", e)
+            try:
+                conn.execute("ALTER TABLE couples ADD COLUMN delete_after_utc TIMESTAMP")
+            except Exception as e:
+                logger.debug("Migration skipped for couples.delete_after_utc: %s", e)
+
             # Миграция: заполняем NULL met_date где это возможно
             # Для пар без даты знакомства используем paired_at (дату когда партнер присоединился)
             # минус 1 день как приблизительную дату знакомства
@@ -1162,6 +1194,26 @@ class Database:
                     granted_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+
+            # Таблица логов выхода из пространства (для будущего восстановления)
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS couple_leave_log (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    couple_id       INTEGER NOT NULL,
+                    user_id         INTEGER NOT NULL,
+                    partner_id      INTEGER,
+                    reason          TEXT,
+                    reason_text     TEXT,
+                    reason_media_path TEXT,
+                    reason_media_type TEXT,
+                    left_at_utc     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    delete_after_utc TIMESTAMP,
+                    restored_at_utc TIMESTAMP
+                )
+            ''')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_couple_leave_log_couple ON couple_leave_log(couple_id)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_couple_leave_log_user ON couple_leave_log(user_id)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_couple_leave_log_delete ON couple_leave_log(delete_after_utc)')
 
             # Миграция: создаём первую пару из config CREATOR_ID + KSUSHA_ID (если не созданы)
             self._migrate_to_couples(conn)
@@ -6761,6 +6813,111 @@ class Database:
         except Exception as e:
             logger.exception(f"Ошибка удаления пары: {e}")
         return result
+
+    def leave_couple(
+        self,
+        user_id: int,
+        reason: str,
+        reason_text: Optional[str] = None,
+        reason_media_path: Optional[str] = None,
+        reason_media_type: Optional[str] = None,
+    ) -> bool:
+        """Мягкое покидание пространства: помечает пару для удаления через 7 дней.
+
+        Записывает причину ухода в couples и в couple_leave_log.
+        Делает ID пользователя отрицательным через unlink_user_from_couple.
+        Возвращает True при успехе.
+        """
+        couple = self.get_couple_by_user(user_id)
+        if not couple:
+            return False
+        couple_id = couple["id"]
+        u1 = couple.get("user1_id")
+        u2 = couple.get("user2_id")
+        partner_id = u2 if u1 == user_id else u1
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    """UPDATE couples
+                       SET leave_user_id = ?,
+                           leave_reason = ?,
+                           leave_reason_text = ?,
+                           leave_reason_media_path = ?,
+                           leave_reason_media_type = ?,
+                           delete_after_utc = datetime('now', '+7 days')
+                       WHERE id = ?""",
+                    (user_id, reason, reason_text, reason_media_path, reason_media_type, couple_id),
+                )
+                conn.execute(
+                    """INSERT INTO couple_leave_log
+                       (couple_id, user_id, partner_id, reason, reason_text,
+                        reason_media_path, reason_media_type, delete_after_utc)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+7 days'))""",
+                    (couple_id, user_id, partner_id, reason, reason_text,
+                     reason_media_path, reason_media_type),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.exception("leave_couple: failed to record leave for user %s: %s", user_id, e)
+            return False
+        # Отвязываем пользователя (делаем ID отрицательным)
+        self.unlink_user_from_couple(couple_id, user_id)
+        return True
+
+    def get_couples_pending_deletion(self) -> list:
+        """Возвращает пары, которые помечены на удаление и срок уже истёк."""
+        try:
+            with self._get_connection() as conn:
+                rows = conn.execute(
+                    "SELECT * FROM couples WHERE delete_after_utc IS NOT NULL "
+                    "AND delete_after_utc <= datetime('now')"
+                ).fetchall()
+                return [dict(r) for r in rows]
+        except Exception as e:
+            logger.exception("get_couples_pending_deletion error: %s", e)
+            return []
+
+    def hard_delete_expired_couple(self, couple_id: int) -> bool:
+        """Жёстко удаляет пару и всех её участников после истечения 7-дневного срока."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT user1_id, user2_id FROM couples WHERE id = ?", (couple_id,)
+                ).fetchone()
+                if not row:
+                    return False
+                # Помечаем log-запись как удалённую (restored_at не меняем — оно для восстановления)
+                conn.execute(
+                    "UPDATE couple_leave_log SET restore_blocked = 1 WHERE couple_id = ?",
+                    (couple_id,),
+                )
+        except Exception as e:
+            logger.debug("hard_delete_expired_couple: log update skipped: %s", e)
+        # Используем существующий метод удаления данных пары
+        # find_a_user_id_in_couple — берём любого из участников
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT user1_id, user2_id FROM couples WHERE id = ?", (couple_id,)
+                ).fetchone()
+                if not row:
+                    return False
+                uid = abs(row["user1_id"]) if row["user1_id"] else (abs(row["user2_id"]) if row["user2_id"] else None)
+                if not uid:
+                    return False
+        except Exception as e:
+            logger.exception("hard_delete_expired_couple: cannot read couple: %s", e)
+            return False
+        self.delete_couple_data(uid)
+        # Также удаляем log-записи (они уже сделали своё дело)
+        try:
+            with self._get_connection() as conn:
+                conn.execute("DELETE FROM couple_leave_log WHERE couple_id = ?", (couple_id,))
+                conn.commit()
+        except Exception:
+            pass
+        logger.info("hard_delete_expired_couple: couple %s permanently deleted", couple_id)
+        return True
 
     def delete_all_data(self) -> Dict[str, int]:
         """Удаляет абсолютно все пользовательские данные (кроме таблицы settings и admins)."""

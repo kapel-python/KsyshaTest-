@@ -950,6 +950,24 @@ async def startup_tests_back(callback: CallbackQuery):
     await callback.answer("Возврат выполнен" if changed else "Данные не изменились")
 
 
+async def _cleanup_expired_couples():
+    """Раз в час проверяет пары с истёкшим сроком хранения и удаляет их."""
+    while True:
+        try:
+            pending = db.get_couples_pending_deletion()
+            for couple in pending:
+                couple_id = couple.get("id")
+                if not couple_id:
+                    continue
+                logger.info("_cleanup_expired_couples: hard-deleting couple %s", couple_id)
+                db.hard_delete_expired_couple(couple_id)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error("_cleanup_expired_couples error: %s", e)
+        await asyncio.sleep(3600)
+
+
 async def on_startup(bot):
     global _scheduler_task
 
@@ -1063,6 +1081,9 @@ async def on_startup(bot):
         logger.warning("Не удалось отправить DB self-heal alert создателю: %s", e)
 
     _scheduler_task = asyncio.create_task(_check_expired_events(bot))
+
+    # Фоновая задача: жёсткое удаление пар через 7 дней после выхода
+    asyncio.create_task(_cleanup_expired_couples())
 
     # Фоновая синхронизация Telegram-аватарок (миграция + обновление)
     import avatar_service as _av

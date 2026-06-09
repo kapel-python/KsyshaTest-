@@ -963,6 +963,10 @@ class AddCategoryStates(StatesGroup):
     waiting_for_description = State()
 
 
+class LeaveSpaceStates(StatesGroup):
+    waiting_for_custom_reason = State()
+
+
 async def save_media(message: Message) -> tuple:
     """Сохраняет медиа из сообщения - поддерживает все типы"""
     media_type = None
@@ -2211,6 +2215,7 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
             kb_rows.append([InlineKeyboardButton(text="📅 Установить дату знакомства", callback_data="set_couple_met_date")])
         kb_rows.extend([
             [InlineKeyboardButton(text="➕ Добавить момент", callback_data="cat_menu")],
+            [InlineKeyboardButton(text="🚪 Покинуть пространство", callback_data="leave_space_start")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
         ])
         kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
@@ -2218,6 +2223,7 @@ def _format_couple_message(user_id: int, with_details: bool = False) -> tuple:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔗 Пригласить партнёра", callback_data="get_invite_link")],
             [InlineKeyboardButton(text="➕ Добавить первый момент", callback_data="cat_menu")],
+            [InlineKeyboardButton(text="🚪 Покинуть пространство", callback_data="leave_space_start")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
         ])
     return text, kb
@@ -2538,6 +2544,241 @@ async def our_couple(callback: CallbackQuery):
     text, kb = _format_couple_message(callback.from_user.id)
     await callback_edit_or_answer(callback, text, reply_markup=kb, parse_mode=ParseMode.HTML)
     await callback.answer()
+
+
+# ══════════════════════════════════════════════════════════════════
+# ПОКИНУТЬ ПРОСТРАНСТВО
+# ══════════════════════════════════════════════════════════════════
+
+def _natural_date(dt_str: str) -> str:
+    """Форматирует строку даты в '15 июня 2026'."""
+    months = {
+        1: "января", 2: "февраля", 3: "марта", 4: "апреля",
+        5: "мая", 6: "июня", 7: "июля", 8: "августа",
+        9: "сентября", 10: "октября", 11: "ноября", 12: "декабря",
+    }
+    from datetime import datetime as _dt
+    try:
+        d = _dt.strptime((dt_str or "")[:10], "%Y-%m-%d")
+        return f"{d.day} {months[d.month]} {d.year}"
+    except Exception:
+        return (dt_str or "").split(" ")[0]
+
+
+@router.callback_query(F.data == "leave_space_start")
+async def leave_space_start(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    couple = db.get_couple_by_user(user_id)
+    if not couple:
+        await callback.answer("Пара не найдена", show_alert=True)
+        return
+    u1 = couple["user1_id"]
+    u2 = couple.get("user2_id")
+    partner_id = u2 if u1 == user_id else u1
+    partner_name = db.get_display_name(partner_id) if partner_id and partner_id > 0 else "партнёра"
+    created_str = couple.get("created_at") or ""
+    created_human = _natural_date(created_str)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Да, покинуть", callback_data="leave_space_confirm")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="our_couple")],
+    ])
+    await callback.message.edit_text(
+        f"⚠️ <b>Ты уверен(а), что хочешь выйти из пространства, в котором находишься с {html.escape(partner_name)}?</b>\n\n"
+        f"📆 Ваша комната зарегистрирована в боте с {created_human}",
+        reply_markup=kb,
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "leave_space_confirm")
+async def leave_space_confirm(callback: CallbackQuery):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="😔 Надоело", callback_data="leave_reason_bored")],
+        [InlineKeyboardButton(text="😕 Неудобный сервис", callback_data="leave_reason_ux")],
+        [InlineKeyboardButton(text="✏️ Свой вариант", callback_data="leave_reason_custom")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="our_couple")],
+    ])
+    await callback.message.edit_text(
+        "💬 <b>Укажи причину ухода:</b>",
+        reply_markup=kb,
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+async def _show_leave_final_confirm(callback: CallbackQuery, reason_label: str, reason_key: str):
+    user_id = callback.from_user.id
+    my_name = db.get_display_name(user_id) or "Участник"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚪 Подтвердить выход", callback_data=f"leave_space_exec:{reason_key}")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="our_couple")],
+    ])
+    await callback.message.edit_text(
+        f"🔐 <b>{html.escape(my_name)}</b>, последнее подтверждение\n\n"
+        f"💬 Причина ухода: {reason_label}\n\n"
+        "❌ Вернуть все данные ты не сможешь — придётся создавать новое пространство снова\n\n"
+        "<i>Данные хранятся 7 дней. За это время можно попросить поддержку восстановить их.</i>",
+        reply_markup=kb,
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "leave_reason_bored")
+async def leave_reason_bored(callback: CallbackQuery):
+    await _show_leave_final_confirm(callback, "Надоело", "bored")
+
+
+@router.callback_query(F.data == "leave_reason_ux")
+async def leave_reason_ux(callback: CallbackQuery):
+    await _show_leave_final_confirm(callback, "Неудобный сервис", "ux")
+
+
+@router.callback_query(F.data == "leave_reason_custom")
+async def leave_reason_custom(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(LeaveSpaceStates.waiting_for_custom_reason)
+    await callback.message.edit_text(
+        "✏️ <b>Напиши свою причину ухода</b>\n\n"
+        "Можно прикрепить фото, видео или голосовое сообщение.\n\n"
+        "<i>Нажми /cancel чтобы отменить</i>",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="leave_reason_custom_cancel")]
+        ]),
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "leave_reason_custom_cancel", LeaveSpaceStates.waiting_for_custom_reason)
+async def leave_reason_custom_cancel(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    text, kb = _format_couple_message(callback.from_user.id)
+    await callback_edit_or_answer(callback, text, reply_markup=kb, parse_mode=ParseMode.HTML)
+    await callback.answer()
+
+
+@router.message(LeaveSpaceStates.waiting_for_custom_reason)
+async def leave_reason_custom_text(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    # Принимаем текст и/или любое медиа
+    reason_text = (message.text or message.caption or "").strip() or None
+    media_path = None
+    media_type = None
+    if message.photo or message.video or message.voice or message.document or message.audio or message.video_note:
+        try:
+            media_path, media_type = await save_media(message)
+        except Exception:
+            pass
+
+    my_name = db.get_display_name(user_id) or "Участник"
+    reason_label = html.escape(reason_text[:80] + "…" if reason_text and len(reason_text) > 80 else (reason_text or "медиа"))
+    await state.update_data(
+        leave_reason_text=reason_text,
+        leave_reason_media_path=media_path,
+        leave_reason_media_type=media_type,
+    )
+    await state.set_state(LeaveSpaceStates.waiting_for_custom_reason)  # остаёмся, ждём confirm
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚪 Подтвердить выход", callback_data="leave_space_exec_custom")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="our_couple")],
+    ])
+    await message.answer(
+        f"🔐 <b>{html.escape(my_name)}</b>, последнее подтверждение\n\n"
+        f"💬 Причина ухода: {reason_label}\n\n"
+        "❌ Вернуть все данные ты не сможешь — придётся создавать новое пространство снова\n\n"
+        "<i>Данные хранятся 7 дней. За это время можно попросить поддержку восстановить их.</i>",
+        reply_markup=kb,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+@router.callback_query(F.data.startswith("leave_space_exec:"))
+async def leave_space_exec(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    reason_key = callback.data.split(":", 1)[1]
+    reason_labels = {"bored": "Надоело", "ux": "Неудобный сервис"}
+    reason_label = reason_labels.get(reason_key, reason_key)
+    # Получаем партнёра ДО выхода из пары
+    partner_id = db.get_partner_id(user_id)
+    partner_name = db.get_display_name(partner_id) if partner_id and partner_id > 0 else "партнёра"
+    ok = db.leave_couple(user_id=user_id, reason=reason_key)
+    await state.clear()
+    if not ok:
+        await callback.answer("Ошибка при выходе из пространства", show_alert=True)
+        return
+    if partner_id and partner_id > 0:
+        my_name = db.get_display_name(user_id) or "Участник"
+        try:
+            await callback.bot.send_message(
+                chat_id=partner_id,
+                text=f"💔 <b>{html.escape(my_name)}</b> покинул(а) ваше пространство.\n\n"
+                     f"💬 Причина: {html.escape(reason_label)}\n\n"
+                     "<i>Данные пространства хранятся 7 дней.</i>",
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
+            )
+        except Exception:
+            pass
+    await callback.message.edit_text(
+        f"✅ Ты покинул(а) комнату с {html.escape(partner_name)}",
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+    welcome_text = format_welcome_message(user_id)
+    await callback.message.answer(
+        welcome_text,
+        reply_markup=create_main_keyboard(user_id),
+        parse_mode=ParseMode.HTML,
+    )
+
+
+@router.callback_query(F.data == "leave_space_exec_custom")
+async def leave_space_exec_custom(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    data = await state.get_data()
+    reason_text = data.get("leave_reason_text")
+    media_path = data.get("leave_reason_media_path")
+    media_type = data.get("leave_reason_media_type")
+    # Получаем партнёра ДО выхода из пары
+    partner_id = db.get_partner_id(user_id)
+    partner_name = db.get_display_name(partner_id) if partner_id and partner_id > 0 else "партнёра"
+    ok = db.leave_couple(
+        user_id=user_id,
+        reason="custom",
+        reason_text=reason_text,
+        reason_media_path=media_path,
+        reason_media_type=media_type,
+    )
+    await state.clear()
+    if not ok:
+        await callback.answer("Ошибка при выходе из пространства", show_alert=True)
+        return
+    if partner_id and partner_id > 0:
+        my_name = db.get_display_name(user_id) or "Участник"
+        label = (reason_text[:80] + "…" if reason_text and len(reason_text) > 80 else reason_text) or "свой вариант"
+        try:
+            await callback.bot.send_message(
+                chat_id=partner_id,
+                text=f"💔 <b>{html.escape(my_name)}</b> покинул(а) ваше пространство.\n\n"
+                     f"💬 Причина: {html.escape(label)}\n\n"
+                     "<i>Данные пространства хранятся 7 дней.</i>",
+                parse_mode=ParseMode.HTML,
+                force_new_message=True,
+            )
+        except Exception:
+            pass
+    await callback.message.edit_text(
+        f"✅ Ты покинул(а) комнату с {html.escape(partner_name)}",
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+    welcome_text = format_welcome_message(user_id)
+    await callback.message.answer(
+        welcome_text,
+        reply_markup=create_main_keyboard(user_id),
+        parse_mode=ParseMode.HTML,
+    )
 
 
 @router.callback_query(F.data == "set_couple_met_date")

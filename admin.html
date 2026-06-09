@@ -92,42 +92,88 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .section-title{font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
 .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
 
-.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-@media(min-width:500px){.stats-grid{grid-template-columns:repeat(3,1fr);}}
-.health-grid{display:grid;grid-template-columns:1fr;gap:10px;}
-@media(min-width:700px){.health-grid{grid-template-columns:repeat(3,1fr);}}
-.health-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 12px 10px;}
-.health-title{font-size:0.72rem;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
-.health-val{font-family:'JetBrains Mono',monospace;font-size:0.95rem;color:var(--text);}
-.spark{width:100%;height:46px;display:block;}
-.spark path{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
-.spark-429 path{stroke:#f59e0b;}
-.spark-5xx path{stroke:#ef4444;}
-.spark-lat path{stroke:#22c55e;}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 14px;animation:fadeUp 0.4s ease both;}
-.stat-label{font-size:0.7rem;color:var(--muted);font-weight:500;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
-.stat-value{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:var(--text);line-height:1;}
+/* ── Stats grid ── */
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+@media(min-width:480px){.stats-grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:700px){.stats-grid{grid-template-columns:repeat(5,1fr);}}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 12px;animation:fadeUp 0.4s ease both;}
+.stat-label{font-size:0.68rem;color:var(--muted);font-weight:500;margin-bottom:5px;display:flex;align-items:center;gap:5px;}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--text);line-height:1;}
 .stat-value.online{color:var(--green);}
+.stat-sub{font-size:0.62rem;color:var(--meta);margin-top:3px;}
 .online-dot{display:inline-block;width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse-green 2s ease-in-out infinite;}
 @keyframes pulse-green{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
 
-.ksusha-card{background:var(--surface);border:1px solid rgba(200,80,192,0.2);border-radius:20px;padding:20px;position:relative;overflow:hidden;animation:fadeUp 0.4s ease 0.1s both;}
-.ksusha-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));}
-.ksusha-header{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
-.ksusha-avatar{width:48px;height:48px;background:linear-gradient(135deg,rgba(200,80,192,0.25),rgba(124,58,237,0.2));border:1px solid rgba(200,80,192,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;}
-.ksusha-name{font-family:'Unbounded',sans-serif;font-size:0.95rem;font-weight:600;color:var(--text);margin-bottom:3px;}
-.ksusha-online-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:var(--green);padding:2px 8px;border-radius:20px;font-size:0.68rem;font-weight:600;}
-.ksusha-offline-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(139,127,192,0.1);border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:20px;font-size:0.68rem;font-weight:600;}
-.ksusha-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-@media(min-width:480px){.ksusha-grid{grid-template-columns:repeat(3,1fr);}}
-.ksusha-info-item{background:var(--tint-sm);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
-.ksusha-info-label{font-size:0.65rem;color:var(--muted);font-weight:500;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;}
-.ksusha-info-value{font-size:0.8rem;color:var(--text);font-weight:500;word-break:break-word;line-height:1.3;}
-.ksusha-last-online{margin-top:12px;background:rgba(200,80,192,0.06);border:1px solid rgba(200,80,192,0.15);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;}
-.ksusha-last-online-icon{font-size:1rem;flex-shrink:0;margin-top:1px;}
-.ksusha-last-online-text{font-size:0.8rem;line-height:1.5;}
-.ksusha-last-online-time{color:var(--accent2);font-weight:600;}
-.ksusha-last-online-source{color:var(--muted);font-size:0.72rem;margin-top:2px;}
+/* ── API Health ── */
+.health-live-tag{display:flex;align-items:center;gap:5px;font-size:0.68rem;color:var(--green);font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.05em;}
+.health-status-bar{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:10px;}
+.health-status-icon{font-size:1.5rem;flex-shrink:0;line-height:1;}
+.health-status-body{flex:1;min-width:0;}
+.health-status-text{font-size:0.95rem;font-weight:700;color:var(--text);display:block;line-height:1.2;}
+.health-status-sub{font-size:0.72rem;color:var(--muted);display:block;margin-top:3px;}
+.health-status-bar.ok{border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.04);}
+.health-status-bar.warn{border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.04);}
+.health-status-bar.err{border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.05);}
+.health-success-ring{flex-shrink:0;width:48px;height:48px;position:relative;}
+.hsr-svg{width:100%;height:100%;transform:rotate(-90deg);}
+.hsr-bg{fill:none;stroke:var(--border);stroke-width:3;}
+.hsr-fill{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;transition:stroke-dasharray 0.6s ease;}
+.health-status-bar.warn .hsr-fill{stroke:#f59e0b;}
+.health-status-bar.err .hsr-fill{stroke:var(--red);}
+.hsr-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text);}
+.health-metrics-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px;}
+@media(min-width:500px){.health-metrics-row{grid-template-columns:repeat(4,1fr);}}
+.health-m-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+.health-m-label{font-size:0.65rem;color:var(--muted);font-weight:500;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;}
+.health-m-value{font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:700;color:var(--text);line-height:1;}
+.health-m-value.warn{color:#f59e0b;}
+.health-m-value.danger{color:var(--red);}
+.health-m-unit{font-size:0.65rem;font-weight:400;color:var(--muted);margin-left:2px;}
+.health-sparks-row{display:flex;flex-direction:column;gap:6px;}
+@media(min-width:600px){.health-sparks-row{flex-direction:row;}}
+.health-spark-block{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px 10px 6px;}
+.health-spark-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.health-spark-name{font-size:0.65rem;color:var(--muted);font-weight:500;}
+.health-spark-cur{font-family:'JetBrains Mono',monospace;font-size:0.75rem;font-weight:700;}
+.health-spark-cur.warn{color:#f59e0b;}
+.health-spark-cur.danger{color:var(--red);}
+.health-spark-cur.ok{color:var(--green);}
+.spark{width:100%;display:block;}
+.spark path{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.spark-429 path{stroke:#f59e0b;}
+.spark-5xx path{stroke:#ef4444;}
+.spark-lat path{stroke:#22c55e;}
+
+/* ── Partner card ── */
+.partner-card{background:var(--surface);border:1px solid rgba(200,80,192,0.2);border-radius:20px;overflow:hidden;animation:fadeUp 0.4s ease 0.1s both;}
+.partner-head{display:flex;align-items:center;gap:14px;padding:18px 18px 14px;}
+.partner-avatar-wrap{position:relative;flex-shrink:0;}
+.partner-avatar{width:52px;height:52px;background:linear-gradient(135deg,rgba(200,80,192,0.2),rgba(124,58,237,0.15));border:1.5px solid rgba(200,80,192,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;}
+.partner-dot{position:absolute;bottom:1px;right:1px;width:12px;height:12px;border-radius:50%;border:2px solid var(--surface);background:var(--meta);}
+.partner-dot.online{background:var(--green);animation:pulse-green 2s ease-in-out infinite;}
+.partner-head-info{flex:1;min-width:0;}
+.partner-name-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.partner-name{font-family:'Unbounded',sans-serif;font-size:0.9rem;font-weight:700;color:var(--text);}
+.partner-status-pill{font-size:0.65rem;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+.partner-status-pill.online{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:var(--green);}
+.partner-status-pill.offline{background:var(--tint-sm);border:1px solid var(--border);color:var(--muted);}
+.partner-last-line{font-size:0.78rem;color:var(--muted);line-height:1.4;}
+.partner-divider{height:1px;background:var(--border);margin:0 18px;}
+.partner-acts{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:4px 8px;}
+@media(min-width:500px){.partner-acts{grid-template-columns:repeat(4,1fr);}}
+.partner-act{display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:12px;transition:background 0.15s;}
+.partner-act:hover{background:var(--tint-sm);}
+.partner-act-icon{font-size:1rem;flex-shrink:0;margin-top:1px;}
+.partner-act-body{min-width:0;}
+.partner-act-label{font-size:0.62rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px;}
+.partner-act-val{font-size:0.78rem;font-weight:600;color:var(--text);line-height:1.3;word-break:break-word;}
+.partner-sources{display:flex;align-items:center;gap:0;padding:10px 18px 14px;border-top:1px solid var(--border);margin-top:2px;}
+.partner-source-item{display:flex;align-items:center;gap:5px;flex:1;}
+.partner-source-icon{font-size:0.85rem;}
+.partner-source-label{font-size:0.68rem;color:var(--muted);}
+.partner-source-time{font-size:0.72rem;font-weight:600;color:var(--text);margin-left:4px;}
+.partner-source-sep{color:var(--border);font-size:1.2rem;margin:0 8px;}
+
 
 .controls-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
 @media(min-width:600px){.controls-grid{grid-template-columns:repeat(3,1fr);}}
@@ -393,58 +439,180 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         </div>
         <div style="margin-top:12px">
           <div class="stats-grid">
-            <div class="stat-card"><div class="stat-label">👥 Устройств</div><div class="stat-value" id="s-devices">—</div></div>
-            <div class="stat-card"><div class="stat-label"><span class="online-dot"></span> Онлайн</div><div class="stat-value online" id="s-online">—</div></div>
-            <div class="stat-card"><div class="stat-label">🧠 Сообщений ИИ</div><div class="stat-value" id="s-ai">—</div></div>
-            <div class="stat-card"><div class="stat-label">📸 Воспоминаний</div><div class="stat-value" id="s-mem">—</div></div>
-            <div class="stat-card"><div class="stat-label">🌐 Визитов</div><div class="stat-value" id="s-vis">—</div></div>
+            <div class="stat-card">
+              <div class="stat-label">👥 Устройств</div>
+              <div class="stat-value" id="s-devices">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label"><span class="online-dot"></span> Онлайн сейчас</div>
+              <div class="stat-value online" id="s-online">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">🌐 Визитов сегодня</div>
+              <div class="stat-value" id="s-today-vis">—</div>
+              <div class="stat-sub" id="s-vis-hint"></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">🌐 Визитов всего</div>
+              <div class="stat-value" id="s-vis">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">🧠 ИИ сегодня</div>
+              <div class="stat-value" id="s-ai-today">—</div>
+              <div class="stat-sub" id="s-ai-hint"></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">🧠 ИИ всего</div>
+              <div class="stat-value" id="s-ai">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">📸 Воспоминаний</div>
+              <div class="stat-value" id="s-mem">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">🎁 Желаний</div>
+              <div class="stat-value" id="s-wishes">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">📅 Событий</div>
+              <div class="stat-value" id="s-events">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">⭐ Избранного</div>
+              <div class="stat-value" id="s-favs">—</div>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title">Здоровье API</div>
-        <div class="health-grid">
-          <div class="health-card">
-            <div class="health-title"><span>429 / минута</span><span class="health-val" id="hm-429">—</span></div>
-            <svg class="spark spark-429" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-429-path" d=""></path></svg>
+        <div class="refresh-row" style="margin-bottom:10px">
+          <div class="section-title" style="flex:1;margin-bottom:0">Здоровье API</div>
+          <span class="health-live-tag" id="healthLiveTag"><span class="monitor-pulse"></span>live</span>
+        </div>
+
+        <!-- Общий статус -->
+        <div class="health-status-bar" id="healthStatusBar">
+          <span class="health-status-icon" id="healthStatusIcon">•</span>
+          <div class="health-status-body">
+            <span class="health-status-text" id="healthStatusText">Проверка…</span>
+            <span class="health-status-sub" id="healthStatusSub"></span>
           </div>
-          <div class="health-card">
-            <div class="health-title"><span>5xx / минута</span><span class="health-val" id="hm-5xx">—</span></div>
-            <svg class="spark spark-5xx" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-5xx-path" d=""></path></svg>
+          <div class="health-success-ring" id="healthSuccessRing">
+            <svg viewBox="0 0 36 36" class="hsr-svg">
+              <circle class="hsr-bg" cx="18" cy="18" r="15.9"/>
+              <circle class="hsr-fill" id="hsr-fill-circle" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
+            </svg>
+            <span class="hsr-pct" id="hsr-pct">—</span>
           </div>
-          <div class="health-card">
-            <div class="health-title"><span>Latency avg, ms</span><span class="health-val" id="hm-lat">—</span></div>
-            <svg class="spark spark-lat" viewBox="0 0 180 46" preserveAspectRatio="none"><path id="hm-lat-path" d=""></path></svg>
+        </div>
+
+        <!-- 4 метрики -->
+        <div class="health-metrics-row">
+          <div class="health-m-card">
+            <div class="health-m-label">Запросов всего</div>
+            <div class="health-m-value" id="hm-total">—</div>
+          </div>
+          <div class="health-m-card">
+            <div class="health-m-label">Задержка (avg)</div>
+            <div class="health-m-value" id="hm-lat-val">—<span class="health-m-unit">ms</span></div>
+          </div>
+          <div class="health-m-card">
+            <div class="health-m-label">Лимит 429</div>
+            <div class="health-m-value warn" id="hm-429-val">—</div>
+          </div>
+          <div class="health-m-card">
+            <div class="health-m-label">Ошибки 5xx</div>
+            <div class="health-m-value danger" id="hm-5xx-val">—</div>
+          </div>
+        </div>
+
+        <!-- Спарклайны (компактные) -->
+        <div class="health-sparks-row">
+          <div class="health-spark-block">
+            <div class="health-spark-hdr"><span class="health-spark-name">Лимит 429/мин</span><span class="health-spark-cur warn" id="hm-429">—</span></div>
+            <svg class="spark spark-429" viewBox="0 0 200 28" preserveAspectRatio="none"><path id="hm-429-path" d=""></path></svg>
+          </div>
+          <div class="health-spark-block">
+            <div class="health-spark-hdr"><span class="health-spark-name">Ошибки 5xx/мин</span><span class="health-spark-cur danger" id="hm-5xx">—</span></div>
+            <svg class="spark spark-5xx" viewBox="0 0 200 28" preserveAspectRatio="none"><path id="hm-5xx-path" d=""></path></svg>
+          </div>
+          <div class="health-spark-block">
+            <div class="health-spark-hdr"><span class="health-spark-name">Задержка avg, ms</span><span class="health-spark-cur ok" id="hm-lat">—</span></div>
+            <svg class="spark spark-lat" viewBox="0 0 200 28" preserveAspectRatio="none"><path id="hm-lat-path" d=""></path></svg>
           </div>
         </div>
       </div>
 
       <div class="section">
         <div class="section-title">Партнёр</div>
-        <div class="ksusha-card">
-          <div class="ksusha-header">
-            <div class="ksusha-avatar">🌸</div>
-            <div>
-              <div class="ksusha-name">Партнёр</div>
-              <span id="ksushaStatusBadge" class="ksusha-offline-badge">
-                <span id="ksushaStatusDot">⚫</span>&nbsp;<span id="ksushaStatusText">Загрузка…</span>
-              </span>
+        <div class="partner-card" id="partnerCard">
+
+          <!-- Шапка -->
+          <div class="partner-head">
+            <div class="partner-avatar-wrap">
+              <div class="partner-avatar">🌸</div>
+              <span class="partner-dot" id="partnerDot"></span>
+            </div>
+            <div class="partner-head-info">
+              <div class="partner-name-row">
+                <span class="partner-name">Партнёр</span>
+                <span class="partner-status-pill" id="partnerStatusPill">Загрузка…</span>
+              </div>
+              <div class="partner-last-line" id="partnerLastLine">—</div>
             </div>
           </div>
-          <div class="ksusha-grid">
-            <div class="ksusha-info-item"><div class="ksusha-info-label">Визитов на сайт</div><div class="ksusha-info-value" id="k-visits">—</div></div>
-            <div class="ksusha-info-item"><div class="ksusha-info-label">Последний раздел</div><div class="ksusha-info-value" id="k-category">—</div></div>
-            <div class="ksusha-info-item"><div class="ksusha-info-label">Чат с ИИ</div><div class="ksusha-info-value" id="k-ai">—</div></div>
-          </div>
-          <div class="ksusha-last-online">
-            <div class="ksusha-last-online-icon">🕐</div>
-            <div class="ksusha-last-online-text">
-              <div>Последний онлайн: <span class="ksusha-last-online-time" id="k-last-time">—</span></div>
-              <div class="ksusha-last-online-source" id="k-last-source"></div>
-              <div class="ksusha-last-online-source" id="k-bot-action"></div>
+
+          <!-- Разделитель -->
+          <div class="partner-divider"></div>
+
+          <!-- Активность: 4 плитки -->
+          <div class="partner-acts">
+            <div class="partner-act">
+              <span class="partner-act-icon">🌐</span>
+              <div class="partner-act-body">
+                <div class="partner-act-label">Визиты на сайт</div>
+                <div class="partner-act-val" id="k-visits">—</div>
+              </div>
+            </div>
+            <div class="partner-act">
+              <span class="partner-act-icon">📂</span>
+              <div class="partner-act-body">
+                <div class="partner-act-label">Последний раздел</div>
+                <div class="partner-act-val" id="k-category">—</div>
+              </div>
+            </div>
+            <div class="partner-act">
+              <span class="partner-act-icon">🤖</span>
+              <div class="partner-act-body">
+                <div class="partner-act-label">Чат с ИИ</div>
+                <div class="partner-act-val" id="k-ai">—</div>
+              </div>
+            </div>
+            <div class="partner-act" id="partnerBotAct">
+              <span class="partner-act-icon">📱</span>
+              <div class="partner-act-body">
+                <div class="partner-act-label">Telegram бот</div>
+                <div class="partner-act-val" id="k-bot-action">—</div>
+              </div>
             </div>
           </div>
+
+          <!-- Источники: сайт vs бот -->
+          <div class="partner-sources">
+            <div class="partner-source-item" id="psrc-site">
+              <span class="partner-source-icon">🌐</span>
+              <span class="partner-source-label">Сайт</span>
+              <span class="partner-source-time" id="k-site-time">—</span>
+            </div>
+            <div class="partner-source-sep">·</div>
+            <div class="partner-source-item" id="psrc-bot">
+              <span class="partner-source-icon">📱</span>
+              <span class="partner-source-label">Бот</span>
+              <span class="partner-source-time" id="k-last-source">—</span>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -979,18 +1147,73 @@ function _sparkPath(values, w, h){
   return d.trim();
 }
 
+let _healthInterval = null;
+
 function _updateHealthCharts(){
-  const mk = (arr, idPath, idVal, suffix='') => {
+  const mk = (arr, idPath, idCur) => {
     const p = document.getElementById(idPath);
-    const v = document.getElementById(idVal);
+    const v = document.getElementById(idCur);
     const last = arr.length ? arr[arr.length-1] : 0;
-    if(v) v.textContent = String(last) + suffix;
-    if(p) p.setAttribute('d', _sparkPath(arr.slice(-20), 180, 46));
+    if(v) v.textContent = String(last);
+    if(p) p.setAttribute('d', _sparkPath(arr.slice(-24), 200, 28));
   };
   mk(HM_HISTORY.r429, 'hm-429-path', 'hm-429');
   mk(HM_HISTORY.r5xx, 'hm-5xx-path', 'hm-5xx');
-  mk(HM_HISTORY.lat, 'hm-lat-path', 'hm-lat');
+  mk(HM_HISTORY.lat,  'hm-lat-path',  'hm-lat');
 }
+
+function _renderHealthStatus(curr, perMin429, perMin5xx) {
+  const bar = document.getElementById('healthStatusBar');
+  const icon = document.getElementById('healthStatusIcon');
+  const text = document.getElementById('healthStatusText');
+  const sub  = document.getElementById('healthStatusSub');
+  const tot  = document.getElementById('hm-total');
+  const latV = document.getElementById('hm-lat-val');
+  const m429 = document.getElementById('hm-429-val');
+  const m5xx = document.getElementById('hm-5xx-val');
+  const pct  = document.getElementById('hsr-pct');
+  const fill = document.getElementById('hsr-fill-circle');
+
+  // Заполняем карточки
+  if(tot)  tot.textContent  = curr.total.toLocaleString('ru');
+  if(latV){ latV.innerHTML  = curr.lat > 0 ? curr.lat.toFixed(0)+'<span class="health-m-unit">ms</span>' : '—'; }
+  if(m429) m429.textContent = perMin429;
+  if(m5xx) m5xx.textContent = perMin5xx;
+
+  // Success rate
+  const successPct = curr.total > 0
+    ? Math.round(((curr.total - curr.s5xx - curr.r429) / curr.total) * 100)
+    : 100;
+  if(pct)  pct.textContent  = successPct + '%';
+  if(fill) fill.setAttribute('stroke-dasharray', successPct + ' 100');
+
+  // Общий статус
+  const hasErr  = perMin5xx > 0 || curr.s5xx > 0;
+  const hasWarn = perMin429 > 0 || curr.r429 > 0;
+  const latHigh = curr.lat > 800;
+  if(!bar) return;
+  if(hasErr || latHigh){
+    bar.className = 'health-status-bar err';
+    if(icon) icon.textContent = '⚠️';
+    if(text) text.textContent = 'Есть проблемы';
+    if(sub)  sub.textContent  = hasErr ? `${perMin5xx > 0 ? perMin5xx+' ошибок 5xx/мин' : curr.s5xx+' 5xx всего'}${latHigh?' · задержка '+curr.lat.toFixed(0)+'ms':''}` : `Высокая задержка ${curr.lat.toFixed(0)} ms`;
+  } else if(hasWarn){
+    bar.className = 'health-status-bar warn';
+    if(icon) icon.textContent = '⚡';
+    if(text) text.textContent = 'Есть rate limits';
+    if(sub)  sub.textContent  = `${perMin429 > 0 ? perMin429+' запросов лимитировано/мин' : curr.r429+' лимитировано всего'}`;
+  } else {
+    bar.className = 'health-status-bar ok';
+    if(icon) icon.textContent = '✅';
+    if(text) text.textContent = 'Всё в порядке';
+    if(sub) {
+      const s2xx = curr.total > 0 ? Math.round(((+_hmRaw.status_2xx||0) / curr.total) * 100) : 100;
+      sub.textContent = `${curr.total.toLocaleString('ru')} запросов · ${s2xx}% успешных · ${curr.lat.toFixed(0)} ms avg`;
+    }
+  }
+}
+
+let _hmRaw = {};
 
 async function loadHealthMetrics() {
   try {
@@ -998,13 +1221,14 @@ async function loadHealthMetrics() {
     const d = await r.json();
     if(!d.ok || !d.metrics) return;
     const m = d.metrics;
+    _hmRaw = m;
     const nowTs = Date.now();
     const curr = {
       total: +m.total_requests || 0,
-      r429: +m.rate_limited_429 || 0,
-      s5xx: +m.status_5xx || 0,
-      lat: +m.avg_latency_ms || 0,
-      ts: nowTs,
+      r429:  +m.rate_limited_429 || 0,
+      s5xx:  +m.status_5xx || 0,
+      lat:   +m.avg_latency_ms || 0,
+      ts:    nowTs,
     };
     let perMin429 = 0, perMin5xx = 0;
     if(_hmPrev){
@@ -1019,7 +1243,15 @@ async function loadHealthMetrics() {
     HM_HISTORY.lat.push(Math.round(curr.lat));
     if(HM_HISTORY.t.length > 30){ HM_HISTORY.t.shift(); HM_HISTORY.r429.shift(); HM_HISTORY.r5xx.shift(); HM_HISTORY.lat.shift(); }
     _updateHealthCharts();
+    _renderHealthStatus(curr, perMin429, perMin5xx);
   } catch(e){}
+}
+
+function startHealthLive() {
+  if(_healthInterval) return;
+  _healthInterval = setInterval(() => {
+    if(document.getElementById('tab-dashboard').classList.contains('active')) loadHealthMetrics();
+  }, 10000);
 }
 
 async function loadData() {
@@ -1030,26 +1262,58 @@ async function loadData() {
     const d = await r.json();
     if(!d.ok) throw new Error();
     const s = d.stats||{};
-    document.getElementById('s-devices').textContent = s.total_devices??'—';
-    document.getElementById('s-online').textContent  = s.online_count??'—';
-    document.getElementById('s-ai').textContent      = s.ai_messages??'—';
-    document.getElementById('s-mem').textContent     = s.memories??'—';
-    document.getElementById('s-vis').textContent     = s.site_visits??'—';
 
+    // Статистика — основные поля
+    document.getElementById('s-devices').textContent   = s.total_devices??'—';
+    document.getElementById('s-online').textContent    = s.online_count??'—';
+    document.getElementById('s-ai').textContent        = s.ai_messages??'—';
+    document.getElementById('s-ai-today').textContent  = s.ai_today??'—';
+    document.getElementById('s-mem').textContent       = s.memories??'—';
+    document.getElementById('s-vis').textContent       = s.site_visits??'—';
+    document.getElementById('s-today-vis').textContent = s.today_visits??'—';
+    document.getElementById('s-wishes').textContent    = s.wishes??'—';
+    document.getElementById('s-events').textContent    = s.events??'—';
+    document.getElementById('s-favs').textContent      = s.favorites??'—';
+
+    // Подсказки "всего" под сегодняшними
+    const visHint = document.getElementById('s-vis-hint');
+    if(visHint && s.site_visits != null) visHint.textContent = 'всего: ' + s.site_visits.toLocaleString('ru');
+    const aiHint = document.getElementById('s-ai-hint');
+    if(aiHint && s.ai_messages != null) aiHint.textContent = 'всего: ' + s.ai_messages.toLocaleString('ru');
+
+    // Партнёр
     const k = d.ksusha||{};
     const lo = k.last_online_utc;
     const online = isOnlineNow(lo);
-    const badge = document.getElementById('ksushaStatusBadge');
-    badge.className = online?'ksusha-online-badge':'ksusha-offline-badge';
-    document.getElementById('ksushaStatusDot').textContent = online?'🟢':'⚫';
-    document.getElementById('ksushaStatusText').textContent = online?'В сети':(lo?relativeTime(lo):'Не заходила');
-    document.getElementById('k-visits').textContent = k.visit_count??'—';
-    const catLabel = k.last_category?(CAT[k.last_category]||k.last_category):'—';
-    document.getElementById('k-category').textContent = catLabel+(k.last_category_utc?' · '+relativeTime(k.last_category_utc):'');
-    document.getElementById('k-ai').textContent = k.last_ai_utc?relativeTime(k.last_ai_utc):'—';
-    document.getElementById('k-last-time').textContent = lo?relativeTime(lo):'Нет данных';
-    document.getElementById('k-last-source').textContent = k.last_online_source?('Источник: '+(k.last_online_source==='бот'?'📱 Telegram бот':'🌐 Сайт')):'';
-    document.getElementById('k-bot-action').textContent = k.bot_last_action?('В боте: '+k.bot_last_action):'';
+
+    const dot = document.getElementById('partnerDot');
+    if(dot) dot.className = 'partner-dot' + (online ? ' online' : '');
+
+    const pill = document.getElementById('partnerStatusPill');
+    if(pill){ pill.textContent = online ? '🟢 В сети' : (lo ? relativeTime(lo) : 'Не заходила'); pill.className = 'partner-status-pill ' + (online ? 'online' : 'offline'); }
+
+    const lastLine = document.getElementById('partnerLastLine');
+    if(lastLine){
+      if(online) lastLine.textContent = 'Сейчас на сайте';
+      else if(lo) lastLine.textContent = 'Последний онлайн: ' + relativeTime(lo);
+      else lastLine.textContent = 'Нет данных об активности';
+    }
+
+    document.getElementById('k-visits').textContent = k.visit_count != null ? k.visit_count.toLocaleString('ru') : '—';
+
+    const catLabel = k.last_category ? (CAT[k.last_category] || k.last_category) : '—';
+    document.getElementById('k-category').textContent = catLabel + (k.last_category_utc ? ' · ' + relativeTime(k.last_category_utc) : '');
+
+    document.getElementById('k-ai').textContent = k.last_ai_utc ? relativeTime(k.last_ai_utc) : '—';
+
+    const botAct = document.getElementById('k-bot-action');
+    if(botAct) botAct.textContent = k.bot_last_action || '—';
+
+    // Источники (сайт vs бот)
+    const siteTimeEl = document.getElementById('k-site-time');
+    if(siteTimeEl) siteTimeEl.textContent = k.site_last_seen_utc ? relativeTime(k.site_last_seen_utc) : '—';
+    const botTimeEl = document.getElementById('k-last-source');
+    if(botTimeEl) botTimeEl.textContent = k.bot_last_seen_utc ? relativeTime(k.bot_last_seen_utc) : '—';
 
     _maintenanceOn = d.maintenance===true;
     updateMaintenanceBtn();
@@ -1775,7 +2039,8 @@ async function init(){
   await loadData();
   loader.classList.add('hide');
   setTimeout(()=>{ loader.style.display='none'; document.getElementById('adminApp').classList.add('show'); },400);
-  setInterval(loadData,30000);
+  setInterval(loadData, 30000);
+  startHealthLive();
 }
 init();
 })();

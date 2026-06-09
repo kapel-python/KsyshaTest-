@@ -4888,19 +4888,34 @@ class Database:
         try:
             with self._get_connection() as conn:
                 total_devices = conn.execute("SELECT COUNT(*) FROM devices").fetchone()[0]
-                cutoff = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+                cutoff5 = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
                 online_count = conn.execute(
-                    "SELECT COUNT(*) FROM devices WHERE last_seen_utc >= ?", (cutoff,)
+                    "SELECT COUNT(*) FROM devices WHERE last_seen_utc >= ?", (cutoff5,)
                 ).fetchone()[0]
                 ai_messages = conn.execute("SELECT COUNT(*) FROM companion_messages").fetchone()[0]
                 memories_count = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
                 site_visits = conn.execute("SELECT COUNT(*) FROM site_visits").fetchone()[0]
+                wishes_count = conn.execute("SELECT COUNT(*) FROM wishes").fetchone()[0]
+                events_count = conn.execute("SELECT COUNT(*) FROM scheduled_events").fetchone()[0]
+                favorites_count = conn.execute("SELECT COUNT(*) FROM favorites").fetchone()[0]
+                today_cutoff = datetime.now(timezone.utc).strftime("%Y-%m-%d") + " 00:00:00"
+                today_visits = conn.execute(
+                    "SELECT COUNT(*) FROM site_visits WHERE visited_at_utc >= ?", (today_cutoff,)
+                ).fetchone()[0]
+                today_ai = conn.execute(
+                    "SELECT COUNT(*) FROM companion_messages WHERE created_at_utc >= ?", (today_cutoff,)
+                ).fetchone()[0]
                 return {
                     "total_devices": total_devices,
                     "online_count": online_count,
                     "ai_messages": ai_messages,
+                    "ai_today": today_ai,
                     "memories": memories_count,
                     "site_visits": site_visits,
+                    "today_visits": today_visits,
+                    "wishes": wishes_count,
+                    "events": events_count,
+                    "favorites": favorites_count,
                 }
         except Exception as e:
             logger.exception("Ошибка get_admin_stats: %s", e)

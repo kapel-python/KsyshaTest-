@@ -1147,6 +1147,20 @@ class Database:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS user_bans (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id     INTEGER NOT NULL,
+                    banned_by   INTEGER NOT NULL,
+                    reason      TEXT,
+                    banned_at   TEXT NOT NULL,
+                    expires_at  TEXT,
+                    is_active   INTEGER NOT NULL DEFAULT 1,
+                    unbanned_at TEXT,
+                    unbanned_by INTEGER
+                )
+            ''')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_user_bans_user_id ON user_bans (user_id, is_active)')
 
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS admin_challenges (
@@ -4539,6 +4553,70 @@ class Database:
             logger.exception("Ошибка при выдаче Premium пользователю %s: %s", user_id, e)
             return False
 
+    # ─── Ban management ──────────────────────────────────────────────────
+
+    def ban_user(self, user_id: int, banned_by: int, reason: Optional[str], expires_at: Optional[str]) -> bool:
+        """Банит пользователя. expires_at — ISO UTC строка или None (перманентно)."""
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            with self._get_connection() as conn:
+                # Деактивируем предыдущие баны
+                conn.execute("UPDATE user_bans SET is_active = 0 WHERE user_id = ? AND is_active = 1", (user_id,))
+                conn.execute(
+                    "INSERT INTO user_bans (user_id, banned_by, reason, banned_at, expires_at, is_active) VALUES (?,?,?,?,?,1)",
+                    (user_id, banned_by, reason or None, now, expires_at),
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("ban_user error for %s: %s", user_id, e)
+            return False
+
+    def unban_user(self, user_id: int, unbanned_by: int) -> bool:
+        """Снимает активный бан пользователя."""
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "UPDATE user_bans SET is_active = 0, unbanned_at = ?, unbanned_by = ? WHERE user_id = ? AND is_active = 1",
+                    (now, unbanned_by, user_id),
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("unban_user error for %s: %s", user_id, e)
+            return False
+
+    def get_active_ban(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Возвращает активный бан пользователя или None. Автоматически истекает просроченные баны."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT id, user_id, banned_by, reason, banned_at, expires_at FROM user_bans WHERE user_id = ? AND is_active = 1 ORDER BY id DESC LIMIT 1",
+                    (user_id,),
+                ).fetchone()
+                if not row:
+                    return None
+                ban = dict(row)
+                if ban.get("expires_at"):
+                    try:
+                        exp = datetime.fromisoformat(ban["expires_at"]).replace(tzinfo=timezone.utc)
+                        if datetime.now(timezone.utc) > exp:
+                            conn.execute("UPDATE user_bans SET is_active = 0 WHERE id = ?", (ban["id"],))
+                            conn.commit()
+                            return None
+                    except Exception:
+                        pass
+                return ban
+        except Exception as e:
+            logger.exception("get_active_ban error for %s: %s", user_id, e)
+            return None
+
+    def is_user_banned(self, user_id: int) -> bool:
+        return self.get_active_ban(user_id) is not None
+
+    # ─── End ban management ──────────────────────────────────────────────
+
     def has_beta_premium_been_granted(self, user_id: int) -> bool:
         """Возвращает True, если бета-бонус уже выдавался этому пользователю."""
         try:
@@ -5179,6 +5257,19 @@ class Database:
                     d["last_device_seen"] = dev_row[0] if dev_row else None
                 except Exception:
                     d["last_device_seen"] = None
+
+                # Бан
+                ban = self.get_active_ban(user_id)
+                if ban:
+                    d["is_banned"] = True
+                    d["ban_reason"] = ban.get("reason")
+                    d["ban_expires_at"] = ban.get("expires_at")
+                    d["ban_banned_at"] = ban.get("banned_at")
+                else:
+                    d["is_banned"] = False
+                    d["ban_reason"] = None
+                    d["ban_expires_at"] = None
+                    d["ban_banned_at"] = None
 
                 return d
         except Exception as e:

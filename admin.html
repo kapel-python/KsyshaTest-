@@ -164,6 +164,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .ud-value.warn{color:#f59e0b;}
 .ud-value.ok{color:var(--green);}
 .ud-value.muted{color:var(--muted);}
+.ud-value.err{color:#ef4444;}
 
 .user-partner-wrap{padding:0 16px 14px;}
 .user-partner-card{background:var(--surface);border:1px solid rgba(200,80,192,0.2);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s,transform 0.15s;}
@@ -2085,6 +2086,8 @@ function renderUserDetail(u, container) {
         <div class="ud-item"><div class="ud-label">В проекте</div><div class="ud-value">${daysIn}</div></div>
         <div class="ud-item"><div class="ud-label">Подписка</div><div class="ud-value ${u.tier === 'premium' ? 'warn' : ''}">${tierStr}</div></div>
         <div class="ud-item"><div class="ud-label">Истекает</div><div class="ud-value muted">${tierExp}</div></div>
+        <div class="ud-item"><div class="ud-label">Статус</div><div class="ud-value ${u.is_banned ? 'err' : 'ok'}">${u.is_banned ? '🚫 Заблокирован' : '✓ Активен'}</div></div>
+        ${u.is_banned && u.ban_reason ? `<div class="ud-item" style="grid-column:1/-1"><div class="ud-label">Причина бана</div><div class="ud-value muted">${h(u.ban_reason)}</div></div>` : ''}
         <div class="ud-item"><div class="ud-label">Сайт</div><div class="ud-value">${lastSite}</div></div>
         <div class="ud-item"><div class="ud-label">Бот</div><div class="ud-value">${lastBot}</div></div>
         <div class="ud-item"><div class="ud-label">Пара</div><div class="ud-value ${u.partner_id ? 'ok' : 'muted'}">${u.partner_id ? 'В паре' : 'Нет'}</div></div>
@@ -2109,8 +2112,10 @@ function renderUserDetail(u, container) {
             : `<button class="ua-btn ua-premium" onclick="openGrantPremium(${u.user_id}, false)"><span class="ua-btn-icon">⭐</span><div class="ua-btn-label">Выдать Premium</div><div class="ua-btn-sub">Активировать подписку</div></button>`
         }
         <button class="ua-btn" onclick="openDirectMsg(${u.user_id}, '${h([u.first_name, u.last_name].filter(Boolean).join(' ') || '')}')"><span class="ua-btn-icon">💬</span><div class="ua-btn-label">Написать</div><div class="ua-btn-sub">Сообщение в Telegram</div></button>
-        <button class="ua-btn ua-warn" onclick="adminActionStub('Заблокировать')"><span class="ua-btn-icon">🔒</span><div class="ua-btn-label">Заблокировать</div><div class="ua-btn-sub">Ограничить доступ</div></button>
-        <button class="ua-btn" onclick="adminActionStub('Разблокировать')"><span class="ua-btn-icon">🔓</span><div class="ua-btn-label">Разблокировать</div><div class="ua-btn-sub">Восстановить доступ</div></button>
+        ${u.is_banned
+          ? `<button class="ua-btn ok-green" style="border-color:rgba(16,185,129,0.3)" onclick="confirmUnban(${u.user_id})"><span class="ua-btn-icon">🔓</span><div class="ua-btn-label" style="color:var(--green)">Разблокировать</div><div class="ua-btn-sub">Снять ограничения</div></button>`
+          : `<button class="ua-btn ua-warn" onclick="openBanModal(${u.user_id})"><span class="ua-btn-icon">🔒</span><div class="ua-btn-label">Заблокировать</div><div class="ua-btn-sub">Закрыть доступ</div></button>`
+        }
         <button class="ua-btn ua-danger" onclick="adminActionStub('Удалить пользователя')"><span class="ua-btn-icon">🗑️</span><div class="ua-btn-label">Удалить</div><div class="ua-btn-sub">Необратимое действие</div></button>
       </div>
     </div>`;
@@ -2284,6 +2289,200 @@ window.sendDirectMsg = async function() {
   }
 };
 
+// ── Ban flow ──────────────────────────────────────
+let _banTargetId   = null;
+let _banReason     = null;
+let _banExpiresAt  = null;   // ISO UTC string или null (навсегда)
+let _banExpDisplay = null;   // Человеческий текст для подтверждения
+
+// Быстрый локальный парсер распространённых сроков
+function _parseBanDurationLocal(text) {
+  const t = text.trim().toLowerCase();
+  const now = Date.now();
+  // навсегда / permanent
+  if (/^(навсегда|permanent|бессрочно|forever|∞)$/.test(t))
+    return { expires_at: null, display: 'Навсегда' };
+  // N день/дней/дня, N day(s)
+  const dayM = t.match(/^(\d+)\s*(день|дней|дня|day|days)$/);
+  if (dayM) {
+    const d = new Date(now + parseInt(dayM[1]) * 86400000);
+    return { expires_at: _toIsoUtc(d), display: _fmtBanDate(d) };
+  }
+  // N неделю/недель, N week(s)
+  const wkM = t.match(/^(\d+)\s*(неделю|недель|неделя|неделей|week|weeks)$/);
+  if (wkM) {
+    const d = new Date(now + parseInt(wkM[1]) * 7 * 86400000);
+    return { expires_at: _toIsoUtc(d), display: _fmtBanDate(d) };
+  }
+  // N месяц/месяца/месяцев, N month(s)
+  const moM = t.match(/^(\d+)\s*(месяц|месяца|месяцев|month|months)$/);
+  if (moM) {
+    const d = new Date(now + parseInt(moM[1]) * 30 * 86400000);
+    return { expires_at: _toIsoUtc(d), display: _fmtBanDate(d) };
+  }
+  return null;
+}
+function _toIsoUtc(d) {
+  return d.toISOString().replace(/\.\d{3}Z$/, '');
+}
+const _BAN_MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+function _fmtBanDate(d) {
+  return d.getDate() + ' ' + _BAN_MONTHS[d.getMonth()] + ' ' + d.getFullYear() + ', ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+window.openBanModal = function(userId) {
+  _banTargetId = userId;
+  _banReason = null;
+  _banExpiresAt = null;
+  _banExpDisplay = null;
+  openModal('banTypeModal');
+};
+
+window.selectBanType = function(type) {
+  if (type === 'smart') {
+    closeModal('banTypeModal');
+    toast('🤖 Умный бан — в разработке');
+    return;
+  }
+  closeModal('banTypeModal');
+  document.getElementById('banReasonText').value = '';
+  openModal('banReasonModal');
+};
+
+window.setBanReason = function(text) {
+  document.getElementById('banReasonText').value = text;
+};
+
+window.goToBanDuration = function() {
+  const reason = (document.getElementById('banReasonText').value || '').trim();
+  _banReason = reason || null;
+  closeModal('banReasonModal');
+  document.getElementById('banDurationInput').value = '';
+  document.getElementById('banDurParseResult').textContent = '';
+  _banExpiresAt = null;
+  _banExpDisplay = null;
+  openModal('banDurationModal');
+};
+
+window.selectBanDurationQuick = function(text) {
+  const res = _parseBanDurationLocal(text);
+  if (res) {
+    _banExpiresAt  = res.expires_at;
+    _banExpDisplay = res.display;
+    _showBanConfirm();
+  }
+};
+
+window.parseBanDurationInput = async function() {
+  const txt = (document.getElementById('banDurationInput').value || '').trim();
+  if (!txt) return;
+  const resultEl = document.getElementById('banDurParseResult');
+  const btn = document.getElementById('banDurParseBtn');
+
+  // Локальный парсер сначала
+  const local = _parseBanDurationLocal(txt);
+  if (local) {
+    _banExpiresAt  = local.expires_at;
+    _banExpDisplay = local.display;
+    _showBanConfirm();
+    return;
+  }
+
+  // Fallback: AI
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  resultEl.textContent = 'Спрашиваю ИИ…';
+  try {
+    const r = await fetch('/api/admin/parse_ban_time?v=' + encodeURIComponent(VISITOR_ID), {
+      method: 'POST',
+      headers: _authHeaders({'Content-Type': 'application/json'}),
+      credentials: 'include',
+      body: JSON.stringify({ text: txt }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      _banExpiresAt  = d.expires_at;
+      _banExpDisplay = d.display || _fmtBanDate(new Date(d.expires_at));
+      resultEl.textContent = '✓ ' + _banExpDisplay;
+      setTimeout(_showBanConfirm, 600);
+    } else {
+      resultEl.textContent = '❌ Не удалось разобрать. Попробуйте иначе.';
+    }
+  } catch(e) {
+    resultEl.textContent = '❌ Ошибка. Проверьте соединение.';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Разобрать'; }
+  }
+};
+
+function _showBanConfirm() {
+  closeModal('banDurationModal');
+  const title = document.getElementById('banConfTitle');
+  const text  = document.getElementById('banConfText');
+  if (title) title.textContent = 'Подтвердить бан';
+  let summary = _banExpiresAt ? ('Заблокировать до ' + _banExpDisplay) : 'Заблокировать навсегда';
+  if (_banReason) summary += '\n\nПричина: ' + _banReason;
+  if (text) text.textContent = summary;
+  openModal('banConfirmModal');
+}
+
+window.executeBan = async function() {
+  const btn = document.getElementById('banConfBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const r = await fetch(
+      '/api/admin/users/' + _banTargetId + '/ban?v=' + encodeURIComponent(VISITOR_ID),
+      {
+        method: 'POST',
+        headers: _authHeaders({'Content-Type': 'application/json'}),
+        credentials: 'include',
+        body: JSON.stringify({ reason: _banReason, expires_at: _banExpiresAt }),
+      }
+    );
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'error');
+    closeModal('banConfirmModal');
+    showActionDone('Заблокирован', _banExpiresAt ? ('До ' + _banExpDisplay) : 'Навсегда');
+    if (d.user) {
+      const content = document.getElementById('userDetailContent');
+      if (content) renderUserDetail(d.user, content);
+    }
+  } catch(e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Заблокировать'; }
+  }
+};
+
+window.confirmUnban = function(userId) {
+  document.getElementById('maintIcon') && (document.getElementById('maintIcon').textContent = '🔓');
+  document.getElementById('maintTitle').textContent = 'Разблокировать пользователя?';
+  document.getElementById('maintText').textContent = 'Все ограничения будут сняты.';
+  const okBtn = document.getElementById('maintOkBtn');
+  okBtn.textContent = 'Разблокировать';
+  okBtn.className = 'amodal-btn ok-green';
+  okBtn.onclick = async function() {
+    closeModal('maintenanceModal');
+    okBtn.onclick = null;
+    try {
+      const r = await fetch(
+        '/api/admin/users/' + userId + '/unban?v=' + encodeURIComponent(VISITOR_ID),
+        { method: 'POST', headers: _authHeaders({'Content-Type':'application/json'}), credentials: 'include', body: '{}' }
+      );
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'error');
+      showActionDone('Разблокирован', 'Пользователь восстановлен');
+      if (d.user) {
+        const content = document.getElementById('userDetailContent');
+        if (content) renderUserDetail(d.user, content);
+      }
+    } catch(e) { toast('Ошибка: ' + e.message, 'error'); }
+    okBtn.textContent = 'Подтвердить';
+    okBtn.className = 'amodal-btn ok-red';
+    okBtn.onclick = confirmMaintenance;
+  };
+  openModal('maintenanceModal');
+};
+
 window.confirmRevokePremium = function(userId) {
   document.getElementById('maintIcon').textContent = '✕';
   document.getElementById('maintTitle').textContent = 'Удалить Premium?';
@@ -2372,6 +2571,85 @@ async function init(){
 init();
 })();
 </script>
+
+<!-- ── Ban type modal ── -->
+<div class="amodal-wrap" id="banTypeModal">
+  <div class="amodal-overlay" onclick="closeModal('banTypeModal')"></div>
+  <div class="amodal-card" style="max-width:340px">
+    <span class="amodal-icon">🚫</span>
+    <div class="amodal-title">Заблокировать</div>
+    <div class="amodal-text">Выберите тип блокировки</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+      <button class="amodal-btn ok-red" onclick="selectBanType('regular')">🔒 Обычный бан</button>
+      <button class="amodal-btn ok-purple" onclick="selectBanType('smart')">🤖 Умный бан</button>
+    </div>
+    <div class="amodal-btns">
+      <button class="amodal-btn cancel" onclick="closeModal('banTypeModal')">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ban reason modal ── -->
+<div class="amodal-wrap" id="banReasonModal">
+  <div class="amodal-overlay" onclick="closeModal('banReasonModal')"></div>
+  <div class="amodal-card" style="max-width:380px">
+    <span class="amodal-icon">💬</span>
+    <div class="amodal-title">Причина бана</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="setBanReason('Нарушение правил')">Нарушение правил</button>
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="setBanReason('Спам')">Спам</button>
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="setBanReason('Оскорбления')">Оскорбления</button>
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="setBanReason('Тест')">Тест</button>
+    </div>
+    <textarea class="compose-area" id="banReasonText" placeholder="Или введите причину вручную…" style="min-height:70px;margin-bottom:4px"></textarea>
+    <div style="font-size:0.68rem;color:var(--muted);margin-bottom:16px">Причина будет отправлена пользователю</div>
+    <div class="amodal-btns">
+      <button class="amodal-btn cancel" onclick="closeModal('banReasonModal');openModal('banTypeModal')">← Назад</button>
+      <button class="amodal-btn ok-red" onclick="goToBanDuration()">Далее →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ban duration modal ── -->
+<div class="amodal-wrap" id="banDurationModal">
+  <div class="amodal-overlay" onclick="closeModal('banDurationModal')"></div>
+  <div class="amodal-card" style="max-width:380px">
+    <span class="amodal-icon">⏱️</span>
+    <div class="amodal-title">Срок бана</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="selectBanDurationQuick('1 день')">1 день</button>
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="selectBanDurationQuick('3 дня')">3 дня</button>
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="selectBanDurationQuick('1 неделя')">1 неделя</button>
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="selectBanDurationQuick('1 месяц')">1 месяц</button>
+      <button class="amodal-btn cancel" style="flex:0 0 auto;padding:7px 12px;font-size:0.78rem" onclick="selectBanDurationQuick('навсегда')">Навсегда</button>
+    </div>
+    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px">Или введите текстом (ИИ разберёт):</div>
+    <div style="display:flex;gap:8px;margin-bottom:4px">
+      <input type="text" id="banDurationInput" class="compose-area" placeholder="до 20 июля, на 2 недели…"
+        style="min-height:unset;height:44px;resize:none;flex:1;padding:10px 14px"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();parseBanDurationInput()}">
+      <button class="amodal-btn ok-purple" style="flex:0 0 auto;min-width:80px;margin:0" id="banDurParseBtn" onclick="parseBanDurationInput()">Разобрать</button>
+    </div>
+    <div id="banDurParseResult" style="font-size:0.78rem;min-height:18px;margin-bottom:14px;color:var(--muted)"></div>
+    <div class="amodal-btns">
+      <button class="amodal-btn cancel" onclick="closeModal('banDurationModal');openModal('banReasonModal')">← Назад</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ban confirm modal ── -->
+<div class="amodal-wrap" id="banConfirmModal">
+  <div class="amodal-overlay" onclick="closeModal('banConfirmModal')"></div>
+  <div class="amodal-card" style="max-width:360px">
+    <span class="amodal-icon">🚫</span>
+    <div class="amodal-title" id="banConfTitle">Подтвердить бан</div>
+    <div class="amodal-text" id="banConfText" style="white-space:pre-line"></div>
+    <div class="amodal-btns" style="margin-top:18px">
+      <button class="amodal-btn cancel" onclick="closeModal('banConfirmModal');openModal('banDurationModal')">← Изменить</button>
+      <button class="amodal-btn ok-red" id="banConfBtn" onclick="executeBan()">Заблокировать</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Premium modal: выбор срока ── -->
 <div class="amodal-wrap" id="premiumDurationModal">

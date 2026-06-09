@@ -4529,6 +4529,208 @@ async def admin_revoke_premium(request: web.Request) -> web.Response:
     return _add_cors_headers(web.json_response({"ok": True, "user": detail}))
 
 
+async def admin_ban_user(request: web.Request) -> web.Response:
+    """POST /api/admin/users/{user_id}/ban — забанить пользователя."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        target_id = int(request.match_info.get("user_id", 0) or 0)
+    except (ValueError, TypeError):
+        target_id = 0
+    if target_id <= 0:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
+    if db.is_creator(target_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "cannot_ban_creator"}, status=400))
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    reason = str(payload.get("reason") or "").strip() or None
+    expires_at = str(payload.get("expires_at") or "").strip() or None  # ISO UTC or None
+
+    ok = db.ban_user(target_id, req_user_id, reason, expires_at)
+    if not ok:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
+
+    # Уведомление пользователю в Telegram
+    if expires_at:
+        try:
+            from datetime import timezone as _tz
+            exp = datetime.fromisoformat(expires_at).replace(tzinfo=_tz.utc)
+            exp_human = exp.strftime("%-d %B %Y, %H:%M").replace(
+                "January","января").replace("February","февраля").replace("March","марта").replace(
+                "April","апреля").replace("May","мая").replace("June","июня").replace(
+                "July","июля").replace("August","августа").replace("September","сентября").replace(
+                "October","октября").replace("November","ноября").replace("December","декабря")
+            ban_until = f"до <b>{exp_human}</b>"
+        except Exception:
+            ban_until = f"до <b>{expires_at}</b>"
+    else:
+        ban_until = "<b>навсегда</b>"
+
+    tg_text = (
+        f"🚫 Твой аккаунт заблокирован {ban_until}\n"
+    )
+    if reason:
+        tg_text += f"\n💬 Причина:\n{reason}\n"
+    tg_text += (
+        f"\n👤 Если есть вопросы или оспаривание бана, пиши @very_fast_earn_money"
+    )
+
+    async def _notify_ban():
+        _bot = None
+        try:
+            _bot = Bot(token=config.BOT_TOKEN)
+            await _bot.send_message(chat_id=target_id, text=tg_text, parse_mode=ParseMode.HTML)
+        except Exception as e:
+            logger.warning("admin_ban_user TG notify error %s: %s", target_id, e)
+        finally:
+            if _bot:
+                try:
+                    await _bot.session.close()
+                except Exception:
+                    pass
+
+    asyncio.create_task(_notify_ban())
+
+    detail = db.get_admin_user_detail(target_id) or {}
+    detail.pop("tg_avatar_path", None)
+    detail.pop("tg_avatar_file_id", None)
+    detail.pop("tg_avatar_updated", None)
+    detail.pop("partner_tg_avatar_path", None)
+    u = db.get_user(target_id)
+    detail["has_avatar"] = bool(u and u.get("tg_avatar_path"))
+    detail["is_creator"] = False
+    detail["partner_has_avatar"] = False
+    if detail.get("partner_id"):
+        pu = db.get_user(detail["partner_id"])
+        detail["partner_has_avatar"] = bool(pu and pu.get("tg_avatar_path"))
+    detail["is_banned"] = True
+    detail["ban_reason"] = reason
+    detail["ban_expires_at"] = expires_at
+
+    return _add_cors_headers(web.json_response({"ok": True, "user": detail}))
+
+
+async def admin_unban_user(request: web.Request) -> web.Response:
+    """POST /api/admin/users/{user_id}/unban — разбанить пользователя."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        target_id = int(request.match_info.get("user_id", 0) or 0)
+    except (ValueError, TypeError):
+        target_id = 0
+    if target_id <= 0:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
+
+    ok = db.unban_user(target_id, req_user_id)
+    if not ok:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
+
+    async def _notify_unban():
+        _bot = None
+        try:
+            _bot = Bot(token=config.BOT_TOKEN)
+            await _bot.send_message(
+                chat_id=target_id,
+                text="✅ Твой аккаунт был разблокирован.",
+                parse_mode=ParseMode.HTML,
+            )
+        except Exception as e:
+            logger.warning("admin_unban_user TG notify error %s: %s", target_id, e)
+        finally:
+            if _bot:
+                try:
+                    await _bot.session.close()
+                except Exception:
+                    pass
+
+    asyncio.create_task(_notify_unban())
+
+    detail = db.get_admin_user_detail(target_id) or {}
+    detail.pop("tg_avatar_path", None)
+    detail.pop("tg_avatar_file_id", None)
+    detail.pop("tg_avatar_updated", None)
+    detail.pop("partner_tg_avatar_path", None)
+    u = db.get_user(target_id)
+    detail["has_avatar"] = bool(u and u.get("tg_avatar_path"))
+    detail["is_creator"] = False
+    detail["partner_has_avatar"] = False
+    if detail.get("partner_id"):
+        pu = db.get_user(detail["partner_id"])
+        detail["partner_has_avatar"] = bool(pu and pu.get("tg_avatar_path"))
+    detail["is_banned"] = False
+    detail["ban_reason"] = None
+    detail["ban_expires_at"] = None
+
+    return _add_cors_headers(web.json_response({"ok": True, "user": detail}))
+
+
+async def admin_parse_ban_time(request: web.Request) -> web.Response:
+    """POST /api/admin/parse_ban_time — разобрать текст срока бана через AI."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    raw = str(payload.get("text") or "").strip()
+    if not raw:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "empty"}))
+
+    try:
+        from api import parse_date_with_ai
+        from utils import get_user_datetime_context, parse_ai_date_to_db
+
+        ctx = get_user_datetime_context(req_user_id)
+        import asyncio as _aio
+        ai_date = await _aio.to_thread(parse_date_with_ai, raw, ctx, True)
+
+        if not ai_date or ai_date == "ERROR:PAST_DATE":
+            return _add_cors_headers(web.json_response({"ok": False, "error": "cannot_parse"}))
+
+        db_fmt = parse_ai_date_to_db(ai_date)
+        if not db_fmt:
+            return _add_cors_headers(web.json_response({"ok": False, "error": "cannot_parse"}))
+
+        # Конвертируем в ISO UTC
+        from utils import format_scheduled_event_datetime
+        from datetime import timezone as _tz
+        # db_fmt is like "D.M.YYYY" or "D.M.YYYY HH:MM"
+        parts = db_fmt.split()
+        date_part = parts[0]
+        time_part = parts[1] if len(parts) > 1 else "00:00"
+        d, m, y = date_part.split(".")
+        hh, mm = time_part.split(":")
+        naive = datetime(int(y), int(m), int(d), int(hh), int(mm))
+        iso_utc = naive.replace(tzinfo=_tz.utc).strftime("%Y-%m-%dT%H:%M:%S")
+
+        display = format_scheduled_event_datetime(db_fmt, req_user_id, req_user_id)
+        return _add_cors_headers(web.json_response({"ok": True, "expires_at": iso_utc, "display": display}))
+
+    except Exception as e:
+        logger.exception("admin_parse_ban_time error: %s", e)
+        return _add_cors_headers(web.json_response({"ok": False, "error": "internal"}, status=500))
+
+
 async def admin_action(request: web.Request) -> web.Response:
     """Выполняет действие из админ-панели (включить/выключить техперерыв и др.)."""
     if not _check_api_secret(request):
@@ -8895,6 +9097,87 @@ async def security_headers_middleware(request: web.Request, handler):
     return response
 
 
+_BAN_EXEMPT_PREFIXES = (
+    "/terms", "/privacy", "/admin", "/static", "/api/admin",
+    "/favicon", "/robots", "/sitemap",
+)
+_BAN_EXEMPT_PATHS = {"/terms", "/privacy"}
+
+_BAN_PAGE_HTML = """<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Аккаунт заблокирован</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f0f13;font-family:'DM Sans',system-ui,sans-serif;padding:20px}}
+.card{{background:#1a1a24;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:40px 32px;max-width:400px;width:100%;text-align:center}}
+.icon{{font-size:3rem;margin-bottom:16px}}
+h1{{color:#f87171;font-size:1.3rem;font-weight:700;margin-bottom:12px}}
+p{{color:#9ca3af;font-size:0.9rem;line-height:1.6;margin-bottom:8px}}
+.until{{color:#e5e7eb;font-weight:600}}
+.reason{{background:rgba(255,255,255,0.05);border-radius:12px;padding:12px 16px;margin:16px 0;color:#d1d5db;font-size:0.85rem;text-align:left}}
+a{{color:#7c3aed;text-decoration:none}}
+</style></head>
+<body><div class="card">
+<div class="icon">🚫</div>
+<h1>Аккаунт заблокирован</h1>
+<p>Доступ к сервису ограничен.</p>
+{until_block}
+{reason_block}
+<p style="margin-top:20px;font-size:0.82rem">Вопросы и оспаривание: <a href="https://t.me/very_fast_earn_money">@very_fast_earn_money</a></p>
+</div></body></html>"""
+
+
+@web.middleware
+async def ban_check_middleware(request: web.Request, handler):
+    path = request.path
+    # Пропускаем exempt пути и OPTIONS
+    if request.method == "OPTIONS":
+        return await handler(request)
+    if any(path.startswith(p) for p in _BAN_EXEMPT_PREFIXES):
+        return await handler(request)
+
+    # Определяем user_id из visitor_id
+    try:
+        vid = _get_trusted_visitor_id(request)
+        uid = _visitor_to_user_id(vid) if vid else None
+    except Exception:
+        uid = None
+
+    if uid:
+        try:
+            ban = db.get_active_ban(uid)
+        except Exception:
+            ban = None
+        if ban:
+            until_block = ""
+            reason_block = ""
+            if ban.get("expires_at"):
+                try:
+                    from datetime import timezone as _tz
+                    exp = datetime.fromisoformat(ban["expires_at"]).replace(tzinfo=_tz.utc)
+                    _mn = {1:"января",2:"февраля",3:"марта",4:"апреля",5:"мая",6:"июня",
+                           7:"июля",8:"августа",9:"сентября",10:"октября",11:"ноября",12:"декабря"}
+                    until_block = f'<p>Блокировка до <span class="until">{exp.day} {_mn[exp.month]} {exp.year}, {exp.strftime("%H:%M")}</span></p>'
+                except Exception:
+                    until_block = f'<p>Блокировка до <span class="until">{ban["expires_at"]}</span></p>'
+            else:
+                until_block = '<p>Блокировка: <span class="until">бессрочно</span></p>'
+            if ban.get("reason"):
+                import html as _html
+                reason_block = f'<div class="reason">💬 Причина: {_html.escape(ban["reason"])}</div>'
+
+            # Для API-запросов возвращаем JSON
+            if path.startswith("/api/"):
+                return _add_cors_headers(web.json_response(
+                    {"ok": False, "error": "banned", "expires_at": ban.get("expires_at"), "reason": ban.get("reason")},
+                    status=403,
+                ))
+            html_body = _BAN_PAGE_HTML.format(until_block=until_block, reason_block=reason_block)
+            return web.Response(text=html_body, content_type="text/html", status=403)
+
+    return await handler(request)
+
+
 @web.middleware
 async def activity_tracking_middleware(request: web.Request, handler):
     try:
@@ -10276,8 +10559,9 @@ def create_app() -> web.Application:
     app = web.Application(
         middlewares=[
             security_headers_middleware,
-            body_size_middleware,     # ← сначала отклоняем гигантские тела
-            rate_limit_middleware,    # ← потом rate limit (не засчитывает 413 в burst)
+            body_size_middleware,
+            rate_limit_middleware,
+            ban_check_middleware,
             activity_tracking_middleware,
             site_error_middleware,
         ],
@@ -10489,6 +10773,9 @@ def create_app() -> web.Application:
     app.router.add_get("/api/admin/user_avatar", admin_user_avatar)
     app.router.add_post("/api/admin/users/{user_id}/grant_premium", admin_grant_premium)
     app.router.add_post("/api/admin/users/{user_id}/revoke_premium", admin_revoke_premium)
+    app.router.add_post("/api/admin/users/{user_id}/ban", admin_ban_user)
+    app.router.add_post("/api/admin/users/{user_id}/unban", admin_unban_user)
+    app.router.add_post("/api/admin/parse_ban_time", admin_parse_ban_time)
     app.router.add_post("/api/admin/users/{user_id}/send", admin_send_direct)
     app.router.add_get("/api/version", api_version)
     app.router.add_get("/api/admin/version-history", admin_version_history)

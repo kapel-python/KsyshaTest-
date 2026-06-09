@@ -340,6 +340,40 @@ class BotActivityMiddleware(BaseMiddleware):
             ) if state_name else False
 
         if user_id:
+            # ── Проверка бана (до всего остального) ──────────────────────
+            try:
+                ban = db.get_active_ban(user_id)
+            except Exception:
+                ban = None
+            if ban:
+                from datetime import timezone as _tz
+                _mn = {1:"января",2:"февраля",3:"марта",4:"апреля",5:"мая",6:"июня",
+                       7:"июля",8:"августа",9:"сентября",10:"октября",11:"ноября",12:"декабря"}
+                if ban.get("expires_at"):
+                    try:
+                        exp = datetime.fromisoformat(ban["expires_at"]).replace(tzinfo=_tz.utc)
+                        ban_until = f"до <b>{exp.day} {_mn[exp.month]} {exp.year}, {exp.strftime('%H:%M')}</b>"
+                    except Exception:
+                        ban_until = f"до <b>{ban['expires_at']}</b>"
+                else:
+                    ban_until = "<b>навсегда</b>"
+                ban_text = f"🚫 Твой аккаунт заблокирован {ban_until}"
+                if ban.get("reason"):
+                    ban_text += f"\n\n💬 Причина:\n{html.escape(ban['reason'])}"
+                ban_text += "\n\n👤 Если есть вопросы или оспаривание бана, пиши @very_fast_earn_money"
+                try:
+                    msg = event.message if isinstance(event, Update) and event.message else None
+                    cb  = event.callback_query if isinstance(event, Update) else None
+                    if msg:
+                        await msg.answer(ban_text, parse_mode=ParseMode.HTML)
+                    elif cb:
+                        await cb.message.answer(ban_text, parse_mode=ParseMode.HTML)
+                        await cb.answer()
+                except Exception as _be:
+                    logger.debug("Ban notify error for %s: %s", user_id, _be)
+                return  # прерываем обработку
+            # ─────────────────────────────────────────────────────────────
+
             try:
                 # Логируем активность для любого пользователя (пары или legacy)
                 db.update_bot_last_active(user_id, action)

@@ -114,13 +114,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .health-status-bar.ok{border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.04);}
 .health-status-bar.warn{border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.04);}
 .health-status-bar.err{border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.05);}
-.health-success-ring{flex-shrink:0;width:48px;height:48px;position:relative;}
-.hsr-svg{width:100%;height:100%;transform:rotate(-90deg);}
-.hsr-bg{fill:none;stroke:var(--border);stroke-width:3;}
-.hsr-fill{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;transition:stroke-dasharray 0.6s ease;}
-.health-status-bar.warn .hsr-fill{stroke:#f59e0b;}
-.health-status-bar.err .hsr-fill{stroke:var(--red);}
-.hsr-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text);}
+.health-success-ring{display:none;}
 .health-metrics-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px;}
 @media(min-width:500px){.health-metrics-row{grid-template-columns:repeat(4,1fr);}}
 .health-m-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
@@ -455,13 +449,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             <span class="health-status-text" id="healthStatusText">Проверка…</span>
             <span class="health-status-sub" id="healthStatusSub"></span>
           </div>
-          <div class="health-success-ring" id="healthSuccessRing">
-            <svg viewBox="0 0 36 36" class="hsr-svg">
-              <circle class="hsr-bg" cx="18" cy="18" r="15.9"/>
-              <circle class="hsr-fill" id="hsr-fill-circle" cx="18" cy="18" r="15.9" stroke-dasharray="0 100"/>
-            </svg>
-            <span class="hsr-pct" id="hsr-pct">—</span>
-          </div>
         </div>
 
         <!-- 4 метрики -->
@@ -471,16 +458,16 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             <div class="health-m-value" id="hm-total">—</div>
           </div>
           <div class="health-m-card">
-            <div class="health-m-label">Задержка (avg)</div>
+            <div class="health-m-label">Ошибки сервера 5xx</div>
+            <div class="health-m-value" id="hm-5xx-val">—</div>
+          </div>
+          <div class="health-m-card">
+            <div class="health-m-label">Задержка avg</div>
             <div class="health-m-value" id="hm-lat-val">—<span class="health-m-unit">ms</span></div>
           </div>
           <div class="health-m-card">
-            <div class="health-m-label">Лимит 429</div>
+            <div class="health-m-label">Rate limit 429</div>
             <div class="health-m-value warn" id="hm-429-val">—</div>
-          </div>
-          <div class="health-m-card">
-            <div class="health-m-label">Ошибки 5xx</div>
-            <div class="health-m-value danger" id="hm-5xx-val">—</div>
           </div>
         </div>
       </div>
@@ -1003,7 +990,7 @@ let _hmRaw = {};
 let _healthInterval = null;
 
 function _renderHealthStatus(curr, perMin429, perMin5xx) {
-  const bar = document.getElementById('healthStatusBar');
+  const bar  = document.getElementById('healthStatusBar');
   const icon = document.getElementById('healthStatusIcon');
   const text = document.getElementById('healthStatusText');
   const sub  = document.getElementById('healthStatusSub');
@@ -1011,46 +998,40 @@ function _renderHealthStatus(curr, perMin429, perMin5xx) {
   const latV = document.getElementById('hm-lat-val');
   const m429 = document.getElementById('hm-429-val');
   const m5xx = document.getElementById('hm-5xx-val');
-  const pct  = document.getElementById('hsr-pct');
-  const fill = document.getElementById('hsr-fill-circle');
 
-  // Заполняем карточки
-  if(tot)  tot.textContent  = curr.total.toLocaleString('ru');
-  if(latV){ latV.innerHTML  = curr.lat > 0 ? curr.lat.toFixed(0)+'<span class="health-m-unit">ms</span>' : '—'; }
-  if(m429) m429.textContent = perMin429;
-  if(m5xx) m5xx.textContent = perMin5xx;
+  if(tot)  tot.textContent = curr.total.toLocaleString('ru');
+  if(latV) latV.innerHTML  = curr.lat > 0 ? curr.lat.toFixed(0)+'<span class="health-m-unit">ms</span>' : '—';
+  if(m429) { m429.textContent = curr.r429.toLocaleString('ru'); m429.className = 'health-m-value' + (curr.r429 > 0 ? ' warn' : ''); }
+  if(m5xx) { m5xx.textContent = curr.s5xx.toLocaleString('ru'); m5xx.className = 'health-m-value' + (curr.s5xx > 0 ? ' danger' : ''); }
 
-  // Success rate
-  const successPct = curr.total > 0
-    ? Math.round(((curr.total - curr.s5xx - curr.r429) / curr.total) * 100)
-    : 100;
-  if(pct)  pct.textContent  = successPct + '%';
-  if(fill) fill.setAttribute('stroke-dasharray', successPct + ' 100');
-
-  // Общий статус
-  const hasErr  = perMin5xx > 0 || curr.s5xx > 0;
-  const hasWarn = perMin429 > 0 || curr.r429 > 0;
+  const has5xx = curr.s5xx > 0;
+  const has429 = curr.r429 > 0;
   const latHigh = curr.lat > 800;
   if(!bar) return;
-  if(hasErr || latHigh){
+
+  const rateOk = curr.total > 0
+    ? Math.round(((+_hmRaw.status_2xx||0) / curr.total) * 100)
+    : 100;
+  // 2xx-процент не показываем — он всегда низкий из-за 401/404 и это норма
+  // Показываем: запросов · задержка · 5xx если есть
+  const parts = [curr.total.toLocaleString('ru') + ' запросов', curr.lat.toFixed(0) + ' ms avg'];
+  if(has5xx) parts.push(curr.s5xx + ' серверных ошибок');
+  if(has429) parts.push(curr.r429.toLocaleString('ru') + ' rate-limit');
+
+  if(has5xx || latHigh) {
     bar.className = 'health-status-bar err';
     if(icon) icon.textContent = '⚠️';
-    if(text) text.textContent = 'Есть проблемы';
-    if(sub)  sub.textContent  = hasErr ? `${perMin5xx > 0 ? perMin5xx+' ошибок 5xx/мин' : curr.s5xx+' 5xx всего'}${latHigh?' · задержка '+curr.lat.toFixed(0)+'ms':''}` : `Высокая задержка ${curr.lat.toFixed(0)} ms`;
-  } else if(hasWarn){
+    if(text) text.textContent = has5xx ? 'Есть серверные ошибки' : 'Высокая задержка';
+  } else if(has429) {
     bar.className = 'health-status-bar warn';
     if(icon) icon.textContent = '⚡';
     if(text) text.textContent = 'Есть rate limits';
-    if(sub)  sub.textContent  = `${perMin429 > 0 ? perMin429+' запросов лимитировано/мин' : curr.r429+' лимитировано всего'}`;
   } else {
     bar.className = 'health-status-bar ok';
     if(icon) icon.textContent = '✅';
     if(text) text.textContent = 'Всё в порядке';
-    if(sub) {
-      const s2xx = curr.total > 0 ? Math.round(((+_hmRaw.status_2xx||0) / curr.total) * 100) : 100;
-      sub.textContent = `${curr.total.toLocaleString('ru')} запросов · ${s2xx}% успешных · ${curr.lat.toFixed(0)} ms avg`;
-    }
   }
+  if(sub) sub.textContent = parts.join(' · ');
 }
 
 async function loadHealthMetrics() {

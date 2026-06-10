@@ -9595,9 +9595,11 @@ async def fp_inject_middleware(request: web.Request, handler):
         body: bytes = response.body
         if not body:
             return response
-        if b"</body>" not in body:
+        # Ищем ПОСЛЕДНЕЕ вхождение </body> — первое может быть внутри JS-строки
+        idx = body.rfind(b"</body>")
+        if idx == -1:
             return response
-        new_body = body.replace(b"</body>", _FP_INJECT_TAG + b"</body>", 1)
+        new_body = body[:idx] + _FP_INJECT_TAG + body[idx:]
         return web.Response(
             body=new_body,
             content_type="text/html",

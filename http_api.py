@@ -3627,7 +3627,7 @@ async def log_visit(request: web.Request) -> web.Response:
 
         try:
 
-            os_name = os_ver = browser_ver = arch = device_type = model = None
+            os_name = os_ver = browser_ver = browser_version_str = arch = device_type = model = None
 
             if isinstance(ua_hints, dict) and ua_hints:
 
@@ -3665,7 +3665,9 @@ async def log_visit(request: web.Request) -> web.Response:
 
                     ver = fvl[0].get("version") or ""
 
-                    browser_ver = f"{brand} {ver}".strip() or None
+                    browser_ver = brand.strip() or None
+
+                    browser_version_str = ver.strip() or None
 
             screen_w = screen.get("width") if isinstance(screen, dict) else None
 
@@ -3711,7 +3713,7 @@ async def log_visit(request: web.Request) -> web.Response:
 
                 browser=browser_ver,
 
-                browser_version=None,
+                browser_version=browser_version_str,
 
                 architecture=arch,
 
@@ -9413,13 +9415,21 @@ async def api_device_fingerprint(request: web.Request) -> web.Response:
     cpu_cores     = str(payload.get("cpu_cores")    or "").strip()
     tz_id         = str(payload.get("timezone")     or "").strip()
 
-    # Обновляем запись устройства (canvas_hash, gpu)
+    # Обновляем запись устройства (canvas_hash, gpu, cpu_cores, color_depth)
     try:
         update_kwargs: dict = {}
         if canvas_hash:   update_kwargs["canvas_hash"]   = canvas_hash
         if gpu_vendor:    update_kwargs["gpu_vendor"]    = gpu_vendor
         if gpu_renderer:  update_kwargs["gpu_renderer"]  = gpu_renderer
         if tz_id:         update_kwargs["timezone_id"]   = tz_id
+        if cpu_cores:
+            try: update_kwargs["cpu_cores"] = int(cpu_cores)
+            except (ValueError, TypeError): pass
+        if screen:
+            parts = screen.split("x")
+            if len(parts) == 3:
+                try: update_kwargs["color_depth"] = int(parts[2])
+                except (ValueError, TypeError): pass
         if update_kwargs:
             db.add_or_update_device(visitor_id, **update_kwargs)
     except Exception as e:

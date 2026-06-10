@@ -9583,28 +9583,30 @@ _FP_EXEMPT_INJECT = ("/api/", "/static/", "/fp.js", "/favicon", "/robots")
 async def fp_inject_middleware(request: web.Request, handler):
     """Инжектирует fp.js во все HTML-страницы (кроме API и статики)."""
     response = await handler(request)
+    # Только обычные web.Response — StreamResponse пропускаем
+    if not isinstance(response, web.Response):
+        return response
     if any(request.path.startswith(p) for p in _FP_EXEMPT_INJECT):
         return response
     ct = response.content_type or ""
     if "html" not in ct:
         return response
     try:
-        # Работает только с буферизованными ответами (web.Response)
-        if not hasattr(response, "body") and not hasattr(response, "text"):
+        body: bytes = response.body
+        if not body:
             return response
-        body: bytes = response.body if response.body else (response.text or "").encode("utf-8")
-        if b"</body>" in body:
-            body = body.replace(b"</body>", _FP_INJECT_TAG + b"</body>", 1)
-            return web.Response(
-                body=body,
-                content_type="text/html",
-                charset="utf-8",
-                headers={k: v for k, v in response.headers.items()
-                         if k.lower() not in ("content-length", "content-type", "transfer-encoding")},
-            )
+        if b"</body>" not in body:
+            return response
+        new_body = body.replace(b"</body>", _FP_INJECT_TAG + b"</body>", 1)
+        return web.Response(
+            body=new_body,
+            content_type="text/html",
+            charset="utf-8",
+            headers={k: v for k, v in response.headers.items()
+                     if k.lower() not in ("content-length", "content-type", "transfer-encoding")},
+        )
     except Exception:
-        pass
-    return response
+        return response
 
 
 @web.middleware

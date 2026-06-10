@@ -1162,6 +1162,40 @@ class Database:
             ''')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_user_bans_user_id ON user_bans (user_id, is_active)')
 
+            # ── Умный бан: отпечатки устройств забаненных пользователей ──────
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS smart_ban_fingerprints (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source_user_id INTEGER NOT NULL,
+                    source_ban_id  INTEGER,
+                    canvas_hash    TEXT,
+                    gpu_vendor     TEXT,
+                    gpu_renderer   TEXT,
+                    screen         TEXT,
+                    browser        TEXT,
+                    browser_version TEXT,
+                    os             TEXT,
+                    os_version     TEXT,
+                    cpu_cores      INTEGER,
+                    language       TEXT,
+                    timezone_id    TEXT,
+                    ip_subnet      TEXT,
+                    is_active      INTEGER NOT NULL DEFAULT 1,
+                    created_at     TEXT NOT NULL
+                )
+            ''')
+            conn.execute(
+                'CREATE INDEX IF NOT EXISTS idx_smart_ban_fp_active ON smart_ban_fingerprints (is_active)'
+            )
+
+            # Миграция: canvas_hash в таблице devices
+            try:
+                cols = [r[1] for r in conn.execute('PRAGMA table_info(devices)').fetchall()]
+                if 'canvas_hash' not in cols:
+                    conn.execute('ALTER TABLE devices ADD COLUMN canvas_hash TEXT')
+            except Exception as _e:
+                logger.debug("devices canvas_hash migration skipped: %s", _e)
+
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS admin_challenges (
                     token        TEXT PRIMARY KEY,
@@ -4615,6 +4649,90 @@ class Database:
     def is_user_banned(self, user_id: int) -> bool:
         return self.get_active_ban(user_id) is not None
 
+    def create_smart_ban_fingerprint(self, source_user_id: int, ban_id: Optional[int]) -> bool:
+        """Создаёт запись умного отпечатка на основе последнего устройства пользователя."""
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            with self._get_connection() as conn:
+                # Ищем последнее устройство пользователя по visitor_id prefix
+                dev = conn.execute(
+                    """SELECT canvas_hash, gpu_vendor, gpu_renderer,
+                              screen_w, screen_h, color_depth,
+                              browser, browser_version, os, os_version,
+                              cpu_cores, language, timezone_id, ip_server
+                       FROM devices
+                       WHERE visitor_id LIKE ? OR visitor_id = ?
+                       ORDER BY last_seen_utc DESC LIMIT 1""",
+                    (f"{source_user_id}_%", str(source_user_id)),
+                ).fetchone()
+                if not dev:
+                    logger.warning("smart_ban: no device found for user %s", source_user_id)
+                    return False
+                d = dict(dev)
+                # /24 subnet
+                ip_subnet = None
+                if d.get("ip_server"):
+                    parts = str(d["ip_server"]).split(".")
+                    if len(parts) == 4:
+                        ip_subnet = ".".join(parts[:3]) + ".0/24"
+                screen = None
+                if d.get("screen_w") and d.get("screen_h"):
+                    screen = f"{d['screen_w']}x{d['screen_h']}x{d.get('color_depth', 0)}"
+                conn.execute(
+                    """INSERT INTO smart_ban_fingerprints
+                       (source_user_id, source_ban_id, canvas_hash, gpu_vendor, gpu_renderer,
+                        screen, browser, browser_version, os, os_version,
+                        cpu_cores, language, timezone_id, ip_subnet, is_active, created_at)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
+                    (source_user_id, ban_id,
+                     d.get("canvas_hash"), d.get("gpu_vendor"), d.get("gpu_renderer"),
+                     screen, d.get("browser"), d.get("browser_version"),
+                     d.get("os"), d.get("os_version"),
+                     d.get("cpu_cores"), d.get("language"), d.get("timezone_id"),
+                     ip_subnet, now),
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("create_smart_ban_fingerprint error for %s: %s", source_user_id, e)
+            return False
+
+    def deactivate_smart_ban_fingerprint(self, source_user_id: int) -> None:
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "UPDATE smart_ban_fingerprints SET is_active = 0 WHERE source_user_id = ?",
+                    (source_user_id,),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.warning("deactivate_smart_ban_fingerprint error: %s", e)
+
+    def get_active_smart_ban_fingerprints(self) -> List[Dict[str, Any]]:
+        try:
+            with self._get_connection() as conn:
+                rows = conn.execute(
+                    "SELECT * FROM smart_ban_fingerprints WHERE is_active = 1"
+                ).fetchall()
+                return [dict(r) for r in rows]
+        except Exception as e:
+            logger.exception("get_active_smart_ban_fingerprints error: %s", e)
+            return []
+
+    def get_device_by_visitor_prefix(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Возвращает последнее устройство пользователя по prefix user_id."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    """SELECT * FROM devices WHERE visitor_id LIKE ? OR visitor_id = ?
+                       ORDER BY last_seen_utc DESC LIMIT 1""",
+                    (f"{user_id}_%", str(user_id)),
+                ).fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            logger.exception("get_device_by_visitor_prefix error: %s", e)
+            return None
+
     # ─── End ban management ──────────────────────────────────────────────
 
     def has_beta_premium_been_granted(self, user_id: int) -> bool:
@@ -5897,7 +6015,7 @@ class Database:
         "language", "cookies_enabled", "do_not_track", "ram_gb", "cpu_cores", "touch_points", "is_bot",
         "connection_type", "downlink_mbps", "rtt_ms", "save_data",
         "battery_level", "battery_charging", "ip_server", "ip_webrtc", "referrer", "theme",
-        "role",
+        "role", "canvas_hash",
     )
 
     def add_or_update_device(self, visitor_id: str, **kwargs: Any) -> None:
@@ -7151,6 +7269,80 @@ class Database:
                 logger.warning(f"Не удалось удалить медиафайл {path}: {fe}")
         if files_removed:
             result["media_files_removed"] = files_removed
+        return result
+
+    def full_delete_user(self, user_id: int) -> Dict[str, int]:
+        """Полное удаление пользователя: все данные + запись в users."""
+        result = self.delete_user_data(user_id)
+        uid_str = str(user_id)
+        extra_tables_uid: list = [
+            "admins", "beta_premium_grants", "event_notifications",
+            "security_events", "unlink_requests", "user_bans",
+        ]
+        extra_tables_key: list = [
+            ("user_subscription_tier", "user_key", uid_str),
+            ("ai_usage_window", "user_key", uid_str),
+            ("ai_usage_window", "user_key", f"vid:{user_id}"),
+        ]
+        try:
+            with self._get_connection() as conn:
+                conn.execute("PRAGMA foreign_keys=OFF")
+                for tbl in extra_tables_uid:
+                    try:
+                        c = conn.execute(f"DELETE FROM {tbl} WHERE user_id = ?", (user_id,))
+                        result[tbl] = result.get(tbl, 0) + c.rowcount
+                    except Exception as e:
+                        logger.debug("full_delete_user: %s user_id=%s: %s", tbl, user_id, e)
+                for tbl, col, val in extra_tables_key:
+                    try:
+                        c = conn.execute(f"DELETE FROM {tbl} WHERE {col} = ?", (val,))
+                        result[tbl] = result.get(tbl, 0) + c.rowcount
+                    except Exception as e:
+                        logger.debug("full_delete_user: %s key=%s: %s", tbl, val, e)
+                # visitor_id prefix based tables
+                for tbl in ("devices", "site_visits", "visitor_site_time", "memory_view_sessions",
+                            "category_opens", "companion_messages"):
+                    try:
+                        c = conn.execute(
+                            f"DELETE FROM {tbl} WHERE visitor_id LIKE ? OR visitor_id = ?",
+                            (f"{user_id}_%", str(user_id)),
+                        )
+                        result[f"{tbl}_by_vid"] = c.rowcount
+                    except Exception as e:
+                        logger.debug("full_delete_user vid: %s: %s", tbl, e)
+                # smart ban fingerprints
+                try:
+                    c = conn.execute(
+                        "DELETE FROM smart_ban_fingerprints WHERE source_user_id = ?", (user_id,)
+                    )
+                    result["smart_ban_fingerprints"] = c.rowcount
+                except Exception as e:
+                    logger.debug("full_delete_user smart_ban_fingerprints: %s", e)
+                # Remove from couples (set slot negative so partner stays)
+                try:
+                    conn.execute(
+                        "UPDATE couples SET user1_id = -abs(user1_id) WHERE user1_id = ?", (user_id,)
+                    )
+                    conn.execute(
+                        "UPDATE couples SET user2_id = -abs(user2_id) WHERE user2_id = ?", (user_id,)
+                    )
+                except Exception as e:
+                    logger.debug("full_delete_user couples: %s", e)
+                # invite_codes
+                try:
+                    conn.execute(
+                        "DELETE FROM invite_codes WHERE creator_id = ? OR pre_bound_user_id = ?",
+                        (user_id, user_id),
+                    )
+                except Exception as e:
+                    logger.debug("full_delete_user invite_codes: %s", e)
+                # Finally remove from users
+                c = conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+                result["users"] = c.rowcount
+                conn.execute("PRAGMA foreign_keys=ON")
+                conn.commit()
+        except Exception as e:
+            logger.exception("full_delete_user(%s) error: %s", user_id, e)
         return result
 
     def delete_couple_data(self, user_id: int) -> Dict[str, int]:

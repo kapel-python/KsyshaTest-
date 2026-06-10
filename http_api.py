@@ -4556,12 +4556,18 @@ async def admin_ban_user(request: web.Request) -> web.Response:
 
     reason = str(payload.get("reason") or "").strip() or None
     expires_at = str(payload.get("expires_at") or "").strip() or None  # ISO UTC or None
-    # display — уже отформатированная строка из браузера в правильном timezone
     frontend_display = str(payload.get("display") or "").strip() or None
+    ban_type = str(payload.get("type") or "regular").strip()  # "regular" | "smart"
 
     ok = db.ban_user(target_id, req_user_id, reason, expires_at)
     if not ok:
         return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
+
+    # Умный бан: создаём fingerprint-запись для последующего обнаружения обхода
+    if ban_type == "smart":
+        ban_row = db.get_active_ban(target_id)
+        ban_id = ban_row.get("id") if ban_row else None
+        db.create_smart_ban_fingerprint(target_id, ban_id)
 
     # Уведомление пользователю в Telegram
     # Используем display от фронтенда — он уже в правильном timezone admin-а.
@@ -4644,6 +4650,7 @@ async def admin_unban_user(request: web.Request) -> web.Response:
     ok = db.unban_user(target_id, req_user_id)
     if not ok:
         return _add_cors_headers(web.json_response({"ok": False, "error": "db_error"}, status=500))
+    db.deactivate_smart_ban_fingerprint(target_id)
 
     async def _notify_unban():
         _bot = None
@@ -4682,6 +4689,29 @@ async def admin_unban_user(request: web.Request) -> web.Response:
     detail["ban_expires_at"] = None
 
     return _add_cors_headers(web.json_response({"ok": True, "user": detail}))
+
+
+async def admin_delete_user(request: web.Request) -> web.Response:
+    """POST /api/admin/users/{user_id}/delete — полное удаление пользователя."""
+    if not _check_api_secret(request):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+    visitor_id = _get_trusted_visitor_id(request, payload=None, query_key="v")
+    req_user_id = _visitor_to_user_id(visitor_id or "")
+    if not req_user_id or not db.is_creator(req_user_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "forbidden"}, status=403))
+
+    try:
+        target_id = int(request.match_info.get("user_id", 0) or 0)
+    except (ValueError, TypeError):
+        target_id = 0
+    if target_id <= 0:
+        return _add_cors_headers(web.json_response({"ok": False, "error": "invalid_id"}, status=400))
+    if db.is_creator(target_id):
+        return _add_cors_headers(web.json_response({"ok": False, "error": "cannot_delete_creator"}, status=400))
+
+    result = db.full_delete_user(target_id)
+    logger.info("admin_delete_user: user %s deleted by %s, result=%s", target_id, req_user_id, result)
+    return _add_cors_headers(web.json_response({"ok": True, "deleted_user_id": target_id, "stats": result}))
 
 
 async def admin_parse_ban_time(request: web.Request) -> web.Response:
@@ -9163,6 +9193,169 @@ async def security_headers_middleware(request: web.Request, handler):
     return response
 
 
+# ── Smart ban fingerprint scoring ────────────────────────────────────────
+
+def _ip_subnet24(ip: str) -> str:
+    """Returns /24 subnet string, e.g. '1.2.3.0/24'."""
+    if not ip:
+        return ""
+    parts = str(ip).split(".")
+    if len(parts) == 4:
+        return ".".join(parts[:3]) + ".0/24"
+    return ""
+
+
+def _score_smart_ban(stored: dict, canvas_hash: str, gpu_vendor: str, gpu_renderer: str,
+                     screen: str, browser: str, browser_version: str,
+                     os_name: str, os_ver: str, cpu_cores: str,
+                     language: str, timezone_id: str, ip_subnet: str) -> float:
+    """
+    Returns a confidence score 0.0–1.0.
+    Uses absolute weighted scoring with tiered auto-ban rules:
+    - Rule A: canvas + GPU both match  → score ≥ 1.50  (almost impossible false positive)
+    - Rule B: canvas + UA + IP match   → score ≥ 1.20
+    - Rule C: GPU + UA + screen + IP   → score ≥ 1.20  (no canvas available)
+    - Rule D: full UA + screen + IP + extras (privacy browser) → score ≥ 1.10
+    """
+    score = 0.0
+
+    canvas_match = False
+    gpu_match = False
+
+    # Canvas (0.90) — most unique per browser/GPU config
+    if stored.get("canvas_hash") and canvas_hash:
+        if stored["canvas_hash"] == canvas_hash:
+            score += 0.90
+            canvas_match = True
+
+    # GPU renderer (0.70) — unique per GPU model + driver
+    if stored.get("gpu_renderer") and gpu_renderer:
+        if stored["gpu_renderer"] == gpu_renderer:
+            score += 0.70
+            gpu_match = True
+    elif stored.get("gpu_vendor") and gpu_vendor:
+        if stored["gpu_vendor"] == gpu_vendor:
+            score += 0.25
+
+    # Browser + version (0.30)
+    b_score = 0.0
+    if stored.get("browser") and browser and stored["browser"] == browser:
+        b_score += 0.15
+    if stored.get("browser_version") and browser_version and stored["browser_version"] == browser_version:
+        b_score += 0.15
+    score += b_score
+
+    # OS + version (0.25)
+    o_score = 0.0
+    if stored.get("os") and os_name and stored["os"] == os_name:
+        o_score += 0.15
+    if stored.get("os_version") and os_ver and stored["os_version"] == os_ver:
+        o_score += 0.10
+    score += o_score
+
+    # Screen (0.20)
+    if stored.get("screen") and screen and stored["screen"] == screen:
+        score += 0.20
+
+    # IP /24 subnet (0.15)
+    if stored.get("ip_subnet") and ip_subnet and stored["ip_subnet"] == ip_subnet:
+        score += 0.15
+
+    # CPU cores (0.08)
+    if stored.get("cpu_cores") and cpu_cores:
+        if str(stored["cpu_cores"]) == str(cpu_cores):
+            score += 0.08
+
+    # Language (0.06)
+    if stored.get("language") and language and stored["language"] == language:
+        score += 0.06
+
+    # Timezone (0.06)
+    if stored.get("timezone_id") and timezone_id and stored["timezone_id"] == timezone_id:
+        score += 0.06
+
+    # Apply tiered rules — require corroboration, not single-signal match
+    if canvas_match and gpu_match and score >= 1.50:
+        return score          # Rule A: strongest signal
+    if canvas_match and (b_score >= 0.20 or o_score >= 0.15) and score >= 1.20:
+        return score          # Rule B: canvas + UA
+    if not canvas_match and gpu_match and (b_score + o_score) >= 0.30 and score >= 1.20:
+        return score          # Rule C: no canvas but GPU + UA
+    if not canvas_match and not gpu_match and score >= 1.10:
+        # Rule D: privacy browser — only if many small signals all agree
+        signal_count = sum([
+            bool(stored.get("screen") and screen and stored["screen"] == screen),
+            bool(stored.get("ip_subnet") and ip_subnet and stored["ip_subnet"] == ip_subnet),
+            bool(stored.get("language") and language and stored["language"] == language),
+            bool(stored.get("cpu_cores") and cpu_cores and str(stored.get("cpu_cores")) == str(cpu_cores)),
+            bool(stored.get("timezone_id") and timezone_id and stored["timezone_id"] == timezone_id),
+            bool(b_score >= 0.25),
+            bool(o_score >= 0.20),
+        ])
+        if signal_count >= 5:
+            return score
+
+    return 0.0  # Did not meet any auto-ban rule
+
+
+# Fingerprint JS served as a standalone file (injected into all HTML pages)
+_FP_JS = r"""
+(function(){
+  'use strict';
+  function _h(s){var h=5381;for(var i=0;i<s.length;i++){h=((h<<5)+h)+s.charCodeAt(i);h=h&h;}return (h>>>0).toString(16).padStart(8,'0');}
+  function _canvas(){
+    try{
+      var c=document.createElement('canvas');c.width=300;c.height=60;
+      var x=c.getContext('2d');if(!x)return'';
+      x.textBaseline='alphabetic';
+      x.fillStyle='#f0f4ff';x.fillRect(0,0,300,60);
+      x.fillStyle='#1a73e8';x.font='bold 15px Arial,sans-serif';
+      x.fillText('SureMemory❤️',8,28);
+      x.fillStyle='rgba(220,60,0,0.6)';x.font='11px Georgia,serif';
+      x.fillText('🌙♔♥‣fp',8,50);
+      x.strokeStyle='#00c853';x.lineWidth=2;
+      x.beginPath();x.arc(268,30,22,0,Math.PI*2);x.stroke();
+      x.fillStyle='rgba(128,0,255,0.4)';x.fillRect(120,5,80,20);
+      return _h(c.toDataURL('image/png').slice(-120));
+    }catch(e){return'';}
+  }
+  function _webgl(){
+    try{
+      var c=document.createElement('canvas');
+      var g=c.getContext('webgl')||c.getContext('experimental-webgl');
+      if(!g)return{vendor:'',renderer:''};
+      var ext=g.getExtension('WEBGL_debug_renderer_info');
+      if(!ext)return{vendor:g.getParameter(g.VENDOR)||'',renderer:g.getParameter(g.RENDERER)||''};
+      return{vendor:g.getParameter(ext.UNMASKED_VENDOR_WEBGL)||'',renderer:g.getParameter(ext.UNMASKED_RENDERER_WEBGL)||''};
+    }catch(e){return{vendor:'',renderer:''};}
+  }
+  function _getCookie(n){var m=(document.cookie+'').match(new RegExp('(?:^|; )'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):'';}
+  function _run(){
+    var vid=_getCookie('visitor_id');
+    if(!vid||vid.indexOf('_')<0)return;
+    var gl=_webgl();
+    var fp={
+      canvas_hash:_canvas(),
+      gpu_vendor:gl.vendor,
+      gpu_renderer:gl.renderer,
+      screen:screen.width+'x'+screen.height+'x'+screen.colorDepth,
+      cpu_cores:String(navigator.hardwareConcurrency||''),
+      timezone:(function(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone;}catch(e){return '';}}())
+    };
+    fetch('/api/device_fingerprint?v='+encodeURIComponent(vid),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(fp),
+      credentials:'include'
+    }).then(function(r){return r.json();}).then(function(d){
+      if(d&&d.banned){setTimeout(function(){location.reload();},200);}
+    }).catch(function(){});
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){setTimeout(_run,800);});}
+  else{setTimeout(_run,800);}
+})();
+"""
+
 _BAN_EXEMPT_PREFIXES = (
     "/terms", "/privacy", "/main", "/admin", "/static", "/api/admin",
     "/favicon", "/robots", "/sitemap",
@@ -9189,6 +9382,147 @@ a{{color:#7c3aed;text-decoration:none}}
 {reason_block}
 <p style="margin-top:20px;font-size:0.82rem">Вопросы и оспаривание: <a href="https://t.me/very_fast_earn_money">@very_fast_earn_money</a></p>
 </div></body></html>"""
+
+
+async def serve_fp_js(request: web.Request) -> web.Response:
+    return web.Response(
+        text=_FP_JS,
+        content_type="application/javascript",
+        headers={"Cache-Control": "public, max-age=1800"},
+    )
+
+
+async def api_device_fingerprint(request: web.Request) -> web.Response:
+    """POST /api/device_fingerprint — принимает canvas/GPU отпечаток, проверяет умный бан."""
+    # Принимаем запрос без проверки visitor_sig (анонимный fingerprint collection)
+    visitor_id = (request.rel_url.query.get("v") or "").strip()
+    if not visitor_id or "_" not in visitor_id:
+        return _add_cors_headers(web.json_response({"ok": False}))
+
+    uid = _visitor_to_user_id(visitor_id)
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    canvas_hash   = str(payload.get("canvas_hash") or "").strip()
+    gpu_vendor    = str(payload.get("gpu_vendor")   or "").strip()
+    gpu_renderer  = str(payload.get("gpu_renderer") or "").strip()
+    screen        = str(payload.get("screen")       or "").strip()
+    cpu_cores     = str(payload.get("cpu_cores")    or "").strip()
+    tz_id         = str(payload.get("timezone")     or "").strip()
+
+    # Обновляем запись устройства (canvas_hash, gpu)
+    try:
+        update_kwargs: dict = {}
+        if canvas_hash:   update_kwargs["canvas_hash"]   = canvas_hash
+        if gpu_vendor:    update_kwargs["gpu_vendor"]    = gpu_vendor
+        if gpu_renderer:  update_kwargs["gpu_renderer"]  = gpu_renderer
+        if tz_id:         update_kwargs["timezone_id"]   = tz_id
+        if update_kwargs:
+            db.add_or_update_device(visitor_id, **update_kwargs)
+    except Exception as e:
+        logger.debug("device_fingerprint update error: %s", e)
+
+    # Если пользователь уже забанен — ничего не делаем
+    if uid and db.is_user_banned(uid):
+        return _add_cors_headers(web.json_response({"ok": True, "banned": True}))
+
+    # Проверяем против активных умных банов
+    active_fps = db.get_active_smart_ban_fingerprints()
+    if not active_fps:
+        return _add_cors_headers(web.json_response({"ok": True}))
+
+    # Собираем серверные сигналы из текущего запроса
+    raw_ip = (request.headers.get("X-Forwarded-For") or request.remote or "").split(",")[0].strip()
+    incoming_subnet = _ip_subnet24(raw_ip)
+    # Browser/OS из devices table (уже распарсено ранее)
+    dev = db.get_device_by_visitor_prefix(uid) if uid else None
+    incoming_browser         = dev.get("browser", "")         if dev else ""
+    incoming_browser_version = dev.get("browser_version", "") if dev else ""
+    incoming_os              = dev.get("os", "")              if dev else ""
+    incoming_os_version      = dev.get("os_version", "")      if dev else ""
+    incoming_language        = dev.get("language", "")        if dev else (
+        request.headers.get("Accept-Language", "").split(",")[0].strip()
+    )
+
+    matched_fp = None
+    best_score = 0.0
+    for fp in active_fps:
+        # Не проверяем пользователя против его же собственного бана
+        if uid and fp.get("source_user_id") == uid:
+            continue
+        sc = _score_smart_ban(
+            fp,
+            canvas_hash, gpu_vendor, gpu_renderer,
+            screen, incoming_browser, incoming_browser_version,
+            incoming_os, incoming_os_version, cpu_cores,
+            incoming_language, tz_id, incoming_subnet,
+        )
+        if sc > best_score:
+            best_score = sc
+            matched_fp = fp
+
+    if matched_fp and best_score > 0 and uid:
+        # Автобан
+        logger.warning(
+            "smart_ban: auto-banning user %s (score=%.2f) as evasion of user %s",
+            uid, best_score, matched_fp["source_user_id"],
+        )
+        db.ban_user(
+            uid,
+            banned_by=int(getattr(config, "CREATOR_ID", 0) or 0),
+            reason="Обход бана через другой аккаунт",
+            expires_at=None,  # навсегда
+        )
+
+        # Уведомление разработчику
+        async def _notify_smart_ban():
+            _bot = None
+            try:
+                _bot = Bot(token=config.BOT_TOKEN)
+                evader_link   = f'<a href="tg://user?id={uid}">{uid}</a>'
+                original_link = f'<a href="tg://user?id={matched_fp["source_user_id"]}">{matched_fp["source_user_id"]}</a>'
+                text = (
+                    f"🤖 <b>Умный бан сработал</b>\n\n"
+                    f"Заблокирован пользователь {evader_link} по причине подозрения на обход бана через левый аккаунт.\n"
+                    f"Целевой (изначальный аккаунт бана): {original_link}\n\n"
+                    f"Уверенность: {best_score:.2f}"
+                )
+                await _bot.send_message(
+                    chat_id=config.CREATOR_ID, text=text, parse_mode=ParseMode.HTML
+                )
+            except Exception as e:
+                logger.warning("smart_ban TG notify error: %s", e)
+            finally:
+                if _bot:
+                    try: await _bot.session.close()
+                    except Exception: pass
+
+        asyncio.create_task(_notify_smart_ban())
+
+        # Уведомление самому заблокированному
+        async def _notify_banned():
+            _bot2 = None
+            try:
+                _bot2 = Bot(token=config.BOT_TOKEN)
+                await _bot2.send_message(
+                    chat_id=uid,
+                    text="🚫 Твой аккаунт заблокирован <b>навсегда</b>\n\n💬 Причина:\nОбход бана через другой аккаунт\n\n👤 Вопросы — @very_fast_earn_money",
+                    parse_mode=ParseMode.HTML,
+                )
+            except Exception:
+                pass
+            finally:
+                if _bot2:
+                    try: await _bot2.session.close()
+                    except Exception: pass
+
+        asyncio.create_task(_notify_banned())
+        return _add_cors_headers(web.json_response({"ok": True, "banned": True}))
+
+    return _add_cors_headers(web.json_response({"ok": True}))
 
 
 @web.middleware
@@ -9240,6 +9574,37 @@ async def ban_check_middleware(request: web.Request, handler):
             return web.Response(text=html_body, content_type="text/html", status=403)
 
     return await handler(request)
+
+
+_FP_INJECT_TAG = b'<script src="/fp.js" defer></script>'
+_FP_EXEMPT_INJECT = ("/api/", "/static/", "/fp.js", "/favicon", "/robots")
+
+@web.middleware
+async def fp_inject_middleware(request: web.Request, handler):
+    """Инжектирует fp.js во все HTML-страницы (кроме API и статики)."""
+    response = await handler(request)
+    if any(request.path.startswith(p) for p in _FP_EXEMPT_INJECT):
+        return response
+    ct = response.content_type or ""
+    if "html" not in ct:
+        return response
+    try:
+        # Работает только с буферизованными ответами (web.Response)
+        if not hasattr(response, "body") and not hasattr(response, "text"):
+            return response
+        body: bytes = response.body if response.body else (response.text or "").encode("utf-8")
+        if b"</body>" in body:
+            body = body.replace(b"</body>", _FP_INJECT_TAG + b"</body>", 1)
+            return web.Response(
+                body=body,
+                content_type="text/html",
+                charset="utf-8",
+                headers={k: v for k, v in response.headers.items()
+                         if k.lower() not in ("content-length", "content-type", "transfer-encoding")},
+            )
+    except Exception:
+        pass
+    return response
 
 
 @web.middleware
@@ -10626,12 +10991,15 @@ def create_app() -> web.Application:
             body_size_middleware,
             rate_limit_middleware,
             ban_check_middleware,
+            fp_inject_middleware,
             activity_tracking_middleware,
             site_error_middleware,
         ],
         client_max_size=500 * 1024 * 1024,  # 500 MB — для загрузки видео
     )
 
+    app.router.add_get("/fp.js", serve_fp_js)
+    app.router.add_post("/api/device_fingerprint", api_device_fingerprint)
     app.router.add_get("/", index)
     app.router.add_get("/main", main_page)
     app.router.add_get("/404", not_found_page)
@@ -10839,6 +11207,7 @@ def create_app() -> web.Application:
     app.router.add_post("/api/admin/users/{user_id}/revoke_premium", admin_revoke_premium)
     app.router.add_post("/api/admin/users/{user_id}/ban", admin_ban_user)
     app.router.add_post("/api/admin/users/{user_id}/unban", admin_unban_user)
+    app.router.add_post("/api/admin/users/{user_id}/delete", admin_delete_user)
     app.router.add_post("/api/admin/parse_ban_time", admin_parse_ban_time)
     app.router.add_post("/api/admin/users/{user_id}/send", admin_send_direct)
     app.router.add_get("/api/version", api_version)

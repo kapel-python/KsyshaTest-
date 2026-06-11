@@ -38,7 +38,7 @@ class Config:
 
     # ── Платёжные системы ──────────────────────────────────────────────
     # YooMoney: токен OAuth (для проверки платежей) + номер кошелька получателя
-    YOOMONEY_TOKEN: str = os.getenv("YOOMONEY_TOKEN", "")
+    YOOMONEY_TOKEN: str = os.getenv("YOOMONEY_ACCESS_TOKEN", "")
     YOOMONEY_RECEIVER: str = os.getenv("YOOMONEY_RECEIVER", "")
     # CryptoBot (pay.crypt.bot): API-токен бота
     CRYPTOBOT_TOKEN: str = os.getenv("CRYPTOBOT_TOKEN", "")

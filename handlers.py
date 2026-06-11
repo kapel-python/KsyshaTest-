@@ -8130,6 +8130,7 @@ async def successful_payment_handler(message: Message):
 def _yoomoney_quickpay_url(user_id: int, months: int, label: str) -> str:
     from urllib.parse import urlencode
     rub = _RUB_PRICES.get(months, months * 149)
+    success_url = (getattr(config, "BOT_SITE_URL", "") or "https://surememory.ru").rstrip("/")
     params = {
         "receiver":        config.YOOMONEY_RECEIVER,
         "quickpay-form":   "button",
@@ -8137,6 +8138,7 @@ def _yoomoney_quickpay_url(user_id: int, months: int, label: str) -> str:
         "sum":             str(rub),
         "label":           label,
         "paymentType":     "AC",
+        "successURL":      success_url,
     }
     return "https://yoomoney.ru/quickpay/confirm.xml?" + urlencode(params)
 

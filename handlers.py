@@ -15,7 +15,10 @@ import aiohttp
 
 from aiogram import Router, F
 from aiogram.exceptions import TelegramRetryAfter
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile, FSInputFile
+from aiogram.types import (
+    Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton,
+    BufferedInputFile, FSInputFile, LabeledPrice, PreCheckoutQuery,
+)
 from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -7936,6 +7939,13 @@ _PROVIDER_LABELS: dict = {
     "stars": "Telegram Stars",
 }
 
+# Цены в Stars (XTR) и рублях
+_STARS_PRICES: dict = {1: 250, 3: 650, 6: 1200, 12: 2000}
+_RUB_PRICES: dict   = {1: 149, 3: 399, 6: 699,  12: 1199}
+
+# Ожидающие платежи: user_id → {provider, months, label/invoice_id}
+_pending_payments: dict = {}
+
 
 def _subscription_info_text(user_id: int) -> str:
     """Текст экрана подписки для данного пользователя."""
@@ -7947,9 +7957,8 @@ def _subscription_info_text(user_id: int) -> str:
     is_expired = tier_info.get("is_expired", False)
     if tier == "premium" and not is_expired and expires_at:
         try:
-            from datetime import timezone as _tz
-            exp = datetime.fromisoformat(expires_at).replace(tzinfo=_tz.utc)
-            days_left = max(0, (exp - datetime.now(_tz.utc)).days)
+            exp = datetime.fromisoformat(expires_at).replace(tzinfo=timezone.utc)
+            days_left = max(0, (exp - datetime.now(timezone.utc)).days)
             exp_str = exp.strftime("%d.%m.%Y")
             return (
                 f"💳 <b>Подписка</b>\n\n"
@@ -7980,6 +7989,28 @@ def _subscription_main_keyboard(user_id: int) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=action_label, callback_data="sub_duration")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
     ])
+
+
+def _sub_success_text(user_id: int, months: int) -> str:
+    """Текст успешной оплаты с новой датой окончания подписки."""
+    tier_info = db.get_user_tier_info(str(user_id))
+    expires_at = tier_info.get("expires_at") or ""
+    try:
+        exp_str = datetime.fromisoformat(expires_at).replace(tzinfo=timezone.utc).strftime("%d.%m.%Y")
+    except Exception:
+        exp_str = "—"
+    duration_label = _DURATION_LABELS.get(str(months), f"{months} мес.")
+    return (
+        f"✅ <b>Подписка оформлена!</b>\n\n"
+        f"Premium активирован на <b>{duration_label}</b>\n"
+        f"Действует до: <b>{exp_str}</b>"
+    )
+
+
+_SUB_DONE_KB = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="💳 К подписке", callback_data="subscription_menu")],
+    [InlineKeyboardButton(text="🔙 В главное меню", callback_data="back_to_main")],
+])
 
 
 @router.callback_query(F.data == "subscription_menu")
@@ -8018,15 +8049,18 @@ async def sub_duration_handler(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("sub_pay:"))
 async def sub_pay_handler(callback: CallbackQuery):
-    months = callback.data.split(":")[1]
-    duration_label = _DURATION_LABELS.get(months, f"{months} мес.")
+    months_str = callback.data.split(":")[1]
+    months = int(months_str)
+    duration_label = _DURATION_LABELS.get(months_str, f"{months} мес.")
+    stars = _STARS_PRICES.get(months, months * 250)
+    rub   = _RUB_PRICES.get(months, months * 149)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="💳 ЮМани", callback_data=f"sub_method:{months}:yoomoney"),
-            InlineKeyboardButton(text="🔮 Crypto Bot", callback_data=f"sub_method:{months}:cryptobot"),
+            InlineKeyboardButton(text=f"💳 ЮМани — {rub}₽",       callback_data=f"sub_method:{months_str}:yoomoney"),
+            InlineKeyboardButton(text=f"🔮 Crypto Bot — {rub}₽",  callback_data=f"sub_method:{months_str}:cryptobot"),
         ],
         [
-            InlineKeyboardButton(text="⭐ Telegram Stars", callback_data=f"sub_method:{months}:stars"),
+            InlineKeyboardButton(text=f"⭐ Telegram Stars — {stars} XTR", callback_data=f"sub_method:{months_str}:stars"),
         ],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="sub_duration")],
     ])
@@ -8039,28 +8073,222 @@ async def sub_pay_handler(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("sub_method:"))
-async def sub_method_handler(callback: CallbackQuery):
+# ── Telegram Stars: создаём инвойс сразу при выборе ──────────────────────────
+
+@router.callback_query(F.data.startswith("sub_method:") & F.data.endswith(":stars"))
+async def sub_method_stars(callback: CallbackQuery):
     parts = callback.data.split(":")
-    months = parts[1]
-    provider = parts[2]
-    provider_label = _PROVIDER_LABELS.get(provider, provider)
-    duration_label = _DURATION_LABELS.get(months, f"{months} мес.")
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Проверить платёж", callback_data=f"sub_check:{months}:{provider}")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"sub_pay:{months}")],
-    ])
+    months = int(parts[1])
+    duration_label = _DURATION_LABELS.get(str(months), f"{months} мес.")
+    stars = _STARS_PRICES.get(months, months * 250)
+    await callback.answer()
     await callback_edit_or_answer(
         callback,
-        f"💳 <b>Оплата через {provider_label}</b>\n\n"
-        f"Срок: <b>{duration_label}</b>\n\n"
-        f"🔗 Ссылка на оплату появится здесь после подключения платёжной системы.\n\n"
+        f"⭐ <b>Оплата через Telegram Stars</b>\n\nСрок: <b>{duration_label}</b>\n\n"
+        f"Счёт на <b>{stars} Stars</b> отправлен следующим сообщением.\n"
+        f"Нажми кнопку оплаты и следуй инструкциям Telegram.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"sub_pay:{months}")],
+        ]),
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.message.bot.send_invoice(
+        chat_id=callback.from_user.id,
+        title=f"Premium — {duration_label}",
+        description=f"Подписка Premium на {duration_label}. Безлимитный ИИ чат и экспорт.",
+        payload=f"sub_{months}",
+        currency="XTR",
+        prices=[LabeledPrice(label=f"Premium {duration_label}", amount=stars)],
+    )
+
+
+@router.pre_checkout_query()
+async def pre_checkout_query_handler(pre_checkout_query: PreCheckoutQuery):
+    """Всегда подтверждаем Stars-платёж (Telegram требует ответа в течение 10 сек)."""
+    await pre_checkout_query.answer(ok=True)
+
+
+@router.message(F.successful_payment)
+async def successful_payment_handler(message: Message):
+    """Telegram Stars — платёж прошёл, выдаём/продлеваем подписку."""
+    payload = message.successful_payment.invoice_payload  # "sub_{months}"
+    try:
+        months = int(payload.split("_")[1])
+    except Exception:
+        months = 1
+    user_id = message.from_user.id
+    db.extend_user_premium(user_id, months=months)
+    await message.answer(
+        _sub_success_text(user_id, months),
+        reply_markup=_SUB_DONE_KB,
+        parse_mode=ParseMode.HTML,
+    )
+
+
+# ── YooMoney ─────────────────────────────────────────────────────────────────
+
+def _yoomoney_quickpay_url(user_id: int, months: int, label: str) -> str:
+    from urllib.parse import urlencode
+    rub = _RUB_PRICES.get(months, months * 149)
+    params = {
+        "receiver":        config.YOOMONEY_RECEIVER,
+        "quickpay-form":   "button",
+        "targets":         f"Premium SureMemory {_DURATION_LABELS.get(str(months), str(months))} мес.",
+        "sum":             str(rub),
+        "label":           label,
+        "paymentType":     "AC",
+    }
+    return "https://yoomoney.ru/quickpay/confirm.xml?" + urlencode(params)
+
+
+async def _yoomoney_check_label(label: str, min_amount: int) -> bool:
+    """Запрашивает историю операций YooMoney и ищет платёж с нужным label."""
+    url = "https://yoomoney.ru/api/operation-history"
+    headers = {"Authorization": f"Bearer {config.YOOMONEY_TOKEN}"}
+    data = {"label": label}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=data, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                body = await resp.json()
+        for op in body.get("operations", []):
+            if op.get("status") == "success" and float(op.get("amount", 0)) >= min_amount:
+                return True
+    except Exception as e:
+        logger.warning("YooMoney check error: %s", e)
+    return False
+
+
+@router.callback_query(F.data.startswith("sub_method:") & F.data.endswith(":yoomoney"))
+async def sub_method_yoomoney(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    months = int(parts[1])
+    duration_label = _DURATION_LABELS.get(str(months), f"{months} мес.")
+    rub = _RUB_PRICES.get(months, months * 149)
+    user_id = callback.from_user.id
+
+    if not config.YOOMONEY_RECEIVER:
+        await callback_edit_or_answer(
+            callback,
+            f"💳 <b>ЮМани</b>\n\nСрок: <b>{duration_label}</b> — {rub}₽\n\n"
+            f"🔗 Ссылка на оплату появится здесь после настройки ЮМани.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"sub_pay:{months}")],
+            ]),
+            parse_mode=ParseMode.HTML,
+        )
+        await callback.answer()
+        return
+
+    label = f"sub_{user_id}_{months}_{int(time.time())}"
+    _pending_payments[user_id] = {"provider": "yoomoney", "months": months, "label": label, "amount": rub}
+    pay_url = _yoomoney_quickpay_url(user_id, months, label)
+
+    await callback_edit_or_answer(
+        callback,
+        f"💳 <b>Оплата через ЮМани</b>\n\nСрок: <b>{duration_label}</b> — {rub}₽\n\n"
         f"После оплаты нажми <b>«Проверить платёж»</b>.",
-        reply_markup=keyboard,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 Перейти к оплате", url=pay_url)],
+            [InlineKeyboardButton(text="✅ Проверить платёж", callback_data=f"sub_check:{months}:yoomoney")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"sub_pay:{months}")],
+        ]),
         parse_mode=ParseMode.HTML,
     )
     await callback.answer()
 
+
+# ── CryptoBot ─────────────────────────────────────────────────────────────────
+
+async def _cryptobot_create_invoice(months: int, user_id: int) -> dict | None:
+    """Создаёт инвойс в CryptoBot (USDT). Возвращает dict с invoice_id и pay_url или None."""
+    rub = _RUB_PRICES.get(months, months * 149)
+    # Грубый перевод RUB → USDT (≈ 1 USDT = 90 RUB, уточняется при настройке)
+    amount_usdt = round(rub / 90, 2)
+    url = "https://pay.crypt.bot/api/createInvoice"
+    headers = {"Crypto-Pay-API-Token": config.CRYPTOBOT_TOKEN}
+    payload = {
+        "asset": "USDT",
+        "amount": str(amount_usdt),
+        "description": f"Premium SureMemory — {_DURATION_LABELS.get(str(months), str(months))}",
+        "payload": f"sub_{user_id}_{months}",
+        "expires_in": 3600,
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                body = await resp.json()
+        if body.get("ok"):
+            result = body["result"]
+            return {"invoice_id": result["invoice_id"], "pay_url": result["pay_url"], "amount": amount_usdt}
+    except Exception as e:
+        logger.warning("CryptoBot createInvoice error: %s", e)
+    return None
+
+
+async def _cryptobot_check_invoice(invoice_id: int) -> bool:
+    """Возвращает True, если инвойс оплачен."""
+    url = f"https://pay.crypt.bot/api/getInvoices?invoice_ids={invoice_id}"
+    headers = {"Crypto-Pay-API-Token": config.CRYPTOBOT_TOKEN}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                body = await resp.json()
+        items = body.get("result", {}).get("items", [])
+        return bool(items and items[0].get("status") == "paid")
+    except Exception as e:
+        logger.warning("CryptoBot getInvoices error: %s", e)
+    return False
+
+
+@router.callback_query(F.data.startswith("sub_method:") & F.data.endswith(":cryptobot"))
+async def sub_method_cryptobot(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    months = int(parts[1])
+    duration_label = _DURATION_LABELS.get(str(months), f"{months} мес.")
+    user_id = callback.from_user.id
+
+    if not config.CRYPTOBOT_TOKEN:
+        await callback_edit_or_answer(
+            callback,
+            f"🔮 <b>Crypto Bot</b>\n\nСрок: <b>{duration_label}</b>\n\n"
+            f"🔗 Ссылка на оплату появится здесь после настройки Crypto Bot.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"sub_pay:{months}")],
+            ]),
+            parse_mode=ParseMode.HTML,
+        )
+        await callback.answer()
+        return
+
+    await callback.answer("Создаю счёт…")
+    invoice = await _cryptobot_create_invoice(months, user_id)
+    if not invoice:
+        await callback_edit_or_answer(
+            callback,
+            "❌ Не удалось создать счёт в Crypto Bot. Попробуй позже.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data=f"sub_pay:{months}")],
+            ]),
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    _pending_payments[user_id] = {"provider": "cryptobot", "months": months, "invoice_id": invoice["invoice_id"]}
+    rub = _RUB_PRICES.get(months, months * 149)
+    await callback_edit_or_answer(
+        callback,
+        f"🔮 <b>Оплата через Crypto Bot</b>\n\nСрок: <b>{duration_label}</b> — {rub}₽ (~{invoice['amount']} USDT)\n\n"
+        f"После оплаты нажми <b>«Проверить платёж»</b>.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔮 Перейти к оплате", url=invoice["pay_url"])],
+            [InlineKeyboardButton(text="✅ Проверить платёж", callback_data=f"sub_check:{months}:cryptobot")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"sub_pay:{months}")],
+        ]),
+        parse_mode=ParseMode.HTML,
+    )
+
+
+# ── Проверка платежа (YooMoney / CryptoBot) ──────────────────────────────────
 
 @router.callback_query(F.data.startswith("sub_check:"))
 async def sub_check_handler(callback: CallbackQuery):
@@ -8068,24 +8296,51 @@ async def sub_check_handler(callback: CallbackQuery):
     parts = callback.data.split(":")
     months = int(parts[1])
     provider = parts[2]
-    db.grant_user_premium(user_id, months=months)
-    tier_info = db.get_user_tier_info(str(user_id))
-    expires_at = tier_info.get("expires_at") or ""
-    try:
-        from datetime import timezone as _tz
-        exp_str = datetime.fromisoformat(expires_at).replace(tzinfo=_tz.utc).strftime("%d.%m.%Y")
-    except Exception:
-        exp_str = "—"
-    duration_label = {1: "1 месяц", 3: "3 месяца", 6: "6 месяцев", 12: "1 год"}.get(months, f"{months} мес.")
+
+    pending = _pending_payments.get(user_id, {})
+
+    # ── YooMoney ──
+    if provider == "yoomoney":
+        if not config.YOOMONEY_TOKEN:
+            await callback.answer("⚠️ YooMoney не настроен", show_alert=True)
+            return
+        label = pending.get("label")
+        amount = pending.get("amount", _RUB_PRICES.get(months, 149))
+        if not label:
+            await callback.answer("❌ Сессия истекла. Начни оплату заново.", show_alert=True)
+            return
+        await callback.answer("Проверяю платёж…")
+        paid = await _yoomoney_check_label(label, amount)
+        if not paid:
+            await callback.answer("❌ Платёж не найден. Попробуй чуть позже.", show_alert=True)
+            return
+
+    # ── CryptoBot ──
+    elif provider == "cryptobot":
+        if not config.CRYPTOBOT_TOKEN:
+            await callback.answer("⚠️ Crypto Bot не настроен", show_alert=True)
+            return
+        invoice_id = pending.get("invoice_id")
+        if not invoice_id:
+            await callback.answer("❌ Сессия истекла. Начни оплату заново.", show_alert=True)
+            return
+        await callback.answer("Проверяю платёж…")
+        paid = await _cryptobot_check_invoice(invoice_id)
+        if not paid:
+            await callback.answer("❌ Платёж ещё не подтверждён. Попробуй через несколько секунд.", show_alert=True)
+            return
+
+    else:
+        await callback.answer("❌ Неизвестный провайдер", show_alert=True)
+        return
+
+    # Платёж подтверждён — выдаём/продлеваем подписку
+    _pending_payments.pop(user_id, None)
+    db.extend_user_premium(user_id, months=months)
     await callback_edit_or_answer(
         callback,
-        f"✅ <b>Подписка оформлена!</b>\n\n"
-        f"Premium активирован на <b>{duration_label}</b>\n"
-        f"Действует до: <b>{exp_str}</b>",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 К подписке", callback_data="subscription_menu")],
-            [InlineKeyboardButton(text="🔙 В главное меню", callback_data="back_to_main")],
-        ]),
+        _sub_success_text(user_id, months),
+        reply_markup=_SUB_DONE_KB,
         parse_mode=ParseMode.HTML,
     )
     await callback.answer("✅ Платёж подтверждён!")

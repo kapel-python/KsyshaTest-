@@ -4587,6 +4587,45 @@ class Database:
             logger.exception("Ошибка при выдаче Premium пользователю %s: %s", user_id, e)
             return False
 
+    def extend_user_premium(self, user_id: int, months: int = 1) -> bool:
+        """Продлевает Premium, добавляя months к текущей дате окончания.
+
+        Если подписка активна: new_expiry = current_expiry + months*30.
+        Если нет/истекла:      new_expiry = now + months*30.
+        Возвращает True при успехе.
+        """
+        from datetime import timezone as _tz
+        now = datetime.now(_tz.utc)
+        user_key = str(user_id)
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT tier, expires_at FROM user_subscription_tier WHERE user_key = ?",
+                    (user_key,),
+                ).fetchone()
+                base = now
+                if row and row["tier"] == "premium" and row["expires_at"]:
+                    try:
+                        current_exp = datetime.fromisoformat(row["expires_at"]).replace(tzinfo=_tz.utc)
+                        if current_exp > now:
+                            base = current_exp
+                    except Exception:
+                        pass
+                new_expires = (base + timedelta(days=30 * months)).strftime("%Y-%m-%dT%H:%M:%S")
+                conn.execute(
+                    """INSERT INTO user_subscription_tier (user_key, tier, expires_at)
+                       VALUES (?, 'premium', ?)
+                       ON CONFLICT(user_key) DO UPDATE SET
+                           tier = 'premium',
+                           expires_at = ?""",
+                    (user_key, new_expires, new_expires),
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("Ошибка extend_user_premium для %s: %s", user_id, e)
+            return False
+
     # ─── Ban management ──────────────────────────────────────────────────
 
     def ban_user(self, user_id: int, banned_by: int, reason: Optional[str], expires_at: Optional[str]) -> bool:

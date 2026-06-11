@@ -35,6 +35,13 @@ class Config:
     SITE_AUTH_PASSWORD_CREATOR: str = os.getenv("SITE_AUTH_PASSWORD_CREATOR", "")
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
     SECRETS_STRICT: bool = os.getenv("SECRETS_STRICT", "1").strip().lower() not in ("0", "false", "no", "off")
+
+    # ── Платёжные системы ──────────────────────────────────────────────
+    # YooMoney: токен OAuth (для проверки платежей) + номер кошелька получателя
+    YOOMONEY_TOKEN: str = os.getenv("YOOMONEY_TOKEN", "")
+    YOOMONEY_RECEIVER: str = os.getenv("YOOMONEY_RECEIVER", "")
+    # CryptoBot (pay.crypt.bot): API-токен бота
+    CRYPTOBOT_TOKEN: str = os.getenv("CRYPTOBOT_TOKEN", "")
     
     
     TEXT_MARCH_8: str = """Привет! С праздником! 🎉

@@ -18,6 +18,16 @@ from database import Memory, Wish, ScheduledEvent
 
 logger_utils = logging.getLogger(__name__)
 
+# In-memory flag — resets on restart (intentionally not persisted)
+_subscription_feature_enabled: bool = False
+
+
+def toggle_subscription_feature() -> bool:
+    """Переключает видимость кнопки подписки в главном меню. Возвращает новое состояние."""
+    global _subscription_feature_enabled
+    _subscription_feature_enabled = not _subscription_feature_enabled
+    return _subscription_feature_enabled
+
 
 async def safe_delete_message(message) -> None:
     """Безопасно удаляет сообщение. Игнорирует любые ошибки."""
@@ -1112,8 +1122,10 @@ def create_main_keyboard(user_id: int) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📁 Категории", callback_data="cat_menu")],
         [InlineKeyboardButton(text="🎁 Желания", callback_data="wishes_menu")],
         site_row,
-        [InlineKeyboardButton(text="⚙️ Настройки", callback_data="settings_menu")],
     ]
+    if _subscription_feature_enabled:
+        keyboard.append([InlineKeyboardButton(text="💳 Подписка", callback_data="subscription_menu")])
+    keyboard.append([InlineKeyboardButton(text="⚙️ Настройки", callback_data="settings_menu")])
     if db.is_creator(user_id):
         keyboard.append([InlineKeyboardButton(text="🔧 Админ-панель", callback_data="admin_panel")])
 
@@ -1777,6 +1789,7 @@ def create_admin_keyboard() -> InlineKeyboardMarkup:
     from database import db
     test_mode = db.get_setting("test_version") == "1"
     toggle_label = "✅ Продакшн" if test_mode else "🔧 Тест версия"
+    sub_label = "💳 Подписка: вкл" if _subscription_feature_enabled else "💳 Подписка: выкл"
     keyboard = [
         [
             InlineKeyboardButton(text="История версий", callback_data="admin_version_history:0"),
@@ -1790,7 +1803,10 @@ def create_admin_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📨 Рассылка", callback_data="broadcast_menu"),
             InlineKeyboardButton(text="📱 Устройства", callback_data="admin_devices"),
         ],
-        [InlineKeyboardButton(text="📤 Экспорт воспоминаний", callback_data="admin_export_memories")],
+        [
+            InlineKeyboardButton(text="📤 Экспорт воспоминаний", callback_data="admin_export_memories"),
+            InlineKeyboardButton(text=sub_label, callback_data="admin_toggle_subscription"),
+        ],
         [
             InlineKeyboardButton(text="🔄 Перезагрузка", callback_data="admin_restart"),
             InlineKeyboardButton(text=toggle_label, callback_data="admin_toggle_test"),

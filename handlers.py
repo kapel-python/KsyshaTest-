@@ -66,6 +66,7 @@ from utils import (
     is_scheduled_event_expired,
     is_scheduled_event_moment_passed,
     safe_delete_message,
+    toggle_subscription_feature,
 )
 
 import avatar_service
@@ -7899,6 +7900,195 @@ async def admin_toggle_test(callback: CallbackQuery):
             reply_markup=create_admin_keyboard(),
             parse_mode=ParseMode.HTML,
         )
+
+
+@router.callback_query(F.data == "admin_toggle_subscription")
+async def admin_toggle_subscription(callback: CallbackQuery):
+    """Включение/выключение кнопки подписки в главном меню."""
+    if not db.is_creator(callback.from_user.id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+    enabled = toggle_subscription_feature()
+    status = "включена" if enabled else "выключена"
+    await callback.answer(f"💳 Кнопка подписки {status}")
+    try:
+        await callback.message.edit_reply_markup(reply_markup=create_admin_keyboard())
+    except Exception:
+        await callback_edit_or_answer(
+            callback,
+            f"🔧 <b>Админ-панель</b>\n\nКнопка подписки {status}.",
+            reply_markup=create_admin_keyboard(),
+            parse_mode=ParseMode.HTML,
+        )
+
+
+# ═══════════════════════════════════════════════════════════
+# ПОДПИСКА — пользовательский флоу
+# ═══════════════════════════════════════════════════════════
+
+_DURATION_LABELS: dict = {
+    "1": "1 месяц", "3": "3 месяца", "6": "6 месяцев", "12": "1 год",
+}
+
+_PROVIDER_LABELS: dict = {
+    "yoomoney": "ЮМани",
+    "cryptobot": "Crypto Bot",
+    "stars": "Telegram Stars",
+}
+
+
+def _subscription_info_text(user_id: int) -> str:
+    """Текст экрана подписки для данного пользователя."""
+    if db.is_creator(user_id):
+        return "💳 <b>Подписка</b>\n\nСтатус: <b>Premium</b> ✅\nПодписка бессрочная."
+    tier_info = db.get_user_tier_info(str(user_id))
+    tier = tier_info.get("tier", "free")
+    expires_at = tier_info.get("expires_at")
+    is_expired = tier_info.get("is_expired", False)
+    if tier == "premium" and not is_expired and expires_at:
+        try:
+            from datetime import timezone as _tz
+            exp = datetime.fromisoformat(expires_at).replace(tzinfo=_tz.utc)
+            days_left = max(0, (exp - datetime.now(_tz.utc)).days)
+            exp_str = exp.strftime("%d.%m.%Y")
+            return (
+                f"💳 <b>Подписка</b>\n\n"
+                f"Статус: <b>Premium</b> ✅\n"
+                f"Действует до: <b>{exp_str}</b> ({days_left} дн.)\n\n"
+                f"✦ Доступно:\n• безлимитный ИИ чат\n• удобный экспорт данных"
+            )
+        except Exception:
+            pass
+    return (
+        "💳 <b>Подписка</b>\n\n"
+        "Статус: <b>Бесплатный план</b>\n\n"
+        "✦ С Premium:\n• безлимитный ИИ чат\n• удобный экспорт данных"
+    )
+
+
+def _subscription_main_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    if db.is_creator(user_id):
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
+        ])
+    tier_info = db.get_user_tier_info(str(user_id))
+    tier = tier_info.get("tier", "free")
+    is_expired = tier_info.get("is_expired", False)
+    has_active = tier == "premium" and not is_expired
+    action_label = "🔄 Продлить" if has_active else "💳 Купить подписку"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=action_label, callback_data="sub_duration")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
+    ])
+
+
+@router.callback_query(F.data == "subscription_menu")
+async def subscription_menu_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    await callback_edit_or_answer(
+        callback,
+        _subscription_info_text(user_id),
+        reply_markup=_subscription_main_keyboard(user_id),
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "sub_duration")
+async def sub_duration_handler(callback: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="1 месяц", callback_data="sub_pay:1"),
+            InlineKeyboardButton(text="3 месяца", callback_data="sub_pay:3"),
+        ],
+        [
+            InlineKeyboardButton(text="6 месяцев", callback_data="sub_pay:6"),
+            InlineKeyboardButton(text="1 год", callback_data="sub_pay:12"),
+        ],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="subscription_menu")],
+    ])
+    await callback_edit_or_answer(
+        callback,
+        "💳 <b>Выбери срок подписки</b>",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("sub_pay:"))
+async def sub_pay_handler(callback: CallbackQuery):
+    months = callback.data.split(":")[1]
+    duration_label = _DURATION_LABELS.get(months, f"{months} мес.")
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="💳 ЮМани", callback_data=f"sub_method:{months}:yoomoney"),
+            InlineKeyboardButton(text="🔮 Crypto Bot", callback_data=f"sub_method:{months}:cryptobot"),
+        ],
+        [
+            InlineKeyboardButton(text="⭐ Telegram Stars", callback_data=f"sub_method:{months}:stars"),
+        ],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="sub_duration")],
+    ])
+    await callback_edit_or_answer(
+        callback,
+        f"💳 <b>Выбери способ оплаты</b>\n\nСрок: <b>{duration_label}</b>",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("sub_method:"))
+async def sub_method_handler(callback: CallbackQuery):
+    parts = callback.data.split(":")
+    months = parts[1]
+    provider = parts[2]
+    provider_label = _PROVIDER_LABELS.get(provider, provider)
+    duration_label = _DURATION_LABELS.get(months, f"{months} мес.")
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Проверить платёж", callback_data=f"sub_check:{months}:{provider}")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"sub_pay:{months}")],
+    ])
+    await callback_edit_or_answer(
+        callback,
+        f"💳 <b>Оплата через {provider_label}</b>\n\n"
+        f"Срок: <b>{duration_label}</b>\n\n"
+        f"🔗 Ссылка на оплату появится здесь после подключения платёжной системы.\n\n"
+        f"После оплаты нажми <b>«Проверить платёж»</b>.",
+        reply_markup=keyboard,
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("sub_check:"))
+async def sub_check_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    parts = callback.data.split(":")
+    months = int(parts[1])
+    provider = parts[2]
+    db.grant_user_premium(user_id, months=months)
+    tier_info = db.get_user_tier_info(str(user_id))
+    expires_at = tier_info.get("expires_at") or ""
+    try:
+        from datetime import timezone as _tz
+        exp_str = datetime.fromisoformat(expires_at).replace(tzinfo=_tz.utc).strftime("%d.%m.%Y")
+    except Exception:
+        exp_str = "—"
+    duration_label = {1: "1 месяц", 3: "3 месяца", 6: "6 месяцев", 12: "1 год"}.get(months, f"{months} мес.")
+    await callback_edit_or_answer(
+        callback,
+        f"✅ <b>Подписка оформлена!</b>\n\n"
+        f"Premium активирован на <b>{duration_label}</b>\n"
+        f"Действует до: <b>{exp_str}</b>",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 К подписке", callback_data="subscription_menu")],
+            [InlineKeyboardButton(text="🔙 В главное меню", callback_data="back_to_main")],
+        ]),
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer("✅ Платёж подтверждён!")
 
 
 def _device_relative_time(last_seen_utc: Optional[str]) -> str:

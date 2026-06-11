@@ -1243,6 +1243,21 @@ class Database:
                 )
             ''')
 
+            # Лог покупок подписки
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS subscription_purchases (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id      INTEGER NOT NULL,
+                    months       INTEGER NOT NULL,
+                    provider     TEXT NOT NULL,
+                    amount_rub   INTEGER,
+                    amount_stars INTEGER,
+                    purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_sub_purchases_user ON subscription_purchases(user_id)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_sub_purchases_at ON subscription_purchases(purchased_at)')
+
             # Таблица логов выхода из пространства (для будущего восстановления)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS couple_leave_log (
@@ -4625,6 +4640,65 @@ class Database:
         except Exception as e:
             logger.exception("Ошибка extend_user_premium для %s: %s", user_id, e)
             return False
+
+    def log_subscription_purchase(
+        self,
+        user_id: int,
+        months: int,
+        provider: str,
+        amount_rub: Optional[int] = None,
+        amount_stars: Optional[int] = None,
+    ) -> bool:
+        try:
+            with self._get_connection() as conn:
+                conn.execute(
+                    "INSERT INTO subscription_purchases (user_id, months, provider, amount_rub, amount_stars) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (user_id, months, provider, amount_rub, amount_stars),
+                )
+                conn.commit()
+            return True
+        except Exception as e:
+            logger.exception("log_subscription_purchase error: %s", e)
+            return False
+
+    def get_subscription_stats(self) -> dict:
+        """Возвращает агрегированную статистику покупок подписки."""
+        try:
+            with self._get_connection() as conn:
+                total = (conn.execute("SELECT COUNT(*) FROM subscription_purchases").fetchone()[0])
+                last30 = (conn.execute(
+                    "SELECT COUNT(*) FROM subscription_purchases WHERE purchased_at >= datetime('now','-30 days')"
+                ).fetchone()[0])
+                by_provider = {
+                    r["provider"]: r["cnt"]
+                    for r in conn.execute(
+                        "SELECT provider, COUNT(*) AS cnt FROM subscription_purchases GROUP BY provider"
+                    ).fetchall()
+                }
+                by_months = {
+                    r["months"]: r["cnt"]
+                    for r in conn.execute(
+                        "SELECT months, COUNT(*) AS cnt FROM subscription_purchases GROUP BY months"
+                    ).fetchall()
+                }
+                rev_rub = (conn.execute(
+                    "SELECT COALESCE(SUM(amount_rub),0) FROM subscription_purchases WHERE amount_rub IS NOT NULL"
+                ).fetchone()[0])
+                rev_stars = (conn.execute(
+                    "SELECT COALESCE(SUM(amount_stars),0) FROM subscription_purchases WHERE amount_stars IS NOT NULL"
+                ).fetchone()[0])
+            return {
+                "total": total,
+                "last30": last30,
+                "by_provider": by_provider,
+                "by_months": by_months,
+                "revenue_rub": rev_rub,
+                "revenue_stars": rev_stars,
+            }
+        except Exception as e:
+            logger.exception("get_subscription_stats error: %s", e)
+            return {"total": 0, "last30": 0, "by_provider": {}, "by_months": {}, "revenue_rub": 0, "revenue_stars": 0}
 
     # ─── Ban management ──────────────────────────────────────────────────
 

@@ -69,7 +69,7 @@ from utils import (
     is_scheduled_event_expired,
     is_scheduled_event_moment_passed,
     safe_delete_message,
-    toggle_subscription_feature,
+    is_subscription_enabled,
 )
 
 import avatar_service
@@ -7905,24 +7905,156 @@ async def admin_toggle_test(callback: CallbackQuery):
         )
 
 
-@router.callback_query(F.data == "admin_toggle_subscription")
-async def admin_toggle_subscription(callback: CallbackQuery):
-    """Включение/выключение кнопки подписки в главном меню."""
+# ═══════════════════════════════════════════════════════════
+# ПОДПИСКА — панель управления (admin)
+# ═══════════════════════════════════════════════════════════
+
+class SubAdminStates(StatesGroup):
+    waiting_price = State()
+
+
+def _sub_prices() -> dict:
+    """Читает текущие цены из settings, фоллбэк на дефолты."""
+    defaults_rub   = {1: 1,   3: 1,   6: 1,   12: 1}
+    defaults_stars = {1: 1,   3: 1,   6: 1,   12: 1}
+    prices = {}
+    for m in (1, 3, 6, 12):
+        r = db.get_setting(f"sub_price_rub_{m}")
+        s = db.get_setting(f"sub_price_stars_{m}")
+        prices[m] = {
+            "rub":   int(r) if r and r.isdigit() else defaults_rub[m],
+            "stars": int(s) if s and s.isdigit() else defaults_stars[m],
+        }
+    return prices
+
+
+def _sub_admin_text() -> str:
+    enabled = is_subscription_enabled()
+    status  = "✅ Включена" if enabled else "❌ Выключена"
+    prices  = _sub_prices()
+    stats   = db.get_subscription_stats()
+
+    prov_icons = {"stars": "⭐", "yoomoney": "💳", "cryptobot": "🔮"}
+    by_prov = " | ".join(
+        f"{prov_icons.get(k, k)}: {v}"
+        for k, v in stats["by_provider"].items()
+    ) or "нет данных"
+    by_dur = " | ".join(
+        f"{k} мес.: {v}"
+        for k, v in sorted(stats["by_months"].items())
+    ) or "нет данных"
+
+    lines = [
+        f"💳 <b>Управление подпиской</b>",
+        f"",
+        f"Статус: <b>{status}</b>",
+        f"",
+        f"<b>Статистика:</b>",
+        f"  Всего покупок: <b>{stats['total']}</b>  (за 30 дн.: {stats['last30']})",
+        f"  По провайдерам: {by_prov}",
+        f"  По срокам: {by_dur}",
+        f"  Выручка: <b>{stats['revenue_rub']}₽</b> + <b>{stats['revenue_stars']} ⭐</b>",
+        f"",
+        f"<b>Цены:</b>",
+    ]
+    for m, lbl in ((1, "1 мес."), (3, "3 мес."), (6, "6 мес."), (12, "12 мес.")):
+        p = prices[m]
+        lines.append(f"  {lbl}: <b>{p['rub']}₽</b> / <b>{p['stars']} ⭐</b>")
+
+    return "\n".join(lines)
+
+
+def _sub_admin_keyboard() -> InlineKeyboardMarkup:
+    enabled      = is_subscription_enabled()
+    toggle_label = "🔴 Выключить" if enabled else "🟢 Включить"
+    rows = [
+        [InlineKeyboardButton(text=toggle_label, callback_data="sub_admin_toggle")],
+    ]
+    for m, lbl in ((1, "1 мес."), (3, "3 мес."), (6, "6 мес."), (12, "12 мес.")):
+        rows.append([
+            InlineKeyboardButton(text=f"✏️ {lbl} ₽",  callback_data=f"sub_admin_edit:rub:{m}"),
+            InlineKeyboardButton(text=f"✏️ {lbl} ⭐", callback_data=f"sub_admin_edit:stars:{m}"),
+        ])
+    rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="admin_panel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.callback_query(F.data == "admin_subscription_panel")
+async def admin_subscription_panel(callback: CallbackQuery):
     if not db.is_creator(callback.from_user.id):
         await callback.answer(MSG_ACCESS_DENIED)
         return
-    enabled = toggle_subscription_feature()
-    status = "включена" if enabled else "выключена"
-    await callback.answer(f"💳 Кнопка подписки {status}")
-    try:
-        await callback.message.edit_reply_markup(reply_markup=create_admin_keyboard())
-    except Exception:
-        await callback_edit_or_answer(
-            callback,
-            f"🔧 <b>Админ-панель</b>\n\nКнопка подписки {status}.",
-            reply_markup=create_admin_keyboard(),
-            parse_mode=ParseMode.HTML,
-        )
+    await callback_edit_or_answer(
+        callback,
+        _sub_admin_text(),
+        reply_markup=_sub_admin_keyboard(),
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "sub_admin_toggle")
+async def sub_admin_toggle(callback: CallbackQuery):
+    if not db.is_creator(callback.from_user.id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+    enabled = is_subscription_enabled()
+    db.set_setting("sub_enabled", "0" if enabled else "1")
+    status = "выключена" if enabled else "включена"
+    await callback.answer(f"💳 Подписка {status}")
+    await callback_edit_or_answer(
+        callback,
+        _sub_admin_text(),
+        reply_markup=_sub_admin_keyboard(),
+        parse_mode=ParseMode.HTML,
+    )
+
+
+@router.callback_query(F.data.startswith("sub_admin_edit:"))
+async def sub_admin_edit_price(callback: CallbackQuery, state: FSMContext):
+    if not db.is_creator(callback.from_user.id):
+        await callback.answer(MSG_ACCESS_DENIED)
+        return
+    _, currency, months_str = callback.data.split(":")
+    months = int(months_str)
+    cur_prices = _sub_prices()
+    cur_val = cur_prices[months]["rub"] if currency == "rub" else cur_prices[months]["stars"]
+    currency_label = "₽" if currency == "rub" else "⭐ Stars"
+    dur_label = _DURATION_LABELS.get(months_str, f"{months} мес.")
+
+    await state.set_state(SubAdminStates.waiting_price)
+    await state.update_data(price_key=f"sub_price_{currency}_{months}", price_label=f"{dur_label} ({currency_label})")
+    await callback_edit_or_answer(
+        callback,
+        f"✏️ <b>Цена: {dur_label} ({currency_label})</b>\n\n"
+        f"Сейчас: <b>{cur_val}</b>\n\n"
+        f"Введи новое значение (целое число):",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="admin_subscription_panel")],
+        ]),
+        parse_mode=ParseMode.HTML,
+    )
+    await callback.answer()
+
+
+@router.message(SubAdminStates.waiting_price)
+async def sub_admin_price_input(message: Message, state: FSMContext):
+    if not db.is_creator(message.from_user.id):
+        return
+    data = await state.get_data()
+    price_key   = data.get("price_key", "")
+    price_label = data.get("price_label", "")
+    raw = (message.text or "").strip()
+    if not raw.isdigit() or int(raw) < 1:
+        await message.answer("❌ Введи целое число больше 0.")
+        return
+    db.set_setting(price_key, raw)
+    await state.clear()
+    await message.answer(
+        f"✅ Цена <b>{price_label}</b> → <b>{raw}</b> сохранена.",
+        reply_markup=_sub_admin_keyboard(),
+        parse_mode=ParseMode.HTML,
+    )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -7939,9 +8071,12 @@ _PROVIDER_LABELS: dict = {
     "stars": "Telegram Stars",
 }
 
-# Цены в Stars (XTR) и рублях
-_STARS_PRICES: dict = {1: 250, 3: 650, 6: 1200, 12: 2000}
-_RUB_PRICES: dict   = {1: 149, 3: 399, 6: 699,  12: 1199}
+# Цены берутся из DB через _sub_prices() — эти заглушки не используются напрямую
+def _get_rub(months: int) -> int:
+    return _sub_prices().get(months, {}).get("rub", 1)
+
+def _get_stars(months: int) -> int:
+    return _sub_prices().get(months, {}).get("stars", 1)
 
 # Ожидающие платежи: user_id → {provider, months, label/invoice_id}
 _pending_payments: dict = {}
@@ -8052,8 +8187,8 @@ async def sub_pay_handler(callback: CallbackQuery):
     months_str = callback.data.split(":")[1]
     months = int(months_str)
     duration_label = _DURATION_LABELS.get(months_str, f"{months} мес.")
-    stars = _STARS_PRICES.get(months, months * 250)
-    rub   = _RUB_PRICES.get(months, months * 149)
+    stars = _get_stars(months)
+    rub   = _get_rub(months)
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=f"💳 ЮМани — {rub}₽",       callback_data=f"sub_method:{months_str}:yoomoney"),
@@ -8080,7 +8215,7 @@ async def sub_method_stars(callback: CallbackQuery):
     parts = callback.data.split(":")
     months = int(parts[1])
     duration_label = _DURATION_LABELS.get(str(months), f"{months} мес.")
-    stars = _STARS_PRICES.get(months, months * 250)
+    stars = _get_stars(months)
     await callback.answer()
     await callback_edit_or_answer(
         callback,
@@ -8118,6 +8253,7 @@ async def successful_payment_handler(message: Message):
         months = 1
     user_id = message.from_user.id
     db.extend_user_premium(user_id, months=months)
+    db.log_subscription_purchase(user_id, months, "stars", amount_stars=_get_stars(months))
     await message.answer(
         _sub_success_text(user_id, months),
         reply_markup=_SUB_DONE_KB,
@@ -8129,7 +8265,7 @@ async def successful_payment_handler(message: Message):
 
 def _yoomoney_quickpay_url(user_id: int, months: int, label: str) -> str:
     from urllib.parse import urlencode
-    rub = _RUB_PRICES.get(months, months * 149)
+    rub = _get_rub(months)
     success_url = (getattr(config, "BOT_SITE_URL", "") or "https://surememory.ru").rstrip("/")
     params = {
         "receiver":        config.YOOMONEY_RECEIVER,
@@ -8165,7 +8301,7 @@ async def sub_method_yoomoney(callback: CallbackQuery):
     parts = callback.data.split(":")
     months = int(parts[1])
     duration_label = _DURATION_LABELS.get(str(months), f"{months} мес.")
-    rub = _RUB_PRICES.get(months, months * 149)
+    rub = _get_rub(months)
     user_id = callback.from_user.id
 
     if not config.YOOMONEY_RECEIVER:
@@ -8203,7 +8339,7 @@ async def sub_method_yoomoney(callback: CallbackQuery):
 
 async def _cryptobot_create_invoice(months: int, user_id: int) -> dict | None:
     """Создаёт инвойс в CryptoBot (USDT). Возвращает dict с invoice_id и pay_url или None."""
-    rub = _RUB_PRICES.get(months, months * 149)
+    rub = _get_rub(months)
     # Грубый перевод RUB → USDT (≈ 1 USDT = 90 RUB, уточняется при настройке)
     amount_usdt = round(rub / 90, 2)
     url = "https://pay.crypt.bot/api/createInvoice"
@@ -8276,7 +8412,7 @@ async def sub_method_cryptobot(callback: CallbackQuery):
         return
 
     _pending_payments[user_id] = {"provider": "cryptobot", "months": months, "invoice_id": invoice["invoice_id"]}
-    rub = _RUB_PRICES.get(months, months * 149)
+    rub = _get_rub(months)
     await callback_edit_or_answer(
         callback,
         f"🔮 <b>Оплата через Crypto Bot</b>\n\nСрок: <b>{duration_label}</b> — {rub}₽ (~{invoice['amount']} USDT)\n\n"
@@ -8307,7 +8443,7 @@ async def sub_check_handler(callback: CallbackQuery):
             await callback.answer("⚠️ YooMoney не настроен", show_alert=True)
             return
         label = pending.get("label")
-        amount = pending.get("amount", _RUB_PRICES.get(months, 149))
+        amount = pending.get("amount", _get_rub(months))
         if not label:
             await callback.answer("❌ Сессия истекла. Начни оплату заново.", show_alert=True)
             return
@@ -8339,6 +8475,9 @@ async def sub_check_handler(callback: CallbackQuery):
     # Платёж подтверждён — выдаём/продлеваем подписку
     _pending_payments.pop(user_id, None)
     db.extend_user_premium(user_id, months=months)
+    amount_rub   = _get_rub(months)   if provider != "stars" else None
+    amount_stars = _get_stars(months) if provider == "stars" else None
+    db.log_subscription_purchase(user_id, months, provider, amount_rub, amount_stars)
     await callback_edit_or_answer(
         callback,
         _sub_success_text(user_id, months),

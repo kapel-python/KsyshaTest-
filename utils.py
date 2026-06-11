@@ -18,15 +18,10 @@ from database import Memory, Wish, ScheduledEvent
 
 logger_utils = logging.getLogger(__name__)
 
-# In-memory flag — resets on restart (intentionally not persisted)
-_subscription_feature_enabled: bool = False
-
-
-def toggle_subscription_feature() -> bool:
-    """Переключает видимость кнопки подписки в главном меню. Возвращает новое состояние."""
-    global _subscription_feature_enabled
-    _subscription_feature_enabled = not _subscription_feature_enabled
-    return _subscription_feature_enabled
+def is_subscription_enabled() -> bool:
+    """Возвращает True, если кнопка подписки включена (хранится в settings.sub_enabled)."""
+    from database import db
+    return db.get_setting("sub_enabled") == "1"
 
 
 async def safe_delete_message(message) -> None:
@@ -1123,7 +1118,7 @@ def create_main_keyboard(user_id: int) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🎁 Желания", callback_data="wishes_menu")],
         site_row,
     ]
-    if _subscription_feature_enabled:
+    if is_subscription_enabled():
         keyboard.append([InlineKeyboardButton(text="💳 Подписка", callback_data="subscription_menu")])
     keyboard.append([InlineKeyboardButton(text="⚙️ Настройки", callback_data="settings_menu")])
     if db.is_creator(user_id):
@@ -1789,7 +1784,6 @@ def create_admin_keyboard() -> InlineKeyboardMarkup:
     from database import db
     test_mode = db.get_setting("test_version") == "1"
     toggle_label = "✅ Продакшн" if test_mode else "🔧 Тест версия"
-    sub_label = "💳 Подписка: вкл" if _subscription_feature_enabled else "💳 Подписка: выкл"
     keyboard = [
         [
             InlineKeyboardButton(text="История версий", callback_data="admin_version_history:0"),
@@ -1805,7 +1799,7 @@ def create_admin_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="📤 Экспорт воспоминаний", callback_data="admin_export_memories"),
-            InlineKeyboardButton(text=sub_label, callback_data="admin_toggle_subscription"),
+            InlineKeyboardButton(text="💳 Подписка", callback_data="admin_subscription_panel"),
         ],
         [
             InlineKeyboardButton(text="🔄 Перезагрузка", callback_data="admin_restart"),

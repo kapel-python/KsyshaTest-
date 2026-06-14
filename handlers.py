@@ -8078,8 +8078,7 @@ def _get_rub(months: int) -> int:
 def _get_stars(months: int) -> int:
     return _sub_prices().get(months, {}).get("stars", 1)
 
-# Ожидающие платежи: user_id → {provider, months, label/invoice_id}
-_pending_payments: dict = {}
+# Ожидающие платежи хранятся в БД (таблица pending_payments)
 
 
 def _subscription_info_text(user_id: int) -> str:
@@ -8162,6 +8161,9 @@ async def subscription_menu_handler(callback: CallbackQuery):
 
 @router.callback_query(F.data == "sub_duration")
 async def sub_duration_handler(callback: CallbackQuery):
+    if not is_subscription_enabled():
+        await callback.answer("💳 Подписка временно недоступна.", show_alert=True)
+        return
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="1 месяц", callback_data="sub_pay:1"),
@@ -8187,8 +8189,9 @@ async def sub_pay_handler(callback: CallbackQuery):
     months_str = callback.data.split(":")[1]
     months = int(months_str)
     duration_label = _DURATION_LABELS.get(months_str, f"{months} мес.")
-    stars = _get_stars(months)
-    rub   = _get_rub(months)
+    prices = _sub_prices()
+    stars = prices[months]["stars"]
+    rub   = prices[months]["rub"]
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=f"💳 ЮМани — {rub}₽",       callback_data=f"sub_method:{months_str}:yoomoney"),
@@ -8239,8 +8242,20 @@ async def sub_method_stars(callback: CallbackQuery):
 
 @router.pre_checkout_query()
 async def pre_checkout_query_handler(pre_checkout_query: PreCheckoutQuery):
-    """Всегда подтверждаем Stars-платёж (Telegram требует ответа в течение 10 сек)."""
-    await pre_checkout_query.answer(ok=True)
+    """Проверяем Stars-платёж перед подтверждением (Telegram требует ответа в течение 10 сек)."""
+    payload = pre_checkout_query.invoice_payload
+    ok = False
+    error_message = "Некорректный платёж"
+    try:
+        parts = payload.split("_")
+        if len(parts) == 2 and parts[0] == "sub" and int(parts[1]) in (1, 3, 6, 12):
+            if is_subscription_enabled():
+                ok = True
+            else:
+                error_message = "Подписка временно недоступна"
+    except Exception:
+        pass
+    await pre_checkout_query.answer(ok=ok, error_message=None if ok else error_message)
 
 
 @router.message(F.successful_payment)
@@ -8253,7 +8268,8 @@ async def successful_payment_handler(message: Message):
         months = 1
     user_id = message.from_user.id
     db.extend_user_premium(user_id, months=months)
-    db.log_subscription_purchase(user_id, months, "stars", amount_stars=_get_stars(months))
+    db.log_subscription_purchase(user_id, months, "stars",
+                                 amount_stars=message.successful_payment.total_amount)
     await message.answer(
         _sub_success_text(user_id, months),
         reply_markup=_SUB_DONE_KB,
@@ -8318,7 +8334,7 @@ async def sub_method_yoomoney(callback: CallbackQuery):
         return
 
     label = f"sub_{user_id}_{months}_{int(time.time())}"
-    _pending_payments[user_id] = {"provider": "yoomoney", "months": months, "label": label, "amount": rub}
+    db.set_pending_payment(user_id, "yoomoney", months, label=label, amount=rub)
     pay_url = _yoomoney_quickpay_url(user_id, months, label)
 
     await callback_edit_or_answer(
@@ -8340,8 +8356,7 @@ async def sub_method_yoomoney(callback: CallbackQuery):
 async def _cryptobot_create_invoice(months: int, user_id: int) -> dict | None:
     """Создаёт инвойс в CryptoBot (USDT). Возвращает dict с invoice_id и pay_url или None."""
     rub = _get_rub(months)
-    # Грубый перевод RUB → USDT (≈ 1 USDT = 90 RUB, уточняется при настройке)
-    amount_usdt = round(rub / 90, 2)
+    amount_usdt = round(rub / config.USDT_RUB_RATE, 2)
     url = "https://pay.crypt.bot/api/createInvoice"
     headers = {"Crypto-Pay-API-Token": config.CRYPTOBOT_TOKEN}
     payload = {
@@ -8411,7 +8426,7 @@ async def sub_method_cryptobot(callback: CallbackQuery):
         )
         return
 
-    _pending_payments[user_id] = {"provider": "cryptobot", "months": months, "invoice_id": invoice["invoice_id"]}
+    db.set_pending_payment(user_id, "cryptobot", months, invoice_id=invoice["invoice_id"])
     rub = _get_rub(months)
     await callback_edit_or_answer(
         callback,
@@ -8432,39 +8447,46 @@ async def sub_method_cryptobot(callback: CallbackQuery):
 async def sub_check_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
     parts = callback.data.split(":")
-    months = int(parts[1])
     provider = parts[2]
 
-    pending = _pending_payments.get(user_id, {})
+    # Атомарно извлекаем pending по (user_id, provider) ДО любого await — исключает race condition.
+    # Каждый провайдер теперь хранится отдельно, поэтому мисматч невозможен.
+    pending = db.pop_pending_payment(user_id, provider)
 
     # ── YooMoney ──
     if provider == "yoomoney":
         if not config.YOOMONEY_TOKEN:
+            if pending:
+                db.set_pending_payment(user_id, **pending)
             await callback.answer("⚠️ YooMoney не настроен", show_alert=True)
             return
-        label = pending.get("label")
-        amount = pending.get("amount", _get_rub(months))
-        if not label:
+        if not pending:
             await callback.answer("❌ Сессия истекла. Начни оплату заново.", show_alert=True)
             return
+        label = pending.get("label")
+        amount = pending.get("amount") or _get_rub(pending["months"])
         await callback.answer("Проверяю платёж…")
         paid = await _yoomoney_check_label(label, amount)
         if not paid:
+            db.set_pending_payment(user_id, **pending)
             await callback.answer("❌ Платёж не найден. Попробуй чуть позже.", show_alert=True)
             return
 
     # ── CryptoBot ──
     elif provider == "cryptobot":
         if not config.CRYPTOBOT_TOKEN:
+            if pending:
+                db.set_pending_payment(user_id, **pending)
             await callback.answer("⚠️ Crypto Bot не настроен", show_alert=True)
             return
-        invoice_id = pending.get("invoice_id")
-        if not invoice_id:
+        if not pending:
             await callback.answer("❌ Сессия истекла. Начни оплату заново.", show_alert=True)
             return
+        invoice_id = pending.get("invoice_id")
         await callback.answer("Проверяю платёж…")
         paid = await _cryptobot_check_invoice(invoice_id)
         if not paid:
+            db.set_pending_payment(user_id, **pending)
             await callback.answer("❌ Платёж ещё не подтверждён. Попробуй через несколько секунд.", show_alert=True)
             return
 
@@ -8472,12 +8494,10 @@ async def sub_check_handler(callback: CallbackQuery):
         await callback.answer("❌ Неизвестный провайдер", show_alert=True)
         return
 
-    # Платёж подтверждён — выдаём/продлеваем подписку
-    _pending_payments.pop(user_id, None)
+    # Платёж подтверждён — выдаём/продлеваем подписку (pending уже удалён из БД)
+    months = pending["months"]
     db.extend_user_premium(user_id, months=months)
-    amount_rub   = _get_rub(months)   if provider != "stars" else None
-    amount_stars = _get_stars(months) if provider == "stars" else None
-    db.log_subscription_purchase(user_id, months, provider, amount_rub, amount_stars)
+    db.log_subscription_purchase(user_id, months, provider, amount_rub=pending.get("amount"), amount_stars=None)
     await callback_edit_or_answer(
         callback,
         _sub_success_text(user_id, months),

@@ -42,6 +42,8 @@ class Config:
     YOOMONEY_RECEIVER: str = os.getenv("YOOMONEY_RECEIVER", "")
     # CryptoBot (pay.crypt.bot): API-токен бота
     CRYPTOBOT_TOKEN: str = os.getenv("CRYPTOBOT_TOKEN", "")
+    # Курс RUB→USDT для CryptoBot инвойсов (настраивается через .env)
+    USDT_RUB_RATE: float = float(os.getenv("USDT_RUB_RATE", "90"))
     
     
     TEXT_MARCH_8: str = """Привет! С праздником! 🎉

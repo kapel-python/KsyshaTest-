@@ -1258,6 +1258,26 @@ class Database:
             conn.execute('CREATE INDEX IF NOT EXISTS idx_sub_purchases_user ON subscription_purchases(user_id)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_sub_purchases_at ON subscription_purchases(purchased_at)')
 
+            # Ожидающие платежи (вместо in-memory dict)
+            # Миграция: пересоздать таблицу если используется старый PK (только user_id)
+            _pp_sql = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='pending_payments'"
+            ).fetchone()
+            if _pp_sql and 'PRIMARY KEY (user_id, provider)' not in (_pp_sql[0] or ''):
+                conn.execute("DROP TABLE IF EXISTS pending_payments")
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS pending_payments (
+                    user_id    INTEGER NOT NULL,
+                    provider   TEXT NOT NULL,
+                    months     INTEGER NOT NULL,
+                    label      TEXT,
+                    invoice_id INTEGER,
+                    amount     INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, provider)
+                )
+            ''')
+
             # Таблица логов выхода из пространства (для будущего восстановления)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS couple_leave_log (
@@ -4661,6 +4681,48 @@ class Database:
         except Exception as e:
             logger.exception("log_subscription_purchase error: %s", e)
             return False
+
+    def set_pending_payment(self, user_id: int, provider: str, months: int,
+                            label: str = None, invoice_id: int = None, amount: int = None) -> None:
+        try:
+            with self._get_connection() as conn:
+                # Удаляем просроченные записи (>1 часа) попутно при каждой записи
+                conn.execute(
+                    "DELETE FROM pending_payments WHERE created_at < datetime('now', '-1 hour')"
+                )
+                conn.execute(
+                    """INSERT INTO pending_payments (user_id, provider, months, label, invoice_id, amount)
+                       VALUES (?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(user_id, provider) DO UPDATE SET
+                           months=excluded.months, label=excluded.label,
+                           invoice_id=excluded.invoice_id, amount=excluded.amount,
+                           created_at=CURRENT_TIMESTAMP""",
+                    (user_id, provider, months, label, invoice_id, amount),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.exception("set_pending_payment error: %s", e)
+
+    def pop_pending_payment(self, user_id: int, provider: str) -> dict | None:
+        """Атомарно извлекает и удаляет запись ожидающего платежа по (user_id, provider)."""
+        try:
+            with self._get_connection() as conn:
+                row = conn.execute(
+                    "SELECT provider, months, label, invoice_id, amount FROM pending_payments"
+                    " WHERE user_id = ? AND provider = ?",
+                    (user_id, provider),
+                ).fetchone()
+                if not row:
+                    return None
+                conn.execute(
+                    "DELETE FROM pending_payments WHERE user_id = ? AND provider = ?",
+                    (user_id, provider),
+                )
+                conn.commit()
+                return dict(row)
+        except Exception as e:
+            logger.exception("pop_pending_payment error: %s", e)
+            return None
 
     def get_subscription_stats(self) -> dict:
         """Возвращает агрегированную статистику покупок подписки."""

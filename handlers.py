@@ -8471,7 +8471,6 @@ async def sub_check_handler(callback: CallbackQuery):
             return
         label = pending.get("label")
         amount = pending.get("amount") or _get_rub(pending["months"])
-        await callback.answer("Проверяю платёж…")
         paid = await _yoomoney_check_label(label, amount)
         if not paid:
             db.set_pending_payment(user_id, **pending)
@@ -8489,7 +8488,6 @@ async def sub_check_handler(callback: CallbackQuery):
             await callback.answer("❌ Сессия истекла. Начни оплату заново.", show_alert=True)
             return
         invoice_id = pending.get("invoice_id")
-        await callback.answer("Проверяю платёж…")
         paid = await _cryptobot_check_invoice(invoice_id)
         if not paid:
             db.set_pending_payment(user_id, **pending)

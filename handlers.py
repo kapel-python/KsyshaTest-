@@ -8084,7 +8084,12 @@ def _get_stars(months: int) -> int:
 def _subscription_info_text(user_id: int) -> str:
     """Текст экрана подписки для данного пользователя."""
     if db.is_creator(user_id):
-        return "💳 <b>Подписка</b>\n\nСтатус: <b>Premium</b> ✅\nПодписка бессрочная."
+        return (
+            "💳 <b>Подписка</b>\n\n"
+            "Статус: <b>Premium</b> ✅  (бессрочная)\n\n"
+            "🧪 <b>Тест оплаты</b> — можно пройти реальный платёж чтобы проверить систему.\n"
+            "Деньги/Stars будут списаны по-настоящему."
+        )
     tier_info = db.get_user_tier_info(str(user_id))
     tier = tier_info.get("tier", "free")
     expires_at = tier_info.get("expires_at")
@@ -8112,6 +8117,7 @@ def _subscription_info_text(user_id: int) -> str:
 def _subscription_main_keyboard(user_id: int) -> InlineKeyboardMarkup:
     if db.is_creator(user_id):
         return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🧪 Тест оплаты", callback_data="sub_duration")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
         ])
     tier_info = db.get_user_tier_info(str(user_id))
